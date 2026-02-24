@@ -14,7 +14,7 @@ from flet import (
     PopupMenuItem,
     ResponsiveRow,
     Row,
-    UserControl,
+    Control,
     alignment,
     border,
     icons,
@@ -225,7 +225,7 @@ class SecondaryMenuHandler:
 SIDEBAR_WIDTH = 250  # width of the sidebar menu in home screen
 
 
-class HomeScreen(TView, UserControl):
+class HomeScreen(TView, Container):
     """The home screen"""
 
     def __init__(
@@ -271,14 +271,8 @@ class HomeScreen(TView, UserControl):
         )
         for item in handler.items:
             itemDestination = NavigationRailDestination(
-                icon_content=Icon(
-                    item.icon,
-                    size=dimens.ICON_SIZE,
-                ),
-                selected_icon_content=Icon(
-                    item.selected_icon,
-                    size=dimens.ICON_SIZE,
-                ),
+                icon=item.icon,
+                selected_icon=item.selected_icon,
                 label_content=views.TBodyText(item.label),
                 padding=padding.symmetric(horizontal=dimens.SPACE_SM),
             )
@@ -406,7 +400,7 @@ class HomeScreen(TView, UserControl):
                 run_spacing=0,
             ),
         )
-        return self.home_screen_view
+        self.content = self.home_screen_view
 
     def did_mount(self):
         self.mounted = True

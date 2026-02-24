@@ -1,6 +1,6 @@
 from typing import Callable
 
-from flet import Column, Container, UserControl, padding
+from flet import Column, Container, Control, padding
 
 from ..core.abstractions import TView, TViewParams
 from ..core.utils import CENTER_ALIGNMENT
@@ -8,7 +8,7 @@ from ..core.views import TErrorText, TPrimaryButton
 from ..res.dimens import SPACE_MD, SPACE_STD
 
 
-class Error404Screen(TView, UserControl):
+class Error404Screen(TView, Container):
     def __init__(self, params: TViewParams):
         super().__init__(params)
         self.vertical_alignment_in_parent = CENTER_ALIGNMENT
@@ -30,4 +30,4 @@ class Error404Screen(TView, UserControl):
             padding=padding.all(SPACE_MD),
         )
 
-        return view
+        self.content = view

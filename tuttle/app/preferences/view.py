@@ -11,7 +11,7 @@ from flet import (
     Row,
     Tab,
     Tabs,
-    UserControl,
+    Control,
     icons,
     margin,
     padding,
@@ -41,7 +41,7 @@ from ..res.theme import THEME_MODES
 from ...cloud import CloudProvider
 
 
-class PreferencesScreen(TView, UserControl):
+class PreferencesScreen(TView, Row):
     def __init__(
         self,
         params: TViewParams,

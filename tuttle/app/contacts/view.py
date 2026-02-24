@@ -9,7 +9,7 @@ from flet import (
     ListTile,
     ResponsiveRow,
     Row,
-    UserControl,
+    Control,
     border_radius,
     padding,
 )
@@ -23,7 +23,7 @@ from ..res import colors, dimens, fonts, res_utils
 from ...model import Address, Contact
 
 
-class ContactCard(UserControl):
+class ContactCard(Card):
     """Formats a single contact info into a card ui display"""
 
     def __init__(
@@ -100,15 +100,13 @@ class ContactCard(UserControl):
                 run_spacing=0,
             ),
         ]
-        return Card(
-            elevation=2,
+        self.elevation = 2
+        self.expand = True
+        self.content = Container(
             expand=True,
-            content=Container(
-                expand=True,
-                padding=padding.all(dimens.SPACE_STD),
-                border_radius=border_radius.all(12),
-                content=self.contact_info_container,
-            ),
+            padding=padding.all(dimens.SPACE_STD),
+            border_radius=border_radius.all(12),
+            content=self.contact_info_container,
         )
 
 
@@ -263,7 +261,7 @@ class ContactEditorPopUp(DialogHandler):
         self.on_submit_callback(self.contact)
 
 
-class ContactsListView(TView, UserControl):
+class ContactsListView(TView, Column):
     """The view for the contacts list page"""
 
     def __init__(self, params: TViewParams):

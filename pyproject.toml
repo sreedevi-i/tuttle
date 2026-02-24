@@ -1,0 +1,101 @@
+[project]
+name = "tuttle"
+version = "1.1.1"
+description = "Painless business planning for freelancers."
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.10"
+authors = [
+    { name = "Christian Staudt", email = "mail@clstaudt.me" },
+    { name = "Vladimir Peter" },
+]
+keywords = ["tuttle"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "pytest",
+    "pandas",
+    "matplotlib",
+    "altair",
+    "pydantic",
+    "sqlmodel",
+    "ics",
+    "tatsu<5.8",
+    "babel",
+    "loguru",
+    "pandera",
+    "weasyprint",
+    "faker",
+    "PyPDF2",
+    "flet>=0.24.0,<0.25.0",
+    "pycountry",
+    "icloudpy",
+]
+
+[project.urls]
+Homepage = "https://github.com/tuttle-dev/tuttle"
+Repository = "https://github.com/tuttle-dev/tuttle"
+
+[dependency-groups]
+dev = [
+    "jupyterlab",
+    "ipywidgets",
+    "bump2version",
+    "black",
+    "nbdime",
+    "pre-commit",
+    "pydocstyle",
+    "isort",
+]
+build = [
+    "pyinstaller",
+    "typer",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tuttle"]
+
+[tool.pytest.ini_options]
+collect_ignore = ["setup.py"]
+
+[tool.flake8]
+exclude = ["docs"]
+
+[tool.isort]
+include_trailing_comma = true
+use_parentheses = true
+multi_line_output = 1
+default_section = "THIRDPARTY"
+known_first_party = ["tuttle"]
+known_flet = ["flet"]
+known_typing = ["typing"]
+sections = ["FUTURE", "TYPING", "STDLIB", "FLET", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.bumpversion]
+current_version = "1.1.1"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "tuttle/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'

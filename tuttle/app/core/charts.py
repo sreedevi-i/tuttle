@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
 matplotlib.use("svg")
-from flet import UserControl
+from flet import Control
 
 from ..custom_flet.custom_mat_chart import CustomMatplotlibChart
-from ..res.colors import  GRAY_COLOR, PRIMARY_COLOR, WHITE_COLOR
+from ..res.colors import GRAY_COLOR, PRIMARY_COLOR, WHITE_COLOR
 from ..res.fonts import BODY_1_SIZE
 
 
-class BarChart(UserControl):
+class BarChart(Container):
     """Displays a bar chart"""
 
     def __init__(
@@ -81,4 +81,4 @@ class BarChart(UserControl):
             self.figure,
             isolated=True,
         )
-        return self.chart
+        self.content = self.chart

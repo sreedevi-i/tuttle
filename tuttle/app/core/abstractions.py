@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import functools
 
-from flet import AlertDialog, file_picker
+from flet import AlertDialog, FilePicker
 
 import sqlmodel
 from sqlmodel import pool
@@ -95,7 +95,7 @@ class TViewParams:
     navigate_to_route: Callable
     show_snack: Callable
     dialog_controller: Callable
-    pick_file_callback: Callable[[file_picker.FilePickerFile], str]
+    pick_file_callback: Callable
     client_storage: ClientStorage
     vertical_alignment_in_parent: str = START_ALIGNMENT
     horizontal_alignment_in_parent: str = START_ALIGNMENT

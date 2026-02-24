@@ -9,7 +9,7 @@ from flet import (
     ListTile,
     ResponsiveRow,
     Row,
-    UserControl,
+    Control,
     border_radius,
     padding,
 )
@@ -23,7 +23,7 @@ from ..res import colors, dimens, fonts, res_utils
 from ...model import Address, Client, Contact
 
 
-class ClientCard(UserControl):
+class ClientCard(Card):
     """Formats a single client info into a card ui display"""
 
     def __init__(
@@ -85,20 +85,17 @@ class ClientCard(UserControl):
             ),
         ]
 
-        card = Card(
-            elevation=2,
+        self.elevation = 2
+        self.expand = True
+        self.content = Container(
             expand=True,
-            content=Container(
-                expand=True,
-                padding=padding.all(dimens.SPACE_STD),
-                border_radius=border_radius.all(12),
-                content=self.client_info_container,
-            ),
+            padding=padding.all(dimens.SPACE_STD),
+            border_radius=border_radius.all(12),
+            content=self.client_info_container,
         )
-        return card
 
 
-class ClientViewPopUp(DialogHandler, UserControl):
+class ClientViewPopUp(DialogHandler, Column):
     """Pop up used to displaying a client"""
 
     def __init__(
@@ -123,7 +120,7 @@ class ClientViewPopUp(DialogHandler, UserControl):
         super().__init__(dialog=dialog, dialog_controller=dialog_controller)
 
 
-class ClientEditorPopUp(DialogHandler, UserControl):
+class ClientEditorPopUp(DialogHandler, Column):
     """Pop up used for creating or updating a client"""
 
     def __init__(
@@ -401,7 +398,7 @@ class ClientEditorPopUp(DialogHandler, UserControl):
         return self.dialog
 
 
-class ClientsListView(TView, UserControl):
+class ClientsListView(TView, Column):
     """View for displaying a list of clients"""
 
     def __init__(self, params: TViewParams):

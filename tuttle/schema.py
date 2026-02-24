@@ -1,5 +1,6 @@
 """Pandera schemata."""
-from pandera import (
+import pandera.pandas as pa
+from pandera.pandas import (
     # SchemaModel,
     DataFrameSchema,
     Column,

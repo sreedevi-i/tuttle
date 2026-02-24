@@ -15,7 +15,7 @@ from flet import (
     ResponsiveRow,
     Row,
     TextButton,
-    UserControl,
+    Control,
     border_radius,
     icons,
     margin,
@@ -32,7 +32,7 @@ from ..res import colors, dimens, fonts, res_utils
 from ...model import Contract, Project
 
 
-class ProjectCard(UserControl):
+class ProjectCard(Card):
     """Formats a single project info into a card ui display"""
 
     def __init__(
@@ -184,17 +184,14 @@ class ProjectCard(UserControl):
             ),
             views.Spacer(md_space=True),
         ]
-        card = Card(
-            elevation=2,
+        self.elevation = 2
+        self.expand = True
+        self.content = Container(
             expand=True,
-            content=Container(
-                expand=True,
-                padding=padding.all(dimens.SPACE_STD),
-                border_radius=border_radius.all(12),
-                content=self.project_info_container,
-            ),
+            padding=padding.all(dimens.SPACE_STD),
+            border_radius=border_radius.all(12),
+            content=self.project_info_container,
         )
-        return card
 
 
 class ProjectStates(Enum):
@@ -220,7 +217,7 @@ class ProjectStates(Enum):
             return "All projects."
 
 
-class ProjectFiltersView(UserControl):
+class ProjectFiltersView(Row):
     """Create and Handles projects view filtering buttons"""
 
     def __init__(self, onStateChanged: Callable[[ProjectStates], None]):
@@ -260,7 +257,7 @@ class ProjectFiltersView(UserControl):
         return self.filters
 
 
-class ViewProjectScreen(TView, UserControl):
+class ViewProjectScreen(TView, Container):
     """View project screen"""
 
     def __init__(
@@ -540,7 +537,7 @@ class ViewProjectScreen(TView, UserControl):
             vertical_alignment=utils.START_ALIGNMENT,
             expand=True,
         )
-        return page_view
+        self.content = page_view
 
     def did_mount(self):
         """called when the view is mounted"""
@@ -569,7 +566,7 @@ class ViewProjectScreen(TView, UserControl):
             self.pop_up_handler.dimiss_open_dialogs()
 
 
-class ProjectsListView(TView, UserControl):
+class ProjectsListView(TView, Column):
     """View for displaying a list of projects"""
 
     def __init__(self, params):
@@ -707,7 +704,7 @@ class ProjectsListView(TView, UserControl):
         self.mounted = False
 
 
-class ProjectEditorScreen(TView, UserControl):
+class ProjectEditorScreen(TView, Container):
     """Displays a form for creating or updating a project"""
 
     def __init__(
@@ -925,7 +922,7 @@ class ProjectEditorScreen(TView, UserControl):
             label="Create Project",
             on_click=self.on_save,
         )
-        return views.TFullScreenFormContainer(
+        self.content = views.TFullScreenFormContainer(
             form_controls=[
                 Row(
                     controls=[

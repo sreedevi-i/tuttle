@@ -12,7 +12,7 @@ from flet import (
     ResponsiveRow,
     Row,
     TextButton,
-    UserControl,
+    Control,
     border_radius,
     icons,
     margin,
@@ -32,7 +32,7 @@ from ...time import Cycle, TimeUnit
 LABEL_WIDTH = 80
 
 
-class ContractCard(UserControl):
+class ContractCard(Card):
     """Formats a single contract info into a Card ui display"""
 
     def __init__(
@@ -122,15 +122,13 @@ class ContractCard(UserControl):
                 vertical_alignment=utils.CENTER_ALIGNMENT,
             ),
         ]
-        return Card(
-            elevation=2,
+        self.elevation = 2
+        self.expand = True
+        self.content = Container(
             expand=True,
-            content=Container(
-                expand=True,
-                padding=padding.all(dimens.SPACE_STD),
-                border_radius=border_radius.all(12),
-                content=self.contract_info_container,
-            ),
+            padding=padding.all(dimens.SPACE_STD),
+            border_radius=border_radius.all(12),
+            content=self.contract_info_container,
         )
 
 
@@ -157,7 +155,7 @@ class ContractStates(Enum):
             return "All Contracts"
 
 
-class ContractFiltersView(UserControl):
+class ContractFiltersView(Row):
     """Create and Handles contracts view filtering buttons"""
 
     def __init__(self, onStateChanged: Callable[[ContractStates], None]):
@@ -197,7 +195,7 @@ class ContractFiltersView(UserControl):
         return self.filters
 
 
-class ContractEditorScreen(TView, UserControl):
+class ContractEditorScreen(TView, Container):
     """Used to edit or create a contract"""
 
     def __init__(
@@ -557,7 +555,7 @@ class ContractEditorScreen(TView, UserControl):
         self.form_title_ui_field = views.THeading(
             title="New Contract",
         )
-        return views.TFullScreenFormContainer(
+        self.content = views.TFullScreenFormContainer(
             form_controls=[
                 Row(
                     controls=[
@@ -610,7 +608,7 @@ class ContractEditorScreen(TView, UserControl):
             self.new_client_pop_up.dimiss_open_dialogs()
 
 
-class ContractsListView(TView, UserControl):
+class ContractsListView(TView, Column):
     """View for displaying a list of contracts."""
 
     def __init__(self, params: TViewParams):
@@ -757,7 +755,7 @@ class ContractsListView(TView, UserControl):
             self.pop_up_handler.dimiss_open_dialogs()
 
 
-class ViewContractScreen(TView, UserControl):
+class ViewContractScreen(TView, Row):
     """Screen to view the details of a contract."""
 
     def __init__(

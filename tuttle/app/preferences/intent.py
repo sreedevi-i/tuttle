@@ -160,7 +160,7 @@ class PreferencesIntent(Intent):
             logger.info("Clearing all preferences")
             self._client_storage.clear_preferences()
             logger.info("Clearing all data")
-            self._page.window_close()
+            self._page.window.close()
 
             return IntentResult(
                 was_intent_successful=True,

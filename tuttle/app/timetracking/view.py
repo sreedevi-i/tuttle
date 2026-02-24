@@ -11,7 +11,7 @@ from flet import (
     FilePickerUploadEvent,
     ResponsiveRow,
     Text,
-    UserControl,
+    Control,
     border,
 )
 
@@ -163,7 +163,7 @@ class NewTimeTrackPopUp(DialogHandler):
         self.password = e.control.value
 
 
-class TimeTrackingView(TView, UserControl):
+class TimeTrackingView(TView, Column):
     """Time tracking view on home page"""
 
     def __init__(self, params):
@@ -228,7 +228,9 @@ class TimeTrackingView(TView, UserControl):
         else:
             self.set_progress_hint(hide_progress=True)
 
-    def extract_dataframe_from_file(self,):
+    def extract_dataframe_from_file(
+        self,
+    ):
 
         """Execute intent to process file"""
         if not self.uploaded_file_path:

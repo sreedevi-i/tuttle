@@ -25,7 +25,7 @@ from flet import (
     Text,
     TextField,
     TextStyle,
-    UserControl,
+    Control,
     alignment,
     border_radius,
     dropdown,
@@ -395,7 +395,7 @@ class TProgressBar(ProgressBar):
         super().__init__(width=320, height=4, visible=show)
 
 
-class TDropDown(UserControl):
+class TDropDown(Column):
     """Creates a standard dropdown button"""
 
     def __init__(
@@ -471,7 +471,7 @@ class TDropDown(UserControl):
         return self.drop_down
 
 
-class DateSelector(UserControl):
+class DateSelector(Container):
     """Date selector."""
 
     def __init__(
@@ -529,21 +529,18 @@ class DateSelector(UserControl):
         self.year = e.control.value
 
     def build(self):
-        self.view = Container(
-            content=Column(
-                controls=[
-                    TBodyText(txt=self.label, color=self.label_color),
-                    Row(
-                        [
-                            self.day_dropdown,
-                            self.month_dropdown,
-                            self.year_dropdown,
-                        ],
-                    ),
-                ]
-            ),
+        self.content = Column(
+            controls=[
+                TBodyText(txt=self.label, color=self.label_color),
+                Row(
+                    [
+                        self.day_dropdown,
+                        self.month_dropdown,
+                        self.year_dropdown,
+                    ],
+                ),
+            ]
         )
-        return self.view
 
     def set_date(self, date: Optional[datetime.date] = None):
         if date is None:
@@ -817,7 +814,7 @@ class NavigationMenuItem:
     label: str
     icon: str
     selected_icon: str
-    destination: UserControl
+    destination: Control
     on_new_screen_route: Optional[str] = None
     on_new_intent: Optional[str] = None
 
@@ -869,7 +866,7 @@ class TNavigationMenu(NavigationRail):
         )
 
 
-class TNavigationMenuNoLeading(UserControl):
+class TNavigationMenuNoLeading(Column):
     """
     Returns a navigation menu for the application without a leading content.
 
@@ -921,7 +918,9 @@ class TNavigationMenuNoLeading(UserControl):
         # set the background color of the navigation menu
         self.navigationRail.bgcolor = side_bar_bg_color
         self.titleContainer.bgcolor = side_bar_bg_color
-        self.update()
+        # Only update if the control is mounted on the page
+        if hasattr(self, "page") and self.page is not None:
+            self.update()
 
     def build(self):
         return Column(
@@ -968,7 +967,7 @@ class TBackButton(IconButton):
 class TFullScreenFormContainer(Container):
     """Returns a container for a full screen form"""
 
-    def __init__(self, form_controls: list[UserControl]):
+    def __init__(self, form_controls: list[Control]):
         return super().__init__(
             expand=True,
             padding=padding.all(dimens.SPACE_MD),

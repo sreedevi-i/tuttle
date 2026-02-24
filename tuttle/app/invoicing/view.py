@@ -10,7 +10,7 @@ from flet import (
     ListView,
     ResponsiveRow,
     Row,
-    UserControl,
+    Control,
     icons,
 )
 
@@ -26,7 +26,7 @@ from ...model import Invoice, Project, User
 from .intent import InvoicingIntent
 
 
-class InvoicingEditorPopUp(DialogHandler, UserControl):
+class InvoicingEditorPopUp(DialogHandler, Column):
     """Pop up used for editing or creating an invoice
 
     Parameters:
@@ -132,7 +132,7 @@ class InvoicingEditorPopUp(DialogHandler, UserControl):
         self.on_submit(self.invoice, self.project, from_date, to_date)
 
 
-class InvoicingListView(TView, UserControl):
+class InvoicingListView(TView, Column):
     """The view for displaying the list of invoices"""
 
     def __init__(self, params: TViewParams):
@@ -421,9 +421,9 @@ class InvoicingListView(TView, UserControl):
             self.editor.dimiss_open_dialogs()
 
 
-class InvoiceTile(UserControl):
+class InvoiceTile(ListTile):
     """
-    A UserControl that formats an invoice object as a list tile for display in the UI
+    A Control that formats an invoice object as a list tile for display in the UI
     """
 
     def __init__(
@@ -460,69 +460,61 @@ class InvoiceTile(UserControl):
         _client_name = ""
         if self.invoice.contract and self.invoice.contract.client:
             _client_name = self.invoice.contract.client.name
-        return ListTile(
-            leading=views.TBodyText(self.invoice.number),
-            title=views.TBodyText(f"{_project_title} ➡ {_client_name}"),
-            subtitle=Column(
-                controls=[
-                    views.TBodyText(
-                        f'Invoice Date: {self.invoice.date.strftime("%d-%m-%Y")}'
-                    ),
-                    Row(
-                        controls=[
-                            views.TBodyText(
-                                f"Total: {self.invoice.total:.2f} {_currency}"
-                            ),
-                            views.TStatusDisplay(txt="Paid", is_done=self.invoice.paid),
-                            views.TStatusDisplay(
-                                txt="Cancelled", is_done=self.invoice.cancelled
-                            ),
-                            views.TStatusDisplay(txt="Sent", is_done=self.invoice.sent),
-                        ]
-                    ),
-                ]
-            ),
-            trailing=views.TContextMenu(
-                on_click_delete=lambda e: self.on_delete_clicked(self.invoice),
-                prefix_menu_items=[
-                    views.TPopUpMenuItem(
-                        icon=icons.HOURGLASS_BOTTOM_OUTLINED,
-                        txt="Mark as sent"
-                        if not self.invoice.sent
-                        else "Mark as not sent",
-                        on_click=lambda e: self.toggle_sent_status(
-                            self.invoice,
+        self.leading = views.TBodyText(self.invoice.number)
+        self.title = views.TBodyText(f"{_project_title} ➡ {_client_name}")
+        self.subtitle = Column(
+            controls=[
+                views.TBodyText(
+                    f'Invoice Date: {self.invoice.date.strftime("%d-%m-%Y")}'
+                ),
+                Row(
+                    controls=[
+                        views.TBodyText(f"Total: {self.invoice.total:.2f} {_currency}"),
+                        views.TStatusDisplay(txt="Paid", is_done=self.invoice.paid),
+                        views.TStatusDisplay(
+                            txt="Cancelled", is_done=self.invoice.cancelled
                         ),
+                        views.TStatusDisplay(txt="Sent", is_done=self.invoice.sent),
+                    ]
+                ),
+            ]
+        )
+        self.trailing = views.TContextMenu(
+            on_click_delete=lambda e: self.on_delete_clicked(self.invoice),
+            prefix_menu_items=[
+                views.TPopUpMenuItem(
+                    icon=icons.HOURGLASS_BOTTOM_OUTLINED,
+                    txt="Mark as sent" if not self.invoice.sent else "Mark as not sent",
+                    on_click=lambda e: self.toggle_sent_status(
+                        self.invoice,
                     ),
-                    views.TPopUpMenuItem(
-                        icon=icons.ATTACH_MONEY_OUTLINED,
-                        txt="Mark as paid"
-                        if not self.invoice.paid
-                        else "Mark as not paid",
-                        on_click=lambda e: self.toggle_paid_status(self.invoice),
-                    ),
-                    views.TPopUpMenuItem(
-                        icon=icons.CANCEL_OUTLINED,
-                        txt="Mark as cancelled"
-                        if not self.invoice.cancelled
-                        else "Mark as not cancelled",
-                        on_click=lambda e: self.toggle_cancelled_status(self.invoice),
-                    ),
-                    views.TPopUpMenuItem(
-                        icon=icons.VISIBILITY_OUTLINED,
-                        txt="View",
-                        on_click=lambda e: self.on_view_invoice(self.invoice),
-                    ),
-                    views.TPopUpMenuItem(
-                        icon=icons.VISIBILITY_OUTLINED,
-                        txt="View Timesheet ",
-                        on_click=lambda e: self.on_view_timesheet(self.invoice),
-                    ),
-                    views.TPopUpMenuItem(
-                        icon=icons.OUTGOING_MAIL,
-                        txt="Send",
-                        on_click=lambda e: self.on_mail_invoice(self.invoice),
-                    ),
-                ],
-            ),
+                ),
+                views.TPopUpMenuItem(
+                    icon=icons.ATTACH_MONEY_OUTLINED,
+                    txt="Mark as paid" if not self.invoice.paid else "Mark as not paid",
+                    on_click=lambda e: self.toggle_paid_status(self.invoice),
+                ),
+                views.TPopUpMenuItem(
+                    icon=icons.CANCEL_OUTLINED,
+                    txt="Mark as cancelled"
+                    if not self.invoice.cancelled
+                    else "Mark as not cancelled",
+                    on_click=lambda e: self.toggle_cancelled_status(self.invoice),
+                ),
+                views.TPopUpMenuItem(
+                    icon=icons.VISIBILITY_OUTLINED,
+                    txt="View",
+                    on_click=lambda e: self.on_view_invoice(self.invoice),
+                ),
+                views.TPopUpMenuItem(
+                    icon=icons.VISIBILITY_OUTLINED,
+                    txt="View Timesheet ",
+                    on_click=lambda e: self.on_view_timesheet(self.invoice),
+                ),
+                views.TPopUpMenuItem(
+                    icon=icons.OUTGOING_MAIL,
+                    txt="Send",
+                    on_click=lambda e: self.on_mail_invoice(self.invoice),
+                ),
+            ],
         )

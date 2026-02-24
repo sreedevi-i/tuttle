@@ -9,7 +9,7 @@ from flet import (
     border,
     ResponsiveRow,
     Row,
-    UserControl,
+    Control,
     padding,
     NavigationRailDestination,
     Icon,
@@ -26,7 +26,7 @@ from ...model import User, BankAccount
 from .intent import AuthIntent
 
 
-class PaymentDataForm(UserControl):
+class PaymentDataForm(Column):
     """Form view for setting the user's payment info"""
 
     def __init__(
@@ -97,7 +97,7 @@ class PaymentDataForm(UserControl):
         )
 
 
-class UserDataForm(UserControl):
+class UserDataForm(Column):
     """Form view for setting the user info"""
 
     def __init__(
@@ -310,7 +310,7 @@ class UserDataForm(UserControl):
         self.update()
 
 
-class SplashScreen(TView, UserControl):
+class SplashScreen(TView, Column):
     """Displayed the first time the app loads
 
     Checks if user has been created
@@ -475,7 +475,7 @@ class ProfileMenuItemsHandler:
 
 def profile_destination_content_wrapper(
     controls: list[
-        UserControl,
+        Control,
     ],
 ):
     """returns a container that wraps the destination content"""
@@ -488,7 +488,7 @@ def profile_destination_content_wrapper(
     )
 
 
-class ProfilePhotoContent(TView, UserControl):
+class ProfilePhotoContent(TView, Column):
     """Content for profile photo"""
 
     def __init__(self, params: TViewParams):
@@ -519,7 +519,10 @@ class ProfilePhotoContent(TView, UserControl):
         """Updates the profile photo"""
         if not self.uploaded_photo_path:
             return
-        result = self.intent.update_user_photo_path(self.user_profile, self.uploaded_photo_path,)
+        result = self.intent.update_user_photo_path(
+            self.user_profile,
+            self.uploaded_photo_path,
+        )
         # assume error occurred
         msg = result.error_msg
         is_err = True
@@ -532,7 +535,6 @@ class ProfilePhotoContent(TView, UserControl):
             self.user_profile.profile_photo_path = ""
         self.uploaded_photo_path = None  # clear
         self.update_self()
-                
 
     def build(self):
         self.profile_photo_img = views.TProfilePhotoImg()
@@ -562,7 +564,9 @@ class ProfilePhotoContent(TView, UserControl):
         else:
             self.user_profile: User = result.data
             if self.user_profile.profile_photo_path:
-                self.profile_photo_img.src_base64 = utils.toBase64(self.user_profile.profile_photo_path)
+                self.profile_photo_img.src_base64 = utils.toBase64(
+                    self.user_profile.profile_photo_path
+                )
             self.update_self()
 
     def will_unmount(self):
@@ -570,7 +574,7 @@ class ProfilePhotoContent(TView, UserControl):
         self.mounted = False
 
 
-class UserInfoContent(TView, UserControl):
+class UserInfoContent(TView, Column):
     """Content for user info"""
 
     def __init__(self, params: TViewParams):
@@ -629,7 +633,7 @@ class UserInfoContent(TView, UserControl):
         self.mounted = False
 
 
-class PaymentInfoContent(TView, UserControl):
+class PaymentInfoContent(TView, Column):
     """Content for payment info"""
 
     def __init__(self, params: TViewParams):
@@ -678,7 +682,7 @@ class PaymentInfoContent(TView, UserControl):
         self.mounted = False
 
 
-class ProfileScreen(TView, UserControl):
+class ProfileScreen(TView, Column):
     """User profile screen"""
 
     def __init__(self, params: TViewParams):
@@ -707,14 +711,8 @@ class ProfileScreen(TView, UserControl):
         items = []
         for item in self.menu_handler.items:
             itemDestination = NavigationRailDestination(
-                icon_content=Icon(
-                    item.icon,
-                    size=dimens.ICON_SIZE,
-                ),
-                selected_icon_content=Icon(
-                    item.selected_icon,
-                    size=dimens.ICON_SIZE,
-                ),
+                icon=item.icon,
+                selected_icon=item.selected_icon,
                 label_content=views.TBodyText(item.label),
                 padding=padding.symmetric(horizontal=dimens.SPACE_SM),
             )

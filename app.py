@@ -80,10 +80,10 @@ class TuttleApp:
             else THEME_MODES.dark.value
         )
         self.page.theme_mode = theme
-        self.page.window_min_width = MIN_WINDOW_WIDTH
-        self.page.window_min_height = MIN_WINDOW_HEIGHT
-        self.page.window_width = MIN_WINDOW_HEIGHT * 3
-        self.page.window_height = MIN_WINDOW_HEIGHT * 2
+        self.page.window.min_width = MIN_WINDOW_WIDTH
+        self.page.window.min_height = MIN_WINDOW_HEIGHT
+        self.page.window.width = MIN_WINDOW_HEIGHT * 3
+        self.page.window.height = MIN_WINDOW_HEIGHT * 2
         self.file_picker = FilePicker()
         self.page.overlay.append(self.file_picker)
 
@@ -94,12 +94,12 @@ class TuttleApp:
         self.page.on_view_pop = self.on_view_pop
         self.route_parser = TuttleRoutes(self)
         self.current_route_view: Optional[RouteView] = None
-        self.page.on_resize = self.page_resize
+        self.page.on_resized = self.page_resize
 
     def page_resize(self, e):
         if self.current_route_view:
             self.current_route_view.on_window_resized(
-                self.page.window_width, self.page.window_height
+                self.page.window.width, self.page.window.height
             )
 
     def pick_file_callback(
@@ -117,7 +117,6 @@ class TuttleApp:
             dialog_title=dialog_title,
             file_type=file_type,
         )
-
 
     def on_theme_mode_changed(self, selected_theme: str):
         """callback function used by views for changing app theme mode"""
@@ -224,7 +223,7 @@ class TuttleApp:
         self.current_route_view: RouteView = self.route_to_route_view_cache[route.route]
         self.page.update()
         self.current_route_view.on_window_resized(
-            self.page.window_width, self.page.window_height
+            self.page.window.width, self.page.window.height
         )
 
     def store_demo_timetracking_dataframe(self, time_tracking_data: DataFrame):
@@ -239,7 +238,7 @@ class TuttleApp:
 
     def close(self):
         """Closes the application."""
-        self.page.window_close()
+        self.page.window.close()
 
     def reset_and_quit(self):
         """Resets the application and quits."""
