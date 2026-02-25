@@ -11,8 +11,11 @@ from flet import (
     ListTile,
     ResponsiveRow,
     Row,
+    Text,
     TextButton,
     Control,
+    alignment,
+    border,
     border_radius,
     icons,
     margin,
@@ -32,104 +35,111 @@ from ...time import Cycle, TimeUnit
 LABEL_WIDTH = 80
 
 
-class ContractCard(Card):
-    """Formats a single contract info into a Card ui display"""
+def _contract_initials(title: str) -> str:
+    parts = (title or "").split()
+    return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
+
+
+class ContractCard(Container):
+    """Flat, bordered card for a contract — VS Code panel style."""
 
     def __init__(
         self, contract: Contract, on_click_view, on_click_edit, on_click_delete
     ):
-        super().__init__()
         self.contract = contract
-        self.contract_info_container = Column(run_spacing=0, spacing=0)
         self.on_click_view = on_click_view
         self.on_click_edit = on_click_edit
         self.on_click_delete = on_click_delete
 
-    def build(self):
-        """Builds the contract card ui"""
-        self.contract_info_container.controls = [
-            ListTile(
-                leading=Icon(
-                    utils.TuttleComponentIcons.contract_icon,
-                    size=dimens.MD_ICON_SIZE,
-                ),
-                title=views.TBodyText(self.contract.title),
-                subtitle=views.TBodyText(
-                    self.contract.client.name if self.contract.client else "Unknown",
-                    color=colors.GRAY_COLOR,
-                ),
-                trailing=views.TContextMenu(
-                    on_click_view=lambda e: self.on_click_view(self.contract.id),
-                    on_click_edit=lambda e: self.on_click_edit(self.contract.id),
-                    on_click_delete=lambda e: self.on_click_delete(self.contract.id),
-                ),
-                on_click=lambda e: self.on_click_view(self.contract.id),
+        client_name = contract.client.name if contract.client else "Unknown"
+        initials = _contract_initials(contract.title)
+        avatar = Container(
+            width=36,
+            height=36,
+            bgcolor=colors.accent_muted,
+            border_radius=dimens.RADIUS_LG,
+            alignment=alignment.center,
+            content=Text(
+                initials,
+                size=fonts.BODY_1_SIZE,
+                color=colors.accent,
+                weight=fonts.BOLD_FONT,
             ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Rate",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    views.TBodyText(
-                        txt=f"{self.contract.rate} {self.contract.currency} / {self.contract.unit}",
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                ],
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
-            ),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Billing Cycle",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    views.TBodyText(
-                        txt=f"{self.contract.billing_cycle}",
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                ],
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
-            ),
-            # add responsive row for contract volume
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Volume",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    views.TBodyText(
-                        txt=f"{self.contract.volume} {self.contract.unit}s",
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                ],
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
-            ),
-        ]
-        self.elevation = 2
-        self.expand = True
-        self.content = Container(
-            expand=True,
-            padding=padding.all(dimens.SPACE_STD),
-            border_radius=border_radius.all(12),
-            content=self.contract_info_container,
         )
+
+        header = Row(
+            controls=[
+                avatar,
+                Column(
+                    spacing=0,
+                    controls=[
+                        views.TBodyText(
+                            utils.truncate_str(contract.title, 30),
+                            weight=fonts.BOLD_FONT,
+                        ),
+                        views.TBodyText(
+                            client_name,
+                            color=colors.text_secondary,
+                            size=fonts.BODY_2_SIZE,
+                        ),
+                    ],
+                ),
+            ],
+            spacing=dimens.SPACE_SM,
+            expand=True,
+            vertical_alignment=utils.CENTER_ALIGNMENT,
+        )
+
+        context_menu = views.TContextMenu(
+            on_click_view=lambda e: self.on_click_view(contract.id),
+            on_click_edit=lambda e: self.on_click_edit(contract.id),
+            on_click_delete=lambda e: self.on_click_delete(contract.id),
+        )
+
+        def _info_row(label, value):
+            return Column(
+                spacing=2,
+                controls=[
+                    views.TBodyText(
+                        label, color=colors.text_muted, size=fonts.OVERLINE_SIZE
+                    ),
+                    views.TBodyText(value, size=fonts.BODY_2_SIZE),
+                ],
+            )
+
+        body_items = [
+            _info_row("Rate", f"{contract.rate} {contract.currency} / {contract.unit}"),
+            _info_row("Billing Cycle", f"{contract.billing_cycle}"),
+            _info_row("Volume", f"{contract.volume} {contract.unit}s"),
+        ]
+
+        super().__init__(
+            expand=True,
+            bgcolor=colors.bg_surface,
+            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border_radius=dimens.RADIUS_LG,
+            padding=padding.all(dimens.SPACE_MD),
+            on_hover=self._on_hover,
+            on_click=lambda e: self.on_click_view(contract.id),
+            content=Column(
+                spacing=dimens.SPACE_SM,
+                controls=[
+                    Row(
+                        controls=[header, context_menu],
+                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+                        vertical_alignment=utils.START_ALIGNMENT,
+                    ),
+                    Container(height=1, bgcolor=colors.border_subtle),
+                    *body_items,
+                ],
+            ),
+        )
+
+    def _on_hover(self, e):
+        self.bgcolor = (
+            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
+        )
+        self.update()
 
 
 class ContractEditorScreen(TView, Container):
@@ -637,14 +647,14 @@ class ViewContractScreen(views.EntityDetailScreen):
         )
         self.toggle_compete_status_btn = IconButton(
             icon=icons.RADIO_BUTTON_CHECKED_OUTLINED,
-            icon_color=colors.PRIMARY_COLOR,
+            icon_color=colors.accent,
             icon_size=dimens.ICON_SIZE,
             tooltip="Mark contract as completed",
             on_click=self.on_toggle_complete_status,
         )
         self.delete_contract_btn = IconButton(
             icon=icons.DELETE_OUTLINE_ROUNDED,
-            icon_color=colors.ERROR_COLOR,
+            icon_color=colors.danger,
             tooltip="Delete contract",
             on_click=self.on_delete_clicked,
             icon_size=dimens.ICON_SIZE,
@@ -666,7 +676,7 @@ class ViewContractScreen(views.EntityDetailScreen):
         self.end_date_control = views.TBodyText(align=utils.TXT_ALIGN_JUSTIFY)
 
         self.status_control = views.TBodyText(
-            size=fonts.BUTTON_SIZE, color=colors.PRIMARY_COLOR
+            size=fonts.BUTTON_SIZE, color=colors.accent
         )
 
         self.content = Row(
@@ -713,7 +723,7 @@ class ViewContractScreen(views.EntityDetailScreen):
                                                     views.THeading(
                                                         title="Contract",
                                                         size=fonts.HEADLINE_4_SIZE,
-                                                        color=colors.PRIMARY_COLOR,
+                                                        color=colors.accent,
                                                     ),
                                                     Row(
                                                         vertical_alignment=utils.CENTER_ALIGNMENT,

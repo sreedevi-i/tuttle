@@ -1,15 +1,14 @@
-"""Defines the app theme"""
+"""Defines the app theme — dark only, macOS-inspired."""
 
-from flet import Theme
+from flet import Theme, ColorScheme, TextTheme, ThemeMode
 from .fonts import DEFAULT_FONT
-from .colors import PRIMARY_COLOR
+from .colors import accent, bg, bg_surface, text_primary, text_secondary, border, danger
 from enum import Enum
 
-from ...dev import deprecated
 
-
+# Kept for backward compatibility — always returns dark.
 class THEME_MODES(Enum):
-    light = "light"
+    light = "dark"  # mapped to dark
     dark = "dark"
 
     def __str__(self) -> str:
@@ -17,12 +16,23 @@ class THEME_MODES(Enum):
 
 
 def get_theme_mode_from_value(value: str):
-    return next((e for e in THEME_MODES if e.value == value), None)
+    # Always dark
+    return THEME_MODES.dark
 
 
 APP_THEME = Theme(
-    color_scheme_seed=PRIMARY_COLOR,
+    color_scheme_seed=accent,
+    color_scheme=ColorScheme(
+        primary=accent,
+        on_primary="#FFFFFF",
+        surface=bg_surface,
+        on_surface=text_primary,
+        error=danger,
+        outline=border,
+        surface_variant=bg_surface,
+        on_surface_variant=text_secondary,
+    ),
     use_material3=True,
     font_family=DEFAULT_FONT,
-    visual_density="adaptivePlatformDensity",
+    visual_density="compact",
 )

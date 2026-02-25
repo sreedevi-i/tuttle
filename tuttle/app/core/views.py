@@ -30,11 +30,14 @@ from flet import (
     TextStyle,
     Control,
     alignment,
+    border,
     border_radius,
     dropdown,
     icons,
     padding,
     Text,
+    colors as flet_colors,
+    RoundedRectangleBorder,
 )
 
 from ..res import colors, dimens, fonts, image_paths
@@ -45,21 +48,18 @@ from ..res import res_utils
 
 
 class Spacer(Container):
-    """Creates a space between controls"""
+    """Creates a space between controls.
 
-    # FIXME: Unpythonic code, replace with
-    # class Spacer(Container):
-    #     SPACE_SIZES = {
-    #         'lg': 40,
-    #         'md': 20,
-    #         'sm': 10,
-    #         'xs': 5,
-    #         None: 15,
-    #     }
+    Accepts named size flags for convenience, or a direct pixel value
+    via ``default_space``.
+    """
 
-    #     def __init__(self, size=None, **kwargs):
-    #         self._space_size = self.SPACE_SIZES[size]
-    #         super().__init__(height=self._space_size, width=self._space_size, **kwargs)
+    _SIZES = {
+        "lg": dimens.SPACE_LG,
+        "md": dimens.SPACE_MD,
+        "sm": dimens.SPACE_SM,
+        "xs": dimens.SPACE_XS,
+    }
 
     def __init__(
         self,
@@ -69,24 +69,21 @@ class Spacer(Container):
         xs_space: bool = False,
         default_space: int = dimens.SPACE_STD,
     ):
-        self._space_size = (
-            dimens.SPACE_LG
-            if lg_space
-            else dimens.SPACE_MD
-            if md_space
-            else dimens.SPACE_SM
-            if sm_space
-            else dimens.SPACE_XS
-            if xs_space
-            else default_space
-        )
-        super().__init__(
-            height=self._space_size, width=self._space_size, padding=0, margin=0
-        )
+        size = default_space
+        for flag, name in [
+            (lg_space, "lg"),
+            (md_space, "md"),
+            (sm_space, "sm"),
+            (xs_space, "xs"),
+        ]:
+            if flag:
+                size = self._SIZES[name]
+                break
+        super().__init__(height=size, width=size, padding=0, margin=0)
 
 
 class THeading(Text):
-    """Creates a standard heading"""
+    """Creates a standard heading."""
 
     def __init__(
         self,
@@ -103,7 +100,7 @@ class THeading(Text):
             font_family=fonts.HEADLINE_FONT,
             weight=fonts.BOLD_FONT,
             size=size,
-            color=color,
+            color=color or colors.text_primary,
             text_align=align,
             visible=show,
             expand=expand,
@@ -111,7 +108,7 @@ class THeading(Text):
 
 
 class TSubHeading(Text):
-    """Creates a standard subheading"""
+    """Creates a standard subheading."""
 
     def __init__(
         self,
@@ -126,7 +123,7 @@ class TSubHeading(Text):
             subtitle,
             font_family=fonts.HEADLINE_FONT,
             size=size,
-            color=color,
+            color=color or colors.text_secondary,
             text_align=align,
             visible=show,
             expand=expand,
@@ -134,7 +131,7 @@ class TSubHeading(Text):
 
 
 class THeadingWithSubheading(Column):
-    """Creates a standard heading with a subheading"""
+    """Creates a standard heading with a subheading."""
 
     def __init__(
         self,
@@ -146,9 +143,8 @@ class THeadingWithSubheading(Column):
         subtitle_size: int = fonts.SUBTITLE_2_SIZE,
         subtitle_color: Optional[str] = None,
     ):
-
         super().__init__(
-            spacing=0,
+            spacing=2,
             horizontal_alignment=alignment_in_container,
             controls=[
                 THeading(
@@ -160,14 +156,14 @@ class THeadingWithSubheading(Column):
                     subtitle=subtitle,
                     size=subtitle_size,
                     align=txt_alignment,
-                    color=subtitle_color,
+                    color=subtitle_color or colors.text_secondary,
                 ),
             ],
         )
 
 
 class TBodyText(Text):
-    """Creates a standard body text"""
+    """Creates a standard body text."""
 
     def __init__(
         self,
@@ -182,7 +178,7 @@ class TBodyText(Text):
         super().__init__(
             col=col,
             value=txt,
-            color=color,
+            color=color or colors.text_primary,
             size=size,
             visible=show,
             text_align=align,
@@ -191,7 +187,7 @@ class TBodyText(Text):
 
 
 class TTextField(TextField):
-    """Creates a standard text field"""
+    """Flat text field with filled background — VS Code input style."""
 
     def __init__(
         self,
@@ -205,17 +201,25 @@ class TTextField(TextField):
         width: typing.Optional[int] = None,
         show: bool = True,
     ):
-        """Displays commonly used text field in app forms"""
-        txtFieldPad = padding.symmetric(horizontal=dimens.SPACE_XS)
-
         super().__init__(
             label=label,
             keyboard_type=keyboard_type,
-            content_padding=txtFieldPad,
+            content_padding=padding.symmetric(
+                horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS
+            ),
             hint_text=hint,
-            hint_style=TextStyle(size=fonts.CAPTION_SIZE),
+            hint_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.text_muted),
             value=initial_value,
+            filled=True,
+            bgcolor=colors.bg_input,
+            focused_bgcolor=colors.bg_input,
+            border_color=colors.border,
+            focused_border_color=colors.accent,
             focused_border_width=1,
+            border_width=1,
+            border_radius=dimens.RADIUS_MD,
+            color=colors.text_primary,
+            cursor_color=colors.accent,
             on_focus=on_focus,
             on_change=on_change,
             password=keyboard_type == utils.KEYBOARD_PASSWORD,
@@ -223,14 +227,14 @@ class TTextField(TextField):
             width=width,
             disabled=keyboard_type == utils.KEYBOARD_NONE,
             text_size=fonts.BODY_1_SIZE,
-            label_style=TextStyle(size=fonts.BODY_2_SIZE),
-            error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.ERROR_COLOR),
+            label_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.text_secondary),
+            error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.danger),
             visible=show,
         )
 
 
 class TMultilineField(TextField):
-    """Creates a standard multiline text field"""
+    """Flat multiline text field."""
 
     def __init__(
         self,
@@ -242,116 +246,134 @@ class TMultilineField(TextField):
         minLines: int = 3,
         maxLines: int = 5,
     ):
-        txtFieldHintStyle = TextStyle(size=fonts.CAPTION_SIZE)
-
         super().__init__(
             label=label,
             keyboard_type=keyboardType,
             hint_text=hint,
-            hint_style=txtFieldHintStyle,
+            hint_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.text_muted),
+            filled=True,
+            bgcolor=colors.bg_input,
+            focused_bgcolor=colors.bg_input,
+            border_color=colors.border,
+            focused_border_color=colors.accent,
             focused_border_width=1,
+            border_width=1,
+            border_radius=dimens.RADIUS_MD,
+            color=colors.text_primary,
+            cursor_color=colors.accent,
             min_lines=minLines,
             max_lines=maxLines,
             on_focus=on_focus,
             on_change=on_change,
             text_size=fonts.BODY_1_SIZE,
-            label_style=TextStyle(size=fonts.BODY_2_SIZE),
-            error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.ERROR_COLOR),
+            label_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.text_secondary),
+            error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.danger),
         )
 
 
 class TErrorText(TBodyText):
-    """Displays text formatted for errors / warnings"""
+    """Displays text formatted for errors / warnings."""
 
-    def __init__(
-        self,
-        txt: str,
-        show: bool = True,
-    ):
-        super().__init__(txt, color=colors.ERROR_COLOR, show=show)
+    def __init__(self, txt: str, show: bool = True):
+        super().__init__(txt, color=colors.danger, show=show)
 
 
 class TPrimaryButton(FilledButton):
-    """A button with primary styling"""
+    """Compact primary action button — accent-colored."""
 
     def __init__(
         self,
         on_click: Optional[Callable] = None,
         label: str = "",
-        width: int = 200,
+        width: Optional[int] = None,
         icon: Optional[str] = None,
         show: bool = True,
     ):
-        super().__init__(label, width=width, on_click=on_click, icon=icon, visible=show)
+        super().__init__(
+            label,
+            on_click=on_click,
+            icon=icon,
+            visible=show,
+            width=width,
+            height=dimens.CLICKABLE_STD_HEIGHT,
+            style=ButtonStyle(
+                bgcolor=colors.accent,
+                color=colors.text_inverse,
+                shape=RoundedRectangleBorder(radius=dimens.RADIUS_MD),
+            ),
+        )
 
 
 class TSecondaryButton(ElevatedButton):
-    """A button with secondary styling"""
+    """Outlined secondary action button."""
 
     def __init__(
         self,
         on_click: Optional[Callable] = None,
         label: str = "",
-        width: int = 200,
+        width: Optional[int] = None,
         icon: Optional[str] = None,
     ):
-
         super().__init__(
             label,
-            width=width,
             on_click=on_click,
             icon=icon,
+            width=width,
+            height=dimens.CLICKABLE_STD_HEIGHT,
+            color=colors.text_primary,
+            style=ButtonStyle(
+                shape=RoundedRectangleBorder(radius=dimens.RADIUS_MD),
+                side=border.BorderSide(width=1, color=colors.border),
+                bgcolor=colors.bg_surface,
+            ),
         )
 
 
 class TDangerButton(ElevatedButton):
-    """A button styled for dangerous actions e.g. delete"""
+    """Button styled for dangerous actions (delete, reset)."""
 
     def __init__(
         self,
         on_click: Optional[Callable] = None,
         label: str = "",
-        width: int = 200,
+        width: Optional[int] = None,
         icon: Optional[str] = None,
         tooltip: Optional[str] = None,
     ):
-
         super().__init__(
             text=label,
-            color=colors.DANGER_COLOR,
-            width=width,
+            color=colors.danger,
             on_click=on_click,
             icon=icon,
-            icon_color=colors.DANGER_COLOR,
+            icon_color=colors.danger,
             tooltip=tooltip,
+            width=width,
+            height=dimens.CLICKABLE_STD_HEIGHT,
+            style=ButtonStyle(
+                shape=RoundedRectangleBorder(radius=dimens.RADIUS_MD),
+                side=border.BorderSide(width=1, color=colors.danger),
+                bgcolor=colors.bg_surface,
+            ),
         )
 
 
 class TProfilePhotoImg(Image):
-    """Creates a profile photo image"""
+    """Creates a profile photo image — circular avatar."""
 
-    def __init__(
-        self,
-        pic_src: str = image_paths.default_avatar,
-    ):
+    def __init__(self, pic_src: str = image_paths.default_avatar):
         super().__init__(
             src=pic_src,
-            width=72,
-            height=72,
-            border_radius=border_radius.all(36),
+            width=64,
+            height=64,
+            border_radius=border_radius.all(32),
             fit=utils.CONTAIN,
         )
 
 
 class TImage(Container):
-    """Creates a standard image wrapped in a container"""
+    """Image wrapped in a container."""
 
-    def __init__(
-        self,
-        path: str,
-        semantic_label: str,
-        width: int,
-    ):
+    def __init__(self, path: str, semantic_label: str, width: int):
         super().__init__(
             width=width,
             content=Image(src=path, fit=utils.CONTAIN, semantics_label=semantic_label),
@@ -359,17 +381,20 @@ class TImage(Container):
 
 
 class TProgressBar(ProgressBar):
-    """Creates a standard progress bar"""
+    """Thin accent-colored progress bar."""
 
-    def __init__(
-        self,
-        show: bool = True,
-    ):
-        super().__init__(width=320, height=4, visible=show)
+    def __init__(self, show: bool = True):
+        super().__init__(
+            width=None,
+            height=2,
+            visible=show,
+            color=colors.accent,
+            bgcolor=colors.border_subtle,
+        )
 
 
 class TDropDown(Column):
-    """Creates a standard dropdown button"""
+    """Styled dropdown matching the flat input style."""
 
     def __init__(
         self,
@@ -388,42 +413,23 @@ class TDropDown(Column):
         self.initial_value = initial_value
         self.width = width
         self.hint = hint
-        self.options = []
-        for item in items:
-            self.options.append(
-                dropdown.Option(
-                    text=item,
-                )
-            )
+        self.options = [dropdown.Option(text=item) for item in items]
 
     def update_dropdown_items(self, items: List[str]):
-        """Updates the dropdown items"""
-        self.options.clear()
-        for item in items:
-            self.options.append(
-                dropdown.Option(
-                    text=item,
-                )
-            )
+        self.options = [dropdown.Option(text=item) for item in items]
         self.drop_down.options = self.options
         self.update()
 
-    def update_value(
-        self,
-        new_value: str,
-    ):
-        """Updates the dropdown value"""
+    def update_value(self, new_value: str):
         self.drop_down.value = new_value
-        self.drop_down.error_text = None  # clear error text
+        self.drop_down.error_text = None
         self.update()
 
     @property
     def value(self):
-        """Returns the dropdown value"""
         return self.drop_down.value
 
     def update_error_txt(self, error_txt: str = ""):
-        """Updates Or clears the error text"""
         self.drop_down.error_text = error_txt if error_txt else None
         self.update()
 
@@ -433,19 +439,29 @@ class TDropDown(Column):
             hint_text=self.hint,
             options=self.options,
             text_size=fonts.BODY_1_SIZE,
-            label_style=TextStyle(size=fonts.BODY_2_SIZE),
+            label_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.text_secondary),
             on_change=self.on_change,
             width=self.width,
             value=self.initial_value,
-            content_padding=padding.all(dimens.SPACE_XS),
-            error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.ERROR_COLOR),
+            content_padding=padding.symmetric(
+                horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS
+            ),
+            error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.danger),
             visible=self.visible,
+            filled=True,
+            bgcolor=colors.bg_input,
+            focused_bgcolor=colors.bg_input,
+            border_color=colors.border,
+            focused_border_color=colors.accent,
+            border_width=1,
+            border_radius=dimens.RADIUS_MD,
+            color=colors.text_primary,
         )
         return self.drop_down
 
 
 class DateSelector(Container):
-    """Date selector."""
+    """Date selector using three dropdowns (Day / Month / Year)."""
 
     def __init__(
         self,
@@ -459,7 +475,7 @@ class DateSelector(Container):
         self.date = str(self.initial_date.day)
         self.month = str(self.initial_date.month)
         self.year = str(self.initial_date.year)
-        self.label_color = label_color
+        self.label_color = label_color or colors.text_secondary
 
         self.day_dropdown = TDropDown(
             label="Day",
@@ -541,7 +557,7 @@ class DateSelector(Container):
 
 
 class ConfirmDisplayPopUp(DialogHandler):
-    """Pop up used for displaying confirmation pop up"""
+    """Confirmation dialog with proceed / cancel actions."""
 
     def __init__(
         self,
@@ -554,22 +570,16 @@ class ConfirmDisplayPopUp(DialogHandler):
         proceed_button_label: str = "Proceed",
         cancel_button_label: str = "Cancel",
     ):
-        pop_up_height = 150
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
-                height=pop_up_height,
+                height=150,
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
                     controls=[
-                        THeading(
-                            title=title,
-                            size=fonts.HEADLINE_4_SIZE,
-                        ),
+                        THeading(title=title, size=fonts.HEADLINE_4_SIZE),
                         Spacer(xs_space=True),
-                        TBodyText(
-                            txt=description,
-                            size=fonts.SUBTITLE_1_SIZE,
-                        ),
+                        TBodyText(txt=description, size=fonts.BODY_1_SIZE),
                     ],
                 ),
             ),
@@ -601,36 +611,24 @@ class ConfirmDisplayPopUp(DialogHandler):
 
 
 class TPopUpMenuItem(PopupMenuItem):
-    """Returns a customizable pop up menu item with standard styling"""
+    """Styled popup menu item with icon + text."""
 
-    def __init__(
-        self,
-        icon,
-        txt,
-        on_click,
-        is_delete: bool = False,
-    ):
+    def __init__(self, icon, txt, on_click, is_delete: bool = False):
+        item_color = colors.danger if is_delete else colors.text_primary
         super().__init__(
             content=Row(
                 [
-                    Icon(
-                        icon,
-                        size=dimens.ICON_SIZE,
-                        color=colors.ERROR_COLOR if is_delete else None,
-                    ),
-                    TBodyText(
-                        txt,
-                        size=fonts.BUTTON_SIZE,
-                        color=colors.ERROR_COLOR if is_delete else None,
-                    ),
-                ]
+                    Icon(icon, size=dimens.ICON_SIZE, color=item_color),
+                    TBodyText(txt, size=fonts.BODY_1_SIZE, color=item_color),
+                ],
+                spacing=dimens.SPACE_SM,
             ),
             on_click=on_click,
         )
 
 
 class TContextMenu(PopupMenuButton):
-    """Returns a customizable pop up menu button with optional view, edit and delete menus"""
+    """Three-dot context menu with optional view / edit / delete items."""
 
     def __init__(
         self,
@@ -643,7 +641,6 @@ class TContextMenu(PopupMenuButton):
         prefix_menu_items: Optional[list[PopupMenuItem]] = None,
         suffix_menu_items: Optional[list[PopupMenuItem]] = None,
     ):
-
         items = []
         if prefix_menu_items:
             items.extend(prefix_menu_items)
@@ -651,14 +648,12 @@ class TContextMenu(PopupMenuButton):
             items.append(
                 TPopUpMenuItem(
                     icons.VISIBILITY_OUTLINED, txt=view_item_lbl, on_click=on_click_view
-                ),
+                )
             )
         if on_click_edit:
             items.append(
                 TPopUpMenuItem(
-                    icons.EDIT_OUTLINED,
-                    txt=edit_item_lbl,
-                    on_click=on_click_edit,
+                    icons.EDIT_OUTLINED, txt=edit_item_lbl, on_click=on_click_edit
                 )
             )
         if on_click_delete:
@@ -672,40 +667,39 @@ class TContextMenu(PopupMenuButton):
             )
         if suffix_menu_items:
             items.extend(suffix_menu_items)
-        super().__init__(items=items)
+        super().__init__(
+            items=items,
+            icon=icons.MORE_HORIZ,
+            icon_size=dimens.ICON_SIZE,
+            icon_color=colors.text_muted,
+        )
 
 
 class TStatusDisplay(Row):
-    """Returns a text with a checked prefix icon"""
+    """Check / uncheck icon + text — for completion status."""
 
-    def __init__(
-        self,
-        txt: str,
-        is_done: bool,
-    ):
+    def __init__(self, txt: str, is_done: bool):
         super().__init__(
+            spacing=dimens.SPACE_SM,
             controls=[
                 Icon(
                     icons.CHECK_CIRCLE_OUTLINE
                     if is_done
                     else icons.RADIO_BUTTON_UNCHECKED,
                     size=dimens.SM_ICON_SIZE,
-                    color=colors.PRIMARY_COLOR if is_done else colors.GRAY_COLOR,
+                    color=colors.success if is_done else colors.text_muted,
                 ),
-                TBodyText(txt),
-            ]
+                TBodyText(
+                    txt, color=colors.text_primary if is_done else colors.text_secondary
+                ),
+            ],
         )
 
 
 class OrView(Row):
-    """Returns a view representing ---- OR ----"""
+    """Visual divider showing '--- OR ---'."""
 
-    def __init__(
-        self,
-        show_lines: Optional[bool] = True,
-        show: bool = True,
-    ):
-
+    def __init__(self, show_lines: Optional[bool] = True, show: bool = True):
         super().__init__(
             visible=show,
             alignment=utils.SPACE_BETWEEN_ALIGNMENT
@@ -714,19 +708,11 @@ class OrView(Row):
             vertical_alignment=utils.CENTER_ALIGNMENT,
             controls=[
                 Container(
-                    height=2,
-                    bgcolor=colors.GRAY_COLOR,
-                    width=100,
-                    alignment=alignment.center,
-                    visible=show_lines,
+                    height=1, bgcolor=colors.border, width=100, visible=show_lines
                 ),
-                TBodyText("OR", align=utils.TXT_ALIGN_CENTER, color=colors.GRAY_COLOR),
+                TBodyText("OR", align=utils.TXT_ALIGN_CENTER, color=colors.text_muted),
                 Container(
-                    height=2,
-                    bgcolor=colors.GRAY_COLOR,
-                    width=100,
-                    alignment=alignment.center,
-                    visible=show_lines,
+                    height=1, bgcolor=colors.border, width=100, visible=show_lines
                 ),
             ],
         )
@@ -734,7 +720,7 @@ class OrView(Row):
 
 @dataclass
 class NavigationMenuItem:
-    """defines a menu item used in navigation rails"""
+    """Defines a menu item used in the navigation system."""
 
     index: int
     label: str
@@ -745,84 +731,190 @@ class NavigationMenuItem:
     on_new_intent: Optional[str] = None
 
 
-class TNavigationMenu(NavigationRail):
-    """
-    Returns a navigation menu for the application.
+class SectionLabel(Container):
+    """Uppercase muted section header (like VS Code sidebar sections)."""
 
-    :param title: Title of the navigation menu.
-    :param on_change: Callable function to be called when the selected item in the menu changes.
-    :param selected_index: The index of the selected item in the menu.
-    :param destinations: List of destinations in the menu.
-    :param menu_height: The height of the menu.
-    :return: A NavigationRail widget containing the navigation menu.
+    def __init__(self, title: str):
+        super().__init__(
+            padding=padding.only(
+                left=dimens.SPACE_MD, top=dimens.SPACE_MD, bottom=dimens.SPACE_SM
+            ),
+            content=Text(
+                title.upper(),
+                size=fonts.OVERLINE_SIZE,
+                color=colors.text_muted,
+                weight=fonts.BOLDER_FONT,
+                style=TextStyle(letter_spacing=1.2),
+            ),
+        )
+
+
+class SidebarNavItem(Container):
+    """A single sidebar navigation item — flat, with hover highlight."""
+
+    def __init__(
+        self,
+        label: str,
+        icon: str,
+        selected_icon: str,
+        selected: bool = False,
+        on_click: Optional[Callable] = None,
+    ):
+        self._selected = selected
+        self._icon = icon
+        self._selected_icon = selected_icon
+        self._on_click = on_click
+
+        bg = colors.accent_muted if selected else None
+        icon_color = colors.text_inverse if selected else colors.text_secondary
+        text_color = colors.text_primary if selected else colors.text_secondary
+        current_icon = selected_icon if selected else icon
+
+        super().__init__(
+            bgcolor=bg,
+            border_radius=dimens.RADIUS_MD,
+            padding=padding.symmetric(
+                horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS + 2
+            ),
+            margin=margin.symmetric(horizontal=dimens.SPACE_SM),
+            on_click=on_click,
+            on_hover=self._on_hover,
+            content=Row(
+                controls=[
+                    Icon(current_icon, size=dimens.ICON_SIZE, color=icon_color),
+                    Text(label, size=fonts.BODY_1_SIZE, color=text_color),
+                ],
+                spacing=dimens.SPACE_SM,
+                vertical_alignment=utils.CENTER_ALIGNMENT,
+            ),
+        )
+
+    def _on_hover(self, e):
+        if not self._selected:
+            self.bgcolor = colors.bg_surface_hovered if e.data == "true" else None
+            self.update()
+
+
+class SidebarPanel(Column):
+    """VS Code-style sidebar panel with sections and nav items.
+
+    Replaces the old dual ``TNavigationMenuNoLeading`` / ``TNavigationMenu``
+    widgets with a flat list layout grouped under section headers.
     """
 
     def __init__(
         self,
-        title: str,
-        on_change,
-        selected_index: Optional[int] = 0,
-        destinations=[],
-        menu_height: int = 300,
-        width: int = int(dimens.MIN_WINDOW_WIDTH * 0.3),
-        left_padding: int = dimens.SPACE_STD,
-        top_margin: int = dimens.SPACE_STD,
+        sections: list[tuple[str, list[NavigationMenuItem]]],
+        on_item_selected: Optional[Callable] = None,
+        initial_selected_index: int = 0,
     ):
-
         super().__init__(
-            leading=Container(
-                content=TSubHeading(
-                    subtitle=title,
-                    align=utils.TXT_ALIGN_LEFT,
-                    expand=True,
-                    color=colors.GRAY_DARK_COLOR,
-                ),
-                expand=True,
-                width=width,
-                margin=margin.only(top=top_margin),
-                padding=padding.only(left=left_padding),
-            ),
+            spacing=0,
+            expand=True,
+        )
+        self._sections = sections
+        self._on_item_selected = on_item_selected
+        self._flat_items: list[NavigationMenuItem] = []
+        self._nav_controls: list[SidebarNavItem] = []
+        self._selected_index = initial_selected_index
+
+        for _, items in sections:
+            self._flat_items.extend(items)
+        self._build_controls()
+
+    def _build_controls(self):
+        controls = []
+        flat_idx = 0
+        for section_title, items in self._sections:
+            controls.append(SectionLabel(section_title))
+            for item in items:
+                is_selected = flat_idx == self._selected_index
+                nav = SidebarNavItem(
+                    label=item.label,
+                    icon=item.icon,
+                    selected_icon=item.selected_icon,
+                    selected=is_selected,
+                    on_click=lambda e, idx=flat_idx: self._handle_click(idx),
+                )
+                self._nav_controls.append(nav)
+                controls.append(nav)
+                flat_idx += 1
+        self.controls = controls
+
+    def _handle_click(self, index: int):
+        self._selected_index = index
+        # Rebuild all nav items to reflect selection
+        self._nav_controls.clear()
+        self._build_controls()
+        self.update()
+        if self._on_item_selected:
+            self._on_item_selected(self._flat_items[index])
+
+    @property
+    def selected_item(self) -> NavigationMenuItem:
+        return self._flat_items[self._selected_index]
+
+    @property
+    def selected_index(self) -> int:
+        return self._selected_index
+
+    def setBgColor(self, color):
+        """Backward-compat: no-op (sidebar bg is set on the container)."""
+        pass
+
+
+# ── Backward-compat aliases ──────────────────────────────────
+# Old code that constructs TNavigationMenuNoLeading still works
+# but creates a simplified wrapper.
+
+
+class TNavigationMenu(NavigationRail):
+    """DEPRECATED — kept for backward compat. Use SidebarPanel instead."""
+
+    def __init__(
+        self,
+        title="",
+        on_change=None,
+        selected_index=0,
+        destinations=None,
+        menu_height=300,
+        width=220,
+        left_padding=16,
+        top_margin=16,
+    ):
+        super().__init__(
             selected_index=selected_index,
             min_width=utils.COMPACT_RAIL_WIDTH,
             extended=True,
             height=menu_height,
             min_extended_width=width,
-            destinations=destinations,
+            destinations=destinations or [],
             on_change=on_change,
+            bgcolor=colors.bg_sidebar,
         )
 
 
 class TNavigationMenuNoLeading(Column):
-    """
-    Returns a navigation menu for the application without a leading content.
-
-    :param title: Title of the navigation menu.
-    :param on_change: Callable function to be called when the selected item in the menu changes.
-    :param selected_index: The index of the selected item in the menu.
-    :param destinations: List of destinations in the menu.
-    :param menu_height: The height of the menu.
-    :return: A NavigationRail widget containing the navigation menu.
-    """
+    """DEPRECATED — kept for backward compat. Use SidebarPanel instead."""
 
     def __init__(
         self,
-        title: str,
-        on_change,
-        selected_index: Optional[int] = 0,
-        destinations=[],
-        menu_height: int = 200,
-        width: int = int(dimens.MIN_WINDOW_WIDTH * 0.3),
-        left_padding: int = dimens.SPACE_STD,
-        top_margin: int = dimens.SPACE_STD,
+        title="",
+        on_change=None,
+        selected_index=0,
+        destinations=None,
+        menu_height=200,
+        width=220,
+        left_padding=16,
+        top_margin=16,
     ):
-
         super().__init__()
         self.titleContainer = Container(
             content=TSubHeading(
                 subtitle=title,
                 align=utils.TXT_ALIGN_LEFT,
                 expand=True,
-                color=colors.GRAY_DARK_COLOR,
+                color=colors.text_muted,
             ),
             expand=False,
             width=width,
@@ -836,24 +928,20 @@ class TNavigationMenuNoLeading(Column):
             extended=True,
             height=menu_height,
             min_extended_width=width,
-            destinations=destinations,
+            destinations=destinations or [],
             on_change=on_change,
+            bgcolor=colors.bg_sidebar,
         )
 
-    def setBgColor(self, side_bar_bg_color):
-        # set the background color of the navigation menu
-        self.navigationRail.bgcolor = side_bar_bg_color
-        self.titleContainer.bgcolor = side_bar_bg_color
-        # Only update if the control is mounted on the page
+    def setBgColor(self, color):
+        self.navigationRail.bgcolor = color
+        self.titleContainer.bgcolor = color
         if hasattr(self, "page") and self.page is not None:
             self.update()
 
     def build(self):
         return Column(
-            controls=[
-                self.titleContainer,
-                self.navigationRail,
-            ],
+            controls=[self.titleContainer, self.navigationRail],
             alignment=utils.START_ALIGNMENT,
             horizontal_alignment=utils.START_ALIGNMENT,
             spacing=0,
@@ -862,30 +950,34 @@ class TNavigationMenuNoLeading(Column):
 
 
 class TBackButton(IconButton):
-    """Returns a back button"""
+    """Chevron-left back button."""
 
     def __init__(self, on_click: Optional[Callable] = None):
         return super().__init__(
             icon=icons.CHEVRON_LEFT_ROUNDED,
             on_click=on_click,
-            icon_size=dimens.ICON_SIZE,
+            icon_size=dimens.MD_ICON_SIZE,
+            icon_color=colors.text_secondary,
         )
 
 
 class TFullScreenFormContainer(Container):
-    """Returns a container for a full screen form"""
+    """Centered form container with max-width constraint."""
 
     def __init__(self, form_controls: list[Control]):
         return super().__init__(
             expand=True,
-            padding=padding.all(dimens.SPACE_MD),
+            padding=padding.all(dimens.SPACE_LG),
             margin=margin.symmetric(vertical=dimens.SPACE_MD),
-            content=Card(
+            content=Container(
                 expand=True,
+                bgcolor=colors.bg_surface,
+                border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+                border_radius=dimens.RADIUS_LG,
                 content=Container(
                     Column(expand=True, controls=form_controls),
-                    padding=padding.all(dimens.SPACE_MD),
-                    width=dimens.MIN_WINDOW_WIDTH,
+                    padding=padding.all(dimens.SPACE_LG),
+                    width=800,
                 ),
             ),
         )
@@ -918,7 +1010,7 @@ class EntityStates(Enum):
 
 
 class EntityFiltersView(Row):
-    """Reusable filter buttons row for entity lists."""
+    """Segmented-control-style filter bar for entity lists."""
 
     def __init__(self, on_state_changed: Callable, states_enum=EntityStates):
         super().__init__()
@@ -935,22 +1027,22 @@ class EntityFiltersView(Row):
 
     def set_filter_buttons(self):
         for state in self.states_enum:
+            is_active = self.current_state == state
             self.filter_buttons[state] = ElevatedButton(
                 text=str(state),
                 col={"xs": 6, "sm": 3, "lg": 2},
                 on_click=lambda e, s=state: self.on_filter_button_clicked(s),
                 height=dimens.CLICKABLE_PILL_HEIGHT,
-                color=colors.PRIMARY_COLOR
-                if self.current_state == state
-                else colors.GRAY_COLOR,
+                color=colors.text_inverse if is_active else colors.text_secondary,
+                bgcolor=colors.accent if is_active else colors.bg_surface,
                 tooltip=state.tooltip,
                 style=ButtonStyle(
-                    elevation={
-                        utils.PRESSED: 3,
-                        utils.SELECTED: 3,
-                        utils.HOVERED: 4,
-                        utils.OTHER_CONTROL_STATES: 2,
-                    },
+                    shape=RoundedRectangleBorder(radius=dimens.RADIUS_SM),
+                    elevation=0,
+                    side=border.BorderSide(
+                        width=1,
+                        color=colors.accent if is_active else colors.border,
+                    ),
                 ),
             )
 
@@ -993,7 +1085,7 @@ class CrudListView(TView, Column):
         self.loading_indicator = TProgressBar()
         self.no_items_control = TBodyText(
             txt=f"You have not added any {self.entity_name_plural} yet",
-            color=colors.GRAY_COLOR,
+            color=colors.text_muted,
             show=False,
         )
         self.title_control = ResponsiveRow(
@@ -1001,7 +1093,10 @@ class CrudListView(TView, Column):
                 Column(
                     col={"xs": 12},
                     controls=[
-                        THeading(f"My {self.entity_name_plural.title()}"),
+                        THeading(
+                            f"My {self.entity_name_plural.title()}",
+                            size=fonts.HEADLINE_3_SIZE,
+                        ),
                         self.loading_indicator,
                         self.no_items_control,
                     ],
@@ -1009,9 +1104,9 @@ class CrudListView(TView, Column):
             ]
         )
         self.items_container = GridView(
-            max_extent=540,
-            spacing=dimens.SPACE_STD,
-            run_spacing=dimens.SPACE_STD,
+            max_extent=dimens.CARD_MAX_EXTENT,
+            spacing=dimens.CARD_SPACING,
+            run_spacing=dimens.CARD_SPACING,
         )
         self.items_to_display = {}
         self.popup_handler = None
@@ -1250,7 +1345,7 @@ class EntityDetailScreen(TView, Container):
                     col={"xs": 3},
                     controls=[
                         TBodyText(
-                            txt=label, weight=FontWeight.BOLD, color=colors.GRAY_COLOR
+                            txt=label, weight=FontWeight.BOLD, color=colors.text_muted
                         )
                     ],
                 ),

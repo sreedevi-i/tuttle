@@ -14,11 +14,17 @@ from flet import (
     PopupMenuItem,
     ResponsiveRow,
     Row,
+    Text,
     Control,
     alignment,
     border,
     icons,
     padding,
+    margin,
+    ScrollMode,
+    MainAxisAlignment,
+    CrossAxisAlignment,
+    TextStyle,
 )
 
 from ..clients.view import ClientsListView
@@ -34,34 +40,20 @@ from ..timetracking.view import TimeTrackingView
 from ..preferences.intent import PreferencesIntent
 
 
-MIN_FOOTER_WIDTH = int(dimens.MIN_WINDOW_WIDTH * 0.7)
-MIN_BODY_HEIGHT = int(dimens.MIN_WINDOW_HEIGHT * 0.8)
-
-
-def get_action_bar(
+def get_toolbar(
+    title: str,
     on_click_new_btn: Callable,
-    on_click_notifications_btn: Callable,
     on_click_profile_btn: Callable,
     on_view_settings_clicked: Callable,
 ):
-    """
-    Returns the action bar containing various buttons for application functionality.
-
-    :param on_click_new_btn: Callable function to be called when the 'New' button is clicked.
-    :param on_click_notifications_btn: Callable function to be called when the 'Notifications' button is clicked.
-    :param on_click_profile_btn: Callable function to be called when the 'Profile' button is clicked.
-    :param on_view_settings_clicked: Callable function to be called when the 'Settings' button is clicked.
-    :return: A Container widget containing the action bar.
-    """
+    """Compact toolbar — title on the left, actions on the right."""
     return Container(
         alignment=alignment.center,
         height=dimens.TOOLBAR_HEIGHT,
+        bgcolor=colors.bg_toolbar,
         padding=padding.symmetric(horizontal=dimens.SPACE_MD),
         border=border.only(
-            bottom=border.BorderSide(
-                width=0.2,
-                color=colors.BORDER_DARK_COLOR,
-            )
+            bottom=border.BorderSide(width=1, color=colors.border_subtle),
         ),
         content=Row(
             alignment=utils.SPACE_BETWEEN_ALIGNMENT,
@@ -69,45 +61,47 @@ def get_action_bar(
             controls=[
                 Row(
                     controls=[
-                        views.THeading(
-                            "",
-                            size=fonts.HEADLINE_4_SIZE,
-                        )
+                        views.THeading(title, size=fonts.HEADLINE_4_SIZE),
                     ],
-                    alignment=utils.CENTER_ALIGNMENT,
                     vertical_alignment=utils.CENTER_ALIGNMENT,
                 ),
                 Row(
+                    spacing=dimens.SPACE_XS,
                     controls=[
                         ElevatedButton(
                             text="New",
-                            icon=icons.ADD_OUTLINED,
-                            icon_color=colors.PRIMARY_COLOR,
-                            color=colors.PRIMARY_COLOR,
+                            icon=icons.ADD,
+                            icon_color=colors.accent,
+                            color=colors.accent,
+                            bgcolor=colors.bg_surface,
+                            height=dimens.CLICKABLE_STD_HEIGHT,
                             on_click=on_click_new_btn,
+                            style=views.ButtonStyle(
+                                shape=views.RoundedRectangleBorder(
+                                    radius=dimens.RADIUS_MD
+                                ),
+                                side=border.BorderSide(width=1, color=colors.border),
+                                elevation=0,
+                            ),
                         ),
-                        # TODO: Implement notifications
-                        # IconButton(
-                        #     icons.NOTIFICATIONS,
-                        #     icon_color=colors.PRIMARY_COLOR,
-                        #     icon_size=dimens.ICON_SIZE,
-                        #     tooltip="Notifications",
-                        #     on_click=on_click_notifications_btn,
-                        # ),
                         IconButton(
-                            icon=icons.SETTINGS_SUGGEST_OUTLINED,
+                            icon=icons.SETTINGS_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
+                            icon_color=colors.text_secondary,
                             on_click=on_view_settings_clicked,
                             tooltip="Preferences",
                         ),
                         IconButton(
                             icons.PERSON_OUTLINE_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
+                            icon_color=colors.text_secondary,
                             tooltip="Profile",
                             on_click=on_click_profile_btn,
                         ),
                         PopupMenuButton(
-                            icon=icons.HELP,
+                            icon=icons.HELP_OUTLINE,
+                            icon_size=dimens.ICON_SIZE,
+                            icon_color=colors.text_secondary,
                             items=[
                                 PopupMenuItem(
                                     icon=icons.CONTACT_SUPPORT,
@@ -125,7 +119,7 @@ def get_action_bar(
                                 ),
                             ],
                         ),
-                    ]
+                    ],
                 ),
             ],
         ),
@@ -133,7 +127,7 @@ def get_action_bar(
 
 
 class MainMenuItemsHandler:
-    """Manages home's main-menu items"""
+    """Manages home's main-menu items."""
 
     def __init__(self, params: TViewParams):
         super().__init__()
@@ -143,63 +137,49 @@ class MainMenuItemsHandler:
         self.clients_view = ClientsListView(params)
         self.contracts_view = ContractsListView(params)
         self.items = [
-            # MenuItem(
-            #     index=0,
-            #     label="Dashboard",
-            #     icon=utils.TuttleComponentIcons.dashboard_icon,
-            #     selected_icon=utils.TuttleComponentIcons.dashboard_selected_icon,
-            #     destination=Container(),
-            #     on_new_screen_route="/404",
-            # ),
             views.NavigationMenuItem(
-                index=1,
+                index=0,
                 label="Projects",
                 icon=utils.TuttleComponentIcons.project_icon,
                 selected_icon=utils.TuttleComponentIcons.project_selected_icon,
                 destination=self.projects_view,
                 on_new_screen_route=res_utils.PROJECT_EDITOR_SCREEN_ROUTE,
-                on_new_intent=None,
             ),
             views.NavigationMenuItem(
-                index=4,
+                index=1,
                 label="Contracts",
                 icon=utils.TuttleComponentIcons.contract_icon,
                 selected_icon=utils.TuttleComponentIcons.contract_selected_icon,
                 destination=self.contracts_view,
                 on_new_screen_route=res_utils.CONTRACT_EDITOR_SCREEN_ROUTE,
-                on_new_intent=None,
             ),
             views.NavigationMenuItem(
-                index=3,
+                index=2,
                 label="Clients",
                 icon=utils.TuttleComponentIcons.client_icon,
                 selected_icon=utils.TuttleComponentIcons.client_selected_icon,
                 destination=self.clients_view,
-                on_new_screen_route=None,
                 on_new_intent=res_utils.ADD_CLIENT_INTENT,
             ),
             views.NavigationMenuItem(
-                index=2,
+                index=3,
                 label="Contacts",
                 icon=utils.TuttleComponentIcons.contact_icon,
                 selected_icon=utils.TuttleComponentIcons.contact_selected_icon,
                 destination=self.contacts_view,
-                on_new_screen_route=None,
                 on_new_intent=res_utils.ADD_CONTACT_INTENT,
             ),
         ]
 
 
 class SecondaryMenuHandler:
-    """Manages home's secondary side-menu items"""
+    """Manages home's workflow-menu items."""
 
     def __init__(self, params: TViewParams):
         super().__init__()
         self.menu_title = "Workflows"
-
         self.timetrack_view = TimeTrackingView(params)
         self.invoicing_view = InvoicingListView(params)
-
         self.items = [
             views.NavigationMenuItem(
                 index=0,
@@ -207,7 +187,6 @@ class SecondaryMenuHandler:
                 icon=utils.TuttleComponentIcons.timetracking_icon,
                 selected_icon=utils.TuttleComponentIcons.timetracking_selected_icon,
                 destination=self.timetrack_view,
-                on_new_screen_route=None,
                 on_new_intent=res_utils.NEW_TIME_TRACK_INTENT,
             ),
             views.NavigationMenuItem(
@@ -216,22 +195,15 @@ class SecondaryMenuHandler:
                 icon=utils.TuttleComponentIcons.invoicing_icon,
                 selected_icon=utils.TuttleComponentIcons.invoicing_selected_icon,
                 destination=self.invoicing_view,
-                on_new_screen_route=None,
                 on_new_intent=res_utils.CREATE_INVOICE_INTENT,
             ),
         ]
 
 
-SIDEBAR_WIDTH = 250  # width of the sidebar menu in home screen
-
-
 class HomeScreen(TView, Container):
-    """The home screen"""
+    """Main app shell — sidebar + toolbar + content area + status bar."""
 
-    def __init__(
-        self,
-        params: TViewParams,
-    ):
+    def __init__(self, params: TViewParams):
         super().__init__(params)
         self.keep_back_stack = False
         self.page_scroll_type = None
@@ -240,84 +212,67 @@ class HomeScreen(TView, Container):
         self.preferences_intent = PreferencesIntent(
             client_storage=params.client_storage
         )
-        self.selected_tab = 0
 
-        self.main_menu = views.TNavigationMenuNoLeading(
-            title=self.main_menu_handler.menu_title,
-            destinations=self.get_menu_destinations(),
-            on_change=lambda e: self.on_menu_destination_change(e),
+        # Build flat list of all items for the sidebar
+        self._all_items: list[views.NavigationMenuItem] = list(
+            self.main_menu_handler.items
+        ) + list(self.secondary_menu_handler.items)
+        self._selected_flat_index = 0
+
+        # Create sidebar panel
+        self.sidebar_panel = views.SidebarPanel(
+            sections=[
+                (self.main_menu_handler.menu_title, self.main_menu_handler.items),
+                (
+                    self.secondary_menu_handler.menu_title,
+                    self.secondary_menu_handler.items,
+                ),
+            ],
+            on_item_selected=self._on_sidebar_item_selected,
+            initial_selected_index=0,
         )
-        self.secondary_menu = views.TNavigationMenuNoLeading(
-            title=self.secondary_menu_handler.menu_title,
-            destinations=self.get_menu_destinations(menu_level=1),
-            on_change=lambda e: self.on_menu_destination_change(e, menu_level=1),
-        )
-        self.current_menu_handler = self.main_menu_handler
-        self.destination_view = self.current_menu_handler.items[0].destination
+
+        self.destination_view = self._all_items[0].destination
         self.dialog: Optional[DialogHandler] = None
-        self.action_bar = get_action_bar(
-            on_click_notifications_btn=self.on_view_notifications_clicked,
+
+        # Toolbar (title updates on nav change)
+        self._toolbar_title = self._all_items[0].label
+        self.toolbar = get_toolbar(
+            title=self._toolbar_title,
             on_click_new_btn=self.on_click_add_new,
             on_click_profile_btn=self.on_click_profile,
             on_view_settings_clicked=self.on_view_settings_clicked,
         )
 
-    # MENU DESTINATIONS SETUP
-    def get_menu_destinations(self, menu_level=0) -> list:
-        """loops through the main menu items and creates nav-rail-destinations"""
-        items = []
-        handler = (
-            self.main_menu_handler if menu_level == 0 else self.secondary_menu_handler
+    def _on_sidebar_item_selected(self, item: views.NavigationMenuItem):
+        """Called when the user clicks a sidebar nav item."""
+        self._selected_flat_index = self._all_items.index(item)
+        self.destination_view = item.destination
+        self.destination_content_container.content = self.destination_view
+        # Update toolbar title
+        self._toolbar_title = item.label
+        self.toolbar = get_toolbar(
+            title=self._toolbar_title,
+            on_click_new_btn=self.on_click_add_new,
+            on_click_profile_btn=self.on_click_profile,
+            on_view_settings_clicked=self.on_view_settings_clicked,
         )
-        for item in handler.items:
-            itemDestination = NavigationRailDestination(
-                icon=item.icon,
-                selected_icon=item.selected_icon,
-                label_content=views.TBodyText(item.label),
-                padding=padding.symmetric(horizontal=dimens.SPACE_SM),
-            )
-            items.append(itemDestination)
-        return items
+        self.main_body.controls = [self.toolbar, self.destination_content_container]
+        self.update_self()
 
-    def on_menu_destination_change(self, e, menu_level=0):
-        """handles the menu destination change event"""
-        if self.mounted:
-            # update the current menu
-            self.current_menu_handler = (
-                self.main_menu_handler
-                if menu_level == 0
-                else self.secondary_menu_handler
-            )
-            self.selected_tab = e.control.selected_index
-
-            # update the destination view
-            menu_item = self.current_menu_handler.items[self.selected_tab]
-            self.destination_view = menu_item.destination
-            self.destination_content_container.content = self.destination_view
-
-            # clear selected items on the other menu
-            if menu_level == 0:
-                self.secondary_menu.selected_index = None
-            else:
-                self.main_menu.selected_index = None
-            self.update_self()
-
-    # ACTION BUTTONS
+    # ── Action buttons ────────────────────────────────────────
     def on_click_add_new(self, e):
-        """handles the add new button click event"""
-        item = self.current_menu_handler.items[self.selected_tab]
+        item = self._all_items[self._selected_flat_index]
         if item.on_new_intent:
             self.pass_intent_to_destination(item.on_new_intent)
-        else:
+        elif item.on_new_screen_route:
             self.navigate_to_route(item.on_new_screen_route)
 
     def on_resume_after_back_pressed(self):
-        """called when the user presses the back button"""
         if self.destination_view and isinstance(self.destination_view, TView):
             self.destination_view.on_resume_after_back_pressed()
 
-    def pass_intent_to_destination(self, intent: str, data: Optional[any] = None):
-        """pass an intent to the destination view"""
+    def pass_intent_to_destination(self, intent: str, data=None):
         if self.destination_view and isinstance(self.destination_view, TView):
             self.destination_view.parent_intent_listener(intent, data)
 
@@ -330,114 +285,88 @@ class HomeScreen(TView, Container):
     def on_click_profile(self, e):
         self.navigate_to_route(res_utils.PROFILE_SCREEN_ROUTE)
 
+    # ── Build ─────────────────────────────────────────────────
     def build(self):
         self.destination_content_container = Container(
             padding=padding.all(dimens.SPACE_MD),
             content=self.destination_view,
+            expand=True,
         )
-        self.footer = Container(
-            col={"xs": 12},
-            content=views.THeading(),
-            alignment=alignment.center,
-            border=border.only(
-                top=border.BorderSide(width=0.2, color=colors.BORDER_DARK_COLOR)
-            ),
+
+        # Status bar — VS Code style thin bar at bottom
+        self.status_bar = Container(
             height=dimens.FOOTER_HEIGHT,
-        )
-        self.main_body = Container(
-            width=dimens.MIN_WINDOW_WIDTH - SIDEBAR_WIDTH,
-            content=Column(
-                alignment=utils.START_ALIGNMENT,
-                horizontal_alignment=utils.START_ALIGNMENT,
+            bgcolor=colors.bg_statusbar,
+            padding=padding.symmetric(horizontal=dimens.SPACE_SM),
+            content=Row(
                 controls=[
-                    self.action_bar,
-                    self.destination_content_container,
-                ],
-            ),
-        )
-        self.side_bar = Container(
-            width=SIDEBAR_WIDTH,
-            padding=padding.only(
-                top=dimens.SPACE_XL,
-                left=0,
-            ),
-            content=Column(
-                controls=[
-                    self.main_menu,
-                    self.secondary_menu,
+                    Text("Tuttle", size=11, color=colors.text_inverse),
                 ],
                 alignment=utils.START_ALIGNMENT,
-                horizontal_alignment=utils.START_ALIGNMENT,
-                spacing=0,
-                run_spacing=0,
-            ),
-            border=border.only(
-                right=border.BorderSide(
-                    width=0.2,
-                    color=colors.BORDER_DARK_COLOR,
-                )
+                vertical_alignment=utils.CENTER_ALIGNMENT,
             ),
         )
 
+        # Sidebar
+        self.side_bar = Container(
+            width=dimens.SIDEBAR_WIDTH,
+            bgcolor=colors.bg_sidebar,
+            padding=padding.only(top=dimens.SPACE_LG),
+            content=Column(
+                controls=[self.sidebar_panel],
+                alignment=utils.START_ALIGNMENT,
+                spacing=0,
+                expand=True,
+            ),
+            border=border.only(
+                right=border.BorderSide(width=1, color=colors.border_subtle),
+            ),
+        )
+
+        # Main body
+        self.main_body = Column(
+            expand=True,
+            alignment=utils.START_ALIGNMENT,
+            horizontal_alignment=utils.START_ALIGNMENT,
+            spacing=0,
+            controls=[
+                self.toolbar,
+                self.destination_content_container,
+            ],
+        )
+
         self.home_screen_view = Container(
-            Column(
-                [
+            bgcolor=colors.bg,
+            expand=True,
+            content=Column(
+                controls=[
                     Row(
-                        controls=[
-                            self.side_bar,
-                            self.main_body,
-                        ],
+                        controls=[self.side_bar, self.main_body],
                         spacing=0,
                         alignment=utils.START_ALIGNMENT,
                         vertical_alignment=utils.START_ALIGNMENT,
-                        expand=1,
+                        expand=True,
                     ),
-                    self.footer,
+                    self.status_bar,
                 ],
                 alignment=utils.SPACE_BETWEEN_ALIGNMENT,
                 horizontal_alignment=utils.STRETCH_ALIGNMENT,
                 spacing=0,
-                run_spacing=0,
             ),
         )
         self.content = self.home_screen_view
+        self.expand = True
 
     def did_mount(self):
         self.mounted = True
-        self.load_preferred_theme()
 
     def on_resume_after_back_pressed(self):
-        self.load_preferred_theme()
         self.pass_intent_to_destination(res_utils.RELOAD_INTENT)
-
-    def load_preferred_theme(self):
-        """Sets the UI theme from the user's preferences"""
-        result = self.preferences_intent.get_preferred_theme()
-        if not result.was_intent_successful:
-            self.show_snack(result.error_msg, is_error=True)
-            return
-        self.preferred_theme = result.data
-        side_bar_bg_color = colors.SIDEBAR_DARK_COLOR  # default is dark mode
-        self.action_bar.bgcolor = colors.ACTION_BAR_DARK_COLOR
-        if self.preferred_theme == theme.THEME_MODES.light.value:
-            side_bar_bg_color = colors.SIDEBAR_LIGHT_COLOR
-            self.action_bar.bgcolor = colors.ACTION_BAR_LIGHT_COLOR
-        self.side_bar.bgcolor = side_bar_bg_color
-        self.main_menu.setBgColor(side_bar_bg_color)
-        self.secondary_menu.setBgColor(side_bar_bg_color)
-        self.footer.bgcolor = side_bar_bg_color  # footer and side bar have same bgcolor
-        self.update_self()
 
     def on_window_resized_listener(self, width, height):
         if not self.mounted:
             return
         super().on_window_resized_listener(width, height)
-        self.home_screen_view.height = self.page_height
-        DESTINATION_CONTENT_PERCENT_HEIGHT = self.page_height - (
-            self.action_bar.height + self.footer.height + 50
-        )
-        self.destination_content_container.height = DESTINATION_CONTENT_PERCENT_HEIGHT
-        self.main_body.width = self.page_width - SIDEBAR_WIDTH
         self.update_self()
 
     def will_unmount(self):

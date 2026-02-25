@@ -37,9 +37,10 @@ class TwoFAPopUp(DialogHandler):
         title: Optional[str] = "Enter the verification code",
     ):
 
-        dialog_width = int(dimens.MIN_WINDOW_WIDTH * 0.8)
+        dialog_width = 480
         title = title
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
@@ -87,9 +88,10 @@ class NewTimeTrackPopUp(DialogHandler):
 
         space_between_cloud_controls = views.Spacer(xs_space=True)
         space_between_cloud_controls.visible = display_cloud_option
-        dialog_width = int(dimens.MIN_WINDOW_WIDTH * 0.8)
+        dialog_width = 480
         title = "Track your progress"
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
@@ -124,7 +126,6 @@ class NewTimeTrackPopUp(DialogHandler):
                                 password=self.password,
                                 calendar_name=self.calendar_name,
                             ),
-                            width=int(dialog_width * 0.9),
                             show=display_cloud_option,
                         ),
                         space_between_cloud_controls,
@@ -134,7 +135,6 @@ class NewTimeTrackPopUp(DialogHandler):
                             label="Upload a calendar (.ics) file",
                             icon="calendar_month",
                             on_click=lambda _: on_use_file_callback(is_ics=True),
-                            width=int(dialog_width * 0.9),
                         ),
                         views.OrView(show_lines=False),
                         views.Spacer(xs_space=True),
@@ -144,7 +144,6 @@ class NewTimeTrackPopUp(DialogHandler):
                             on_click=lambda _: on_use_file_callback(
                                 is_spreadsheet=True
                             ),
-                            width=int(dialog_width * 0.9),
                         ),
                         views.Spacer(xs_space=True),
                     ],
@@ -446,7 +445,7 @@ class TimeTrackingView(TView, Column):
         self.loading_indicator = views.TProgressBar()
         self.no_timetrack_control = views.TBodyText(
             txt="You have not logged any work progress yet.",
-            color=colors.ERROR_COLOR,
+            color=colors.text_muted,
             show=False,
         )
         self.ongoing_action_hint = views.TBodyText(show=False)

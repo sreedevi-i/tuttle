@@ -9,9 +9,13 @@ from flet import (
     ListTile,
     ResponsiveRow,
     Row,
+    Text,
     Control,
+    border,
     border_radius,
     padding,
+    margin,
+    alignment,
 )
 
 from ..contacts.intent import ContactsIntent
@@ -23,95 +27,116 @@ from ..res import colors, dimens, fonts, res_utils
 from ...model import Address, Contact
 
 
-class ContactCard(Card):
-    """Formats a single contact info into a card ui display"""
+def _initials(name: str) -> str:
+    """Extract up to 2 initials from a name."""
+    parts = (name or "").split()
+    return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
 
-    def __init__(
-        self,
-        contact: Contact,
-        on_edit_clicked,
-        on_deleted_clicked,
-    ):
-        super().__init__()
+
+class ContactCard(Container):
+    """Flat, bordered card for a contact — VS Code panel style."""
+
+    def __init__(self, contact: Contact, on_edit_clicked, on_deleted_clicked):
         self.contact = contact
-        self.contact_info_container = Column(
-            spacing=0,
-            run_spacing=0,
-        )
         self.on_edit_clicked = on_edit_clicked
         self.on_deleted_clicked = on_deleted_clicked
 
-    def build(self):
-        """Builds the contact card"""
-        self.contact_info_container.controls = [
-            ListTile(
-                leading=Icon(
-                    utils.TuttleComponentIcons.contact_icon,
-                    size=dimens.MD_ICON_SIZE,
-                ),
-                title=views.TBodyText(utils.truncate_str(self.contact.name)),
-                subtitle=views.TBodyText(
-                    utils.truncate_str(self.contact.company), color=colors.GRAY_COLOR
-                ),
-                trailing=views.TContextMenu(
-                    on_click_edit=lambda e: self.on_edit_clicked(self.contact),
-                    on_click_delete=lambda e: self.on_deleted_clicked(self.contact),
-                ),
+        initials = _initials(contact.name)
+        avatar = Container(
+            width=36,
+            height=36,
+            bgcolor=colors.accent_muted,
+            border_radius=dimens.RADIUS_LG,
+            alignment=alignment.center,
+            content=Text(
+                initials,
+                size=fonts.BODY_1_SIZE,
+                color=colors.accent,
+                weight=fonts.BOLD_FONT,
             ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="email",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    views.TBodyText(
-                        txt=self.contact.email,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                ],
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
-            ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="address",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    Container(
-                        views.TBodyText(
-                            txt=self.contact.print_address(address_only=True).strip(),
-                            size=fonts.BODY_2_SIZE,
-                            col={"xs": "12"},
-                        ),
-                    ),
-                ],
-                alignment=utils.START_ALIGNMENT,
-                vertical_alignment=utils.START_ALIGNMENT,
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-            ),
-        ]
-        self.elevation = 2
-        self.expand = True
-        self.content = Container(
-            expand=True,
-            padding=padding.all(dimens.SPACE_STD),
-            border_radius=border_radius.all(12),
-            content=self.contact_info_container,
         )
+
+        header = Row(
+            controls=[
+                avatar,
+                Column(
+                    spacing=0,
+                    controls=[
+                        views.TBodyText(
+                            utils.truncate_str(contact.name, 30), weight=fonts.BOLD_FONT
+                        ),
+                        views.TBodyText(
+                            utils.truncate_str(contact.company, 30),
+                            color=colors.text_secondary,
+                            size=fonts.BODY_2_SIZE,
+                        ),
+                    ],
+                ),
+            ],
+            spacing=dimens.SPACE_SM,
+            expand=True,
+            vertical_alignment=utils.CENTER_ALIGNMENT,
+        )
+
+        context_menu = views.TContextMenu(
+            on_click_edit=lambda e: self.on_edit_clicked(contact),
+            on_click_delete=lambda e: self.on_deleted_clicked(contact),
+        )
+
+        body_items = []
+        if contact.email:
+            body_items.extend(
+                [
+                    views.TBodyText(
+                        "Email", color=colors.text_muted, size=fonts.OVERLINE_SIZE
+                    ),
+                    views.TBodyText(contact.email, size=fonts.BODY_2_SIZE),
+                    views.Spacer(sm_space=True),
+                ]
+            )
+        address_str = (
+            contact.print_address(address_only=True).strip() if contact.address else ""
+        )
+        if address_str:
+            body_items.extend(
+                [
+                    views.TBodyText(
+                        "Address", color=colors.text_muted, size=fonts.OVERLINE_SIZE
+                    ),
+                    views.TBodyText(address_str, size=fonts.BODY_2_SIZE),
+                ]
+            )
+
+        super().__init__(
+            expand=True,
+            bgcolor=colors.bg_surface,
+            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border_radius=dimens.RADIUS_LG,
+            padding=padding.all(dimens.SPACE_MD),
+            on_hover=self._on_hover,
+            content=Column(
+                spacing=dimens.SPACE_SM,
+                controls=[
+                    Row(
+                        controls=[header, context_menu],
+                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+                        vertical_alignment=utils.START_ALIGNMENT,
+                    ),
+                    Container(height=1, bgcolor=colors.border_subtle),
+                    *body_items,
+                ],
+            ),
+        )
+
+    def _on_hover(self, e):
+        self.bgcolor = (
+            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
+        )
+        self.update()
 
 
 class ContactEditorPopUp(DialogHandler):
-    """Pop up used for editing a contact"""
+    """Dialog for creating or editing a contact."""
 
     def __init__(
         self,
@@ -120,18 +145,16 @@ class ContactEditorPopUp(DialogHandler):
         on_error: Callable,
         contact: Optional[Contact] = None,
     ):
-        # dimensions of the pop up
         pop_up_height = 550
-        pop_up_width = int(dimens.MIN_WINDOW_WIDTH * 0.8)
-        width_spanning_half_of_container = int(dimens.MIN_WINDOW_WIDTH * 0.35)
+        pop_up_width = 480
+        half_width = 220
         self.contact = contact
         if not self.contact:
-            # user is creating a new contact
             self.contact = Contact()
             self.contact.address = Address()
         self.address = self.contact.address
 
-        title = "Edit contact" if contact is not None else "Add contact"
+        title = "Edit Contact" if contact is not None else "New Contact"
 
         self.fname_field = views.TTextField(
             label="First Name",
@@ -149,45 +172,45 @@ class ContactEditorPopUp(DialogHandler):
             initial_value=self.contact.company,
         )
         self.email_field = views.TTextField(
-            label="Email",
-            hint=self.contact.email,
-            initial_value=self.contact.email,
+            label="Email", hint=self.contact.email, initial_value=self.contact.email
         )
         self.street_name_field = views.TTextField(
             label="Street",
             hint=self.contact.address.street,
             initial_value=self.contact.address.street,
-            width=width_spanning_half_of_container,
+            width=half_width,
         )
         self.street_num_field = views.TTextField(
             label="Street No.",
             hint=self.contact.address.number,
             initial_value=self.contact.address.number,
-            width=width_spanning_half_of_container,
+            width=half_width,
         )
-
         self.postal_code_field = views.TTextField(
             label="Postal code",
             hint=self.contact.address.postal_code,
             initial_value=self.contact.address.postal_code,
-            width=width_spanning_half_of_container,
+            width=half_width,
         )
         self.city_field = views.TTextField(
             label="City",
             hint=self.contact.address.city,
             initial_value=self.contact.address.city,
-            width=width_spanning_half_of_container,
+            width=half_width,
         )
         self.country_field = views.TTextField(
             label="Country",
             hint=self.contact.address.country,
             initial_value=self.contact.address.country,
         )
+
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
                 height=pop_up_height,
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
+                    spacing=dimens.SPACE_SM,
                     controls=[
                         views.THeading(title=title, size=fonts.HEADLINE_4_SIZE),
                         views.Spacer(xs_space=True),
@@ -195,28 +218,22 @@ class ContactEditorPopUp(DialogHandler):
                         self.lname_field,
                         self.company_name_field,
                         self.email_field,
+                        views.SectionLabel("Address"),
                         Row(
                             vertical_alignment=utils.CENTER_ALIGNMENT,
-                            controls=[
-                                self.street_name_field,
-                                self.street_num_field,
-                            ],
+                            controls=[self.street_name_field, self.street_num_field],
                         ),
                         Row(
                             vertical_alignment=utils.CENTER_ALIGNMENT,
-                            controls=[
-                                self.postal_code_field,
-                                self.city_field,
-                            ],
+                            controls=[self.postal_code_field, self.city_field],
                         ),
                         self.country_field,
-                        views.Spacer(xs_space=True),
                     ],
                 ),
                 width=pop_up_width,
             ),
             actions=[
-                views.TPrimaryButton(label="Done", on_click=self.on_submit_btn_clicked),
+                views.TPrimaryButton(label="Save", on_click=self.on_submit_btn_clicked),
             ],
         )
         super().__init__(dialog=dialog, dialog_controller=dialog_controller)

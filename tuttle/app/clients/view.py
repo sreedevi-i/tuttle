@@ -9,9 +9,13 @@ from flet import (
     ListTile,
     ResponsiveRow,
     Row,
+    Text,
     Control,
+    border,
     border_radius,
     padding,
+    margin,
+    alignment,
 )
 
 from ..clients.intent import ClientsIntent
@@ -23,8 +27,13 @@ from ..res import colors, dimens, fonts, res_utils
 from ...model import Address, Client, Contact
 
 
-class ClientCard(Card):
-    """Formats a single client info into a card ui display"""
+def _initials(name: str) -> str:
+    parts = (name or "").split()
+    return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
+
+
+class ClientCard(Container):
+    """Flat bordered card for a client entity."""
 
     def __init__(
         self,
@@ -32,89 +41,101 @@ class ClientCard(Card):
         on_edit: Optional[Callable] = None,
         on_delete: Optional[Callable] = None,
     ):
-        super().__init__()
         self.client = client
-        self.client_info_container = Column(spacing=0, run_spacing=0)
         self.on_edit_clicked = on_edit
         self.on_delete_clicked = on_delete
 
-    def build(self):
-        """Builds the client card"""
-        if self.client.invoicing_contact:
-            invoicing_contact_info = self.client.invoicing_contact.print_address()
-        else:
-            invoicing_contact_info = "*not specified"
-        editable = True if self.on_edit_clicked or self.on_delete_clicked else None
+        initials = _initials(client.name)
+        avatar = Container(
+            width=36,
+            height=36,
+            bgcolor=colors.accent_muted,
+            border_radius=dimens.RADIUS_LG,
+            alignment=alignment.center,
+            content=Text(
+                initials,
+                size=fonts.BODY_1_SIZE,
+                color=colors.accent,
+                weight=fonts.BOLD_FONT,
+            ),
+        )
 
-        editor_controls = (
+        editable = on_edit or on_delete
+        trailing = (
             views.TContextMenu(
-                on_click_delete=lambda e: self.on_delete_clicked(self.client),
-                on_click_edit=lambda e: self.on_edit_clicked(self.client),
+                on_click_delete=lambda e: self.on_delete_clicked(client),
+                on_click_edit=lambda e: self.on_edit_clicked(client),
             )
             if editable
             else views.Spacer(sm_space=True)
         )
 
-        self.client_info_container.controls = [
-            ListTile(
-                leading=Icon(
-                    utils.TuttleComponentIcons.client_icon,
-                    size=dimens.MD_ICON_SIZE,
-                ),
-                title=views.TBodyText(self.client.name),
-                trailing=editor_controls,
-            ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Invoicing Contact",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    views.TBodyText(
-                        txt=invoicing_contact_info,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                ],
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
-            ),
-        ]
+        if client.invoicing_contact:
+            contact_info = client.invoicing_contact.print_address()
+        else:
+            contact_info = "Not specified"
 
-        self.elevation = 2
-        self.expand = True
-        self.content = Container(
+        super().__init__(
             expand=True,
-            padding=padding.all(dimens.SPACE_STD),
-            border_radius=border_radius.all(12),
-            content=self.client_info_container,
+            bgcolor=colors.bg_surface,
+            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border_radius=dimens.RADIUS_LG,
+            padding=padding.all(dimens.SPACE_MD),
+            on_hover=self._on_hover,
+            content=Column(
+                spacing=dimens.SPACE_SM,
+                controls=[
+                    Row(
+                        controls=[
+                            Row(
+                                controls=[
+                                    avatar,
+                                    views.TBodyText(
+                                        client.name, weight=fonts.BOLD_FONT
+                                    ),
+                                ],
+                                spacing=dimens.SPACE_SM,
+                                vertical_alignment=utils.CENTER_ALIGNMENT,
+                            ),
+                            trailing,
+                        ],
+                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+                        vertical_alignment=utils.CENTER_ALIGNMENT,
+                    ),
+                    Container(height=1, bgcolor=colors.border_subtle),
+                    views.TBodyText(
+                        "Invoicing Contact",
+                        color=colors.text_muted,
+                        size=fonts.OVERLINE_SIZE,
+                    ),
+                    views.TBodyText(contact_info, size=fonts.BODY_2_SIZE),
+                ],
+            ),
         )
+
+    def _on_hover(self, e):
+        self.bgcolor = (
+            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
+        )
+        self.update()
 
 
 class ClientViewPopUp(DialogHandler, Column):
-    """Pop up used to displaying a client"""
+    """Pop up for viewing a client."""
 
     def __init__(
         self,
         dialog_controller: Callable[[any, utils.AlertDialogControls], None],
         client: Client,
     ):
-        # dimensions of the pop up and the elements inside
-        # accounting for margins and paddings
-
-        pop_up_width = int(dimens.MIN_WINDOW_WIDTH * 0.8)
-
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
                     controls=[ClientCard(client=client)],
                 ),
-                width=pop_up_width,
+                width=480,
             ),
         )
         super().__init__(dialog=dialog, dialog_controller=dialog_controller)
@@ -159,6 +180,10 @@ class ClientEditorPopUp(DialogHandler, Column):
             self.invoicing_contact.id
         )
 
+        pop_up_height = 550
+        pop_up_width = 480
+        half_width = 220
+
         self.first_name_field = views.TTextField(
             label="First Name",
             hint=self.invoicing_contact.first_name,
@@ -185,25 +210,25 @@ class ClientEditorPopUp(DialogHandler, Column):
             label="Street",
             hint=self.invoicing_contact.address.street,
             initial_value=self.invoicing_contact.address.street,
-            width=half_of_pop_up_width,
+            width=half_width,
         )
         self.street_num_field = views.TTextField(
             label="Street No.",
             hint=self.invoicing_contact.address.number,
             initial_value=self.invoicing_contact.address.number,
-            width=half_of_pop_up_width,
+            width=half_width,
         )
         self.postal_code_field = views.TTextField(
             label="Postal code",
             hint=self.invoicing_contact.address.postal_code,
             initial_value=self.invoicing_contact.address.postal_code,
-            width=half_of_pop_up_width,
+            width=half_width,
         )
         self.city_field = views.TTextField(
             label="City",
             hint=self.invoicing_contact.address.city,
             initial_value=self.invoicing_contact.address.city,
-            width=half_of_pop_up_width,
+            width=half_width,
         )
         self.country_field = views.TTextField(
             label="Country",
@@ -225,29 +250,23 @@ class ClientEditorPopUp(DialogHandler, Column):
         self.form_error_field = views.TErrorText(txt="", show=False)
 
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
                 height=pop_up_height,
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
+                    spacing=dimens.SPACE_SM,
                     controls=[
                         views.THeading(title=title, size=fonts.HEADLINE_4_SIZE),
-                        views.Spacer(xs_space=True),
                         self.form_error_field,
-                        views.Spacer(xs_space=True),
                         self.client_name_field,
-                        views.Spacer(xs_space=True),
-                        views.THeading(
-                            title="Invoicing Contact",
-                            size=fonts.SUBTITLE_2_SIZE,
-                            color=colors.GRAY_COLOR,
-                        ),
-                        views.Spacer(xs_space=True),
+                        views.SectionLabel("Invoicing Contact"),
                         self.contacts_dropdown,
-                        views.Spacer(xs_space=True),
                         self.first_name_field,
                         self.last_name_field,
                         self.company_field,
                         self.email_field,
+                        views.SectionLabel("Address"),
                         Row(
                             vertical_alignment=utils.CENTER_ALIGNMENT,
                             controls=[self.street_field, self.street_num_field],
@@ -260,13 +279,12 @@ class ClientEditorPopUp(DialogHandler, Column):
                             ],
                         ),
                         self.country_field,
-                        views.Spacer(),
                     ],
                 ),
                 width=pop_up_width,
             ),
             actions=[
-                views.TPrimaryButton(label="Done", on_click=self.on_submit_btn_clicked),
+                views.TPrimaryButton(label="Save", on_click=self.on_submit_btn_clicked),
             ],
         )
         super().__init__(dialog=dialog, dialog_controller=dialog_controller)

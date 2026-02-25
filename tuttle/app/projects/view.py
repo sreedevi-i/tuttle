@@ -14,8 +14,11 @@ from flet import (
     ListTile,
     ResponsiveRow,
     Row,
+    Text,
     TextButton,
     Control,
+    alignment,
+    border,
     border_radius,
     icons,
     margin,
@@ -32,166 +35,130 @@ from ..res import colors, dimens, fonts, res_utils
 from ...model import Contract, Project
 
 
-class ProjectCard(Card):
-    """Formats a single project info into a card ui display"""
+def _project_initials(title: str) -> str:
+    """Extract up to 2 initials from a project title."""
+    parts = (title or "").split()
+    return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
+
+
+class ProjectCard(Container):
+    """Flat, bordered card for a project — VS Code panel style."""
 
     def __init__(
         self, project, on_view_details_clicked, on_delete_clicked, on_edit_clicked
     ):
-        super().__init__()
         self.project: Project = project
-        self.project_info_container = Column(run_spacing=0, spacing=0)
         self.on_view_details_clicked = on_view_details_clicked
         self.on_delete_clicked = on_delete_clicked
         self.on_edit_clicked = on_edit_clicked
 
-    def build(self):
-        """Builds the project card"""
         _contract_title = "Unknown contract"
-        if self.project.contract:
-            _contract_title = self.project.contract.title
+        if project.contract:
+            _contract_title = project.contract.title
         _client_title = "Unknown client"
-        if self.project.client:
-            _client_title = self.project.client.name
-        self.project_info_container.controls = [
-            ListTile(
-                leading=Icon(
-                    utils.TuttleComponentIcons.project_icon,
-                    size=dimens.MD_ICON_SIZE,
-                ),
-                title=views.TBodyText(self.project.title),
-                subtitle=views.TBodyText(
-                    f"{self.project.tag}",
-                    color=colors.GRAY_COLOR,
-                    weight=FontWeight.BOLD,
-                ),
-                trailing=views.TContextMenu(
-                    on_click_view=lambda e: self.on_view_details_clicked(
-                        self.project.id
-                    ),
-                    on_click_delete=lambda e: self.on_delete_clicked(self.project.id),
-                    on_click_edit=lambda e: self.on_edit_clicked(self.project.id),
-                ),
-                on_click=lambda e: self.on_view_details_clicked(self.project.id),
+        if project.client:
+            _client_title = project.client.name
+
+        initials = _project_initials(project.title)
+        avatar = Container(
+            width=36,
+            height=36,
+            bgcolor=colors.accent_muted,
+            border_radius=dimens.RADIUS_LG,
+            alignment=alignment.center,
+            content=Text(
+                initials,
+                size=fonts.BODY_1_SIZE,
+                color=colors.accent,
+                weight=fonts.BOLD_FONT,
             ),
-            views.Spacer(md_space=True),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Brief Description",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    views.TBodyText(
-                        txt=self.project.get_brief_description(),
-                        col={"xs": "12"},
-                    ),
-                ],
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
-            ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Client",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    Container(
-                        views.TBodyText(
-                            txt=_client_title,
-                            col={"xs": "12"},
-                        ),
-                    ),
-                ],
-                alignment=utils.START_ALIGNMENT,
-                vertical_alignment=utils.START_ALIGNMENT,
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-            ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Contract",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    Container(
-                        views.TBodyText(
-                            txt=_contract_title,
-                            col={"xs": "12"},
-                        ),
-                    ),
-                ],
-                alignment=utils.START_ALIGNMENT,
-                vertical_alignment=utils.START_ALIGNMENT,
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-            ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="Start date",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    Container(
-                        views.TBodyText(
-                            txt=self.project.start_date.strftime("%d/%m/%Y")
-                            if self.project.start_date
-                            else "",
-                            col={"xs": "12"},
-                        ),
-                    ),
-                ],
-                alignment=utils.START_ALIGNMENT,
-                vertical_alignment=utils.START_ALIGNMENT,
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-            ),
-            views.Spacer(md_space=True),
-            ResponsiveRow(
-                controls=[
-                    views.TBodyText(
-                        txt="End date",
-                        color=colors.GRAY_COLOR,
-                        size=fonts.BODY_2_SIZE,
-                        col={"xs": "12"},
-                    ),
-                    Container(
-                        views.TBodyText(
-                            txt=self.project.end_date.strftime("%d/%m/%Y")
-                            if self.project.end_date
-                            else "-",
-                            col={"xs": "12"},
-                            color=colors.ERROR_COLOR,
-                        ),
-                    ),
-                ],
-                alignment=utils.START_ALIGNMENT,
-                vertical_alignment=utils.START_ALIGNMENT,
-                spacing=dimens.SPACE_XS,
-                run_spacing=0,
-            ),
-            views.Spacer(md_space=True),
-        ]
-        self.elevation = 2
-        self.expand = True
-        self.content = Container(
-            expand=True,
-            padding=padding.all(dimens.SPACE_STD),
-            border_radius=border_radius.all(12),
-            content=self.project_info_container,
         )
+
+        header = Row(
+            controls=[
+                avatar,
+                Column(
+                    spacing=0,
+                    controls=[
+                        views.TBodyText(
+                            utils.truncate_str(project.title, 30),
+                            weight=fonts.BOLD_FONT,
+                        ),
+                        views.TBodyText(
+                            project.tag or "",
+                            color=colors.text_secondary,
+                            size=fonts.BODY_2_SIZE,
+                        ),
+                    ],
+                ),
+            ],
+            spacing=dimens.SPACE_SM,
+            expand=True,
+            vertical_alignment=utils.CENTER_ALIGNMENT,
+        )
+
+        context_menu = views.TContextMenu(
+            on_click_view=lambda e: self.on_view_details_clicked(project.id),
+            on_click_delete=lambda e: self.on_delete_clicked(project.id),
+            on_click_edit=lambda e: self.on_edit_clicked(project.id),
+        )
+
+        # Info rows
+        def _info_row(label, value):
+            return Column(
+                spacing=2,
+                controls=[
+                    views.TBodyText(
+                        label, color=colors.text_muted, size=fonts.OVERLINE_SIZE
+                    ),
+                    views.TBodyText(value, size=fonts.BODY_2_SIZE),
+                ],
+            )
+
+        start_str = (
+            project.start_date.strftime("%d/%m/%Y") if project.start_date else ""
+        )
+        end_str = project.end_date.strftime("%d/%m/%Y") if project.end_date else "-"
+
+        body_items = [
+            _info_row("Client", _client_title),
+            _info_row("Contract", _contract_title),
+            Row(
+                spacing=dimens.SPACE_MD,
+                controls=[
+                    _info_row("Start", start_str),
+                    _info_row("End", end_str),
+                ],
+            ),
+        ]
+
+        super().__init__(
+            expand=True,
+            bgcolor=colors.bg_surface,
+            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border_radius=dimens.RADIUS_LG,
+            padding=padding.all(dimens.SPACE_MD),
+            on_hover=self._on_hover,
+            on_click=lambda e: self.on_view_details_clicked(project.id),
+            content=Column(
+                spacing=dimens.SPACE_SM,
+                controls=[
+                    Row(
+                        controls=[header, context_menu],
+                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+                        vertical_alignment=utils.START_ALIGNMENT,
+                    ),
+                    Container(height=1, bgcolor=colors.border_subtle),
+                    *body_items,
+                ],
+            ),
+        )
+
+    def _on_hover(self, e):
+        self.bgcolor = (
+            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
+        )
+        self.update()
 
 
 class ViewProjectScreen(views.EntityDetailScreen):
@@ -268,14 +235,14 @@ class ViewProjectScreen(views.EntityDetailScreen):
 
         self.toggle_complete_status_btn = IconButton(
             icon=icons.RADIO_BUTTON_UNCHECKED_OUTLINED,
-            icon_color=colors.PRIMARY_COLOR,
+            icon_color=colors.accent,
             tooltip="Mark as complete",
             icon_size=dimens.ICON_SIZE,
             on_click=self.on_toggle_complete_status,
         )
         self.delete_project_btn = IconButton(
             icon=icons.DELETE_OUTLINE_ROUNDED,
-            icon_color=colors.ERROR_COLOR,
+            icon_color=colors.danger,
             tooltip="Delete project",
             icon_size=dimens.ICON_SIZE,
             on_click=self.on_delete_clicked,
@@ -283,24 +250,24 @@ class ViewProjectScreen(views.EntityDetailScreen):
 
         self.project_title_control = views.THeading()
 
-        self.client_control = views.TSubHeading(color=colors.GRAY_COLOR)
-        self.contract_control = views.TSubHeading(color=colors.GRAY_COLOR)
+        self.client_control = views.TSubHeading(color=colors.text_secondary)
+        self.contract_control = views.TSubHeading(color=colors.text_secondary)
         self.project_description_control = views.TBodyText(
             align=utils.TXT_ALIGN_JUSTIFY
         )
 
         self.project_start_date_control = views.TSubHeading(
-            size=fonts.BUTTON_SIZE, color=colors.GRAY_COLOR
+            size=fonts.BUTTON_SIZE, color=colors.text_secondary
         )
         self.project_end_date_control = views.TSubHeading(
-            size=fonts.BUTTON_SIZE, color=colors.GRAY_COLOR
+            size=fonts.BUTTON_SIZE, color=colors.text_secondary
         )
 
         self.project_status_control = views.TSubHeading(
-            size=fonts.BUTTON_SIZE, color=colors.PRIMARY_COLOR
+            size=fonts.BUTTON_SIZE, color=colors.accent
         )
         self.project_tagline_control = views.TSubHeading(
-            size=fonts.BUTTON_SIZE, color=colors.PRIMARY_COLOR
+            size=fonts.BUTTON_SIZE, color=colors.accent
         )
 
         page_view = Row(
@@ -352,7 +319,7 @@ class ViewProjectScreen(views.EntityDetailScreen):
                                                     views.THeading(
                                                         "Project",
                                                         size=fonts.HEADLINE_4_SIZE,
-                                                        color=colors.PRIMARY_COLOR,
+                                                        color=colors.accent,
                                                     ),
                                                     Row(
                                                         vertical_alignment=utils.CENTER_ALIGNMENT,

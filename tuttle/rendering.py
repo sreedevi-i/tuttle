@@ -73,6 +73,21 @@ def _convert_html_to_pdf_with_weasyprint(
     css_paths=[],
 ):
     """Implementation of convert_html_to_pdf using weasyprint."""
+    # On macOS with Homebrew, weasyprint needs the Homebrew lib path
+    # to find pango/gobject native libraries at runtime.
+    if sys.platform == "darwin":
+        import subprocess
+
+        try:
+            brew_prefix = subprocess.check_output(["brew", "--prefix"]).decode().strip()
+            lib_path = os.path.join(brew_prefix, "lib")
+            existing = os.environ.get("DYLD_FALLBACK_LIBRARY_PATH", "")
+            if lib_path not in existing:
+                os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = (
+                    f"{lib_path}:{existing}" if existing else lib_path
+                )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass  # Homebrew not installed; hope libraries are on the default path
     try:
         import weasyprint
     except ImportError:

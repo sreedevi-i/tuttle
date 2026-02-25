@@ -30,6 +30,13 @@ from tuttle.app.preferences.model import PreferencesStorageKeys
 from tuttle.app.preferences.view import PreferencesScreen
 from tuttle.app.projects.view import ProjectEditorScreen, ViewProjectScreen
 from tuttle.app.res.colors import (
+    accent,
+    bg,
+    bg_surface,
+    danger,
+    text_inverse,
+    text_primary,
+    # backward-compat aliases still used elsewhere
     BLACK_COLOR_ALT,
     ERROR_COLOR,
     PRIMARY_COLOR,
@@ -65,25 +72,17 @@ class TuttleApp:
         self.page.title = "Tuttle"
         self.page.fonts = APP_FONTS
         self.page.theme = APP_THEME
+        self.page.theme_mode = "dark"
+        self.page.bgcolor = bg
         self.client_storage = ClientStorageImpl(page=self.page)
         self.db = DatabaseStorageImpl(
             store_demo_timetracking_dataframe=self.store_demo_timetracking_dataframe,
             debug_mode=self.debug_mode,
         )
-        preferences = PreferencesIntent(self.client_storage)
-        preferences_result = preferences.get_preference_by_key(
-            PreferencesStorageKeys.theme_mode_key
-        )
-        theme = (
-            preferences_result.data
-            if preferences_result.data
-            else THEME_MODES.dark.value
-        )
-        self.page.theme_mode = theme
         self.page.window.min_width = MIN_WINDOW_WIDTH
         self.page.window.min_height = MIN_WINDOW_HEIGHT
-        self.page.window.width = MIN_WINDOW_HEIGHT * 3
-        self.page.window.height = MIN_WINDOW_HEIGHT * 2
+        self.page.window.width = MIN_WINDOW_WIDTH + 400
+        self.page.window.height = MIN_WINDOW_HEIGHT + 200
         self.file_picker = FilePicker()
         self.page.overlay.append(self.file_picker)
 
@@ -139,11 +138,11 @@ class TuttleApp:
             THeading(
                 title=message,
                 size=HEADLINE_4_SIZE,
-                color=ERROR_COLOR if is_error else WHITE_COLOR,
+                color=danger if is_error else text_primary,
             ),
-            bgcolor=WHITE_COLOR if is_error else BLACK_COLOR_ALT,
+            bgcolor=bg_surface,
             action=action_label,
-            action_color=PRIMARY_COLOR,
+            action_color=accent,
             on_action=action_callback,
         )
         self.page.snack_bar.open = True

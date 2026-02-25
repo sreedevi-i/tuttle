@@ -10,8 +10,12 @@ from flet import (
     ListView,
     ResponsiveRow,
     Row,
+    Text,
     Control,
+    alignment,
+    border,
     icons,
+    padding,
 )
 
 from ..core import utils, views
@@ -79,6 +83,7 @@ class InvoicingEditorPopUp(DialogHandler, Column):
             show=not is_editing,
         )
         dialog = AlertDialog(
+            bgcolor=colors.bg_surface,
             content=Container(
                 height=pop_up_height,
                 width=pop_up_width,
@@ -99,7 +104,7 @@ class InvoicingEditorPopUp(DialogHandler, Column):
                         views.Spacer(xs_space=True),
                         self.projects_dropdown,
                         views.Spacer(),
-                        views.TBodyText(txt="Date range"),
+                        views.SectionLabel("Date Range"),
                         self.from_date_field,
                         self.to_date_field,
                         views.Spacer(xs_space=True),
@@ -107,7 +112,9 @@ class InvoicingEditorPopUp(DialogHandler, Column):
                 ),
             ),
             actions=[
-                views.TPrimaryButton(label="Done", on_click=self.on_submit_btn_clicked),
+                views.TPrimaryButton(
+                    label="Create", on_click=self.on_submit_btn_clicked
+                ),
             ],
         )
         super().__init__(dialog=dialog, dialog_controller=dialog_controller)
@@ -421,10 +428,8 @@ class InvoicingListView(TView, Column):
             self.editor.dimiss_open_dialogs()
 
 
-class InvoiceTile(ListTile):
-    """
-    A Control that formats an invoice object as a list tile for display in the UI
-    """
+class InvoiceTile(Container):
+    """Flat bordered container for displaying an invoice in a list."""
 
     def __init__(
         self,
@@ -437,84 +442,111 @@ class InvoiceTile(ListTile):
         toggle_sent_status,
         toggle_cancelled_status,
     ):
-        super().__init__()
         self.invoice = invoice
-        self.on_delete_clicked = on_delete_clicked
-        self.on_view_invoice = on_view_invoice
-        self.on_view_timesheet = on_view_timesheet
-        self.on_mail_invoice = on_mail_invoice
-        self.toggle_paid_status = toggle_paid_status
-        self.toggle_sent_status = toggle_sent_status
-        self.toggle_cancelled_status = toggle_cancelled_status
 
-    def build(self):
-        """
-        Build and return a ListTile displaying the invoice information
-        """
-        _project_title = ""
-        if self.invoice.project:
-            _project_title = self.invoice.project.title
-        _currency = ""
-        if self.invoice.contract:
-            _currency = self.invoice.contract.currency
-        _client_name = ""
-        if self.invoice.contract and self.invoice.contract.client:
-            _client_name = self.invoice.contract.client.name
-        self.leading = views.TBodyText(self.invoice.number)
-        self.title = views.TBodyText(f"{_project_title} ➡ {_client_name}")
-        self.subtitle = Column(
-            controls=[
-                views.TBodyText(
-                    f'Invoice Date: {self.invoice.date.strftime("%d-%m-%Y")}'
-                ),
-                Row(
-                    controls=[
-                        views.TBodyText(f"Total: {self.invoice.total:.2f} {_currency}"),
-                        views.TStatusDisplay(txt="Paid", is_done=self.invoice.paid),
-                        views.TStatusDisplay(
-                            txt="Cancelled", is_done=self.invoice.cancelled
-                        ),
-                        views.TStatusDisplay(txt="Sent", is_done=self.invoice.sent),
-                    ]
-                ),
-            ]
+        _project_title = invoice.project.title if invoice.project else ""
+        _currency = invoice.contract.currency if invoice.contract else ""
+        _client_name = (
+            invoice.contract.client.name
+            if invoice.contract and invoice.contract.client
+            else ""
         )
-        self.trailing = views.TContextMenu(
-            on_click_delete=lambda e: self.on_delete_clicked(self.invoice),
+
+        context = views.TContextMenu(
+            on_click_delete=lambda e: on_delete_clicked(invoice),
             prefix_menu_items=[
                 views.TPopUpMenuItem(
                     icon=icons.HOURGLASS_BOTTOM_OUTLINED,
-                    txt="Mark as sent" if not self.invoice.sent else "Mark as not sent",
-                    on_click=lambda e: self.toggle_sent_status(
-                        self.invoice,
-                    ),
+                    txt="Mark as sent" if not invoice.sent else "Mark as not sent",
+                    on_click=lambda e: toggle_sent_status(invoice),
                 ),
                 views.TPopUpMenuItem(
                     icon=icons.ATTACH_MONEY_OUTLINED,
-                    txt="Mark as paid" if not self.invoice.paid else "Mark as not paid",
-                    on_click=lambda e: self.toggle_paid_status(self.invoice),
+                    txt="Mark as paid" if not invoice.paid else "Mark as not paid",
+                    on_click=lambda e: toggle_paid_status(invoice),
                 ),
                 views.TPopUpMenuItem(
                     icon=icons.CANCEL_OUTLINED,
                     txt="Mark as cancelled"
-                    if not self.invoice.cancelled
+                    if not invoice.cancelled
                     else "Mark as not cancelled",
-                    on_click=lambda e: self.toggle_cancelled_status(self.invoice),
+                    on_click=lambda e: toggle_cancelled_status(invoice),
                 ),
                 views.TPopUpMenuItem(
                     icon=icons.VISIBILITY_OUTLINED,
                     txt="View",
-                    on_click=lambda e: self.on_view_invoice(self.invoice),
+                    on_click=lambda e: on_view_invoice(invoice),
                 ),
                 views.TPopUpMenuItem(
                     icon=icons.VISIBILITY_OUTLINED,
-                    txt="View Timesheet ",
-                    on_click=lambda e: self.on_view_timesheet(self.invoice),
+                    txt="View Timesheet",
+                    on_click=lambda e: on_view_timesheet(invoice),
                 ),
                 views.TPopUpMenuItem(
                     icon=icons.OUTGOING_MAIL,
                     txt="Send",
-                    on_click=lambda e: self.on_mail_invoice(self.invoice),
+                    on_click=lambda e: on_mail_invoice(invoice),
                 ),
             ],
         )
+
+        super().__init__(
+            bgcolor=colors.bg_surface,
+            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border_radius=dimens.RADIUS_LG,
+            padding=padding.all(dimens.SPACE_MD),
+            on_hover=self._on_hover,
+            content=Column(
+                spacing=dimens.SPACE_XS,
+                controls=[
+                    Row(
+                        controls=[
+                            Row(
+                                spacing=dimens.SPACE_SM,
+                                controls=[
+                                    views.TBodyText(
+                                        invoice.number, weight=fonts.BOLD_FONT
+                                    ),
+                                    views.TBodyText(
+                                        f"{_project_title} \u279e {_client_name}",
+                                        color=colors.text_secondary,
+                                        size=fonts.BODY_2_SIZE,
+                                    ),
+                                ],
+                                vertical_alignment=utils.CENTER_ALIGNMENT,
+                                expand=True,
+                            ),
+                            context,
+                        ],
+                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+                        vertical_alignment=utils.CENTER_ALIGNMENT,
+                    ),
+                    Container(height=1, bgcolor=colors.border_subtle),
+                    Row(
+                        spacing=dimens.SPACE_MD,
+                        controls=[
+                            views.TBodyText(
+                                f'Date: {invoice.date.strftime("%d-%m-%Y")}',
+                                size=fonts.BODY_2_SIZE,
+                                color=colors.text_secondary,
+                            ),
+                            views.TBodyText(
+                                f"Total: {invoice.total:.2f} {_currency}",
+                                size=fonts.BODY_2_SIZE,
+                            ),
+                            views.TStatusDisplay(txt="Paid", is_done=invoice.paid),
+                            views.TStatusDisplay(
+                                txt="Cancelled", is_done=invoice.cancelled
+                            ),
+                            views.TStatusDisplay(txt="Sent", is_done=invoice.sent),
+                        ],
+                    ),
+                ],
+            ),
+        )
+
+    def _on_hover(self, e):
+        self.bgcolor = (
+            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
+        )
+        self.update()
