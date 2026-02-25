@@ -322,7 +322,7 @@ class ContactsListView(TView, Column):
 
     def load_all_contacts(self):
 
-        self.contacts_to_display = self.intent.get_all_contacts_as_map()
+        self.contacts_to_display = self.intent.get_all_as_map()
 
     def refresh_list(self):
         """Refreshes the displayed list of contacts"""
@@ -369,7 +369,7 @@ class ContactsListView(TView, Column):
         """Called when the user confirms the deletion of a contact"""
         self.loading_indicator.visible = True
         self.update_self()
-        result = self.intent.delete_contact_by_id(contact_id)
+        result = self.intent.delete_contact(contact_id)
         is_error = False if result.was_intent_successful else True
         msg = "Contact deleted!" if not is_error else result.error_msg
         self.show_snack(msg, is_error)

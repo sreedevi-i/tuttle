@@ -252,7 +252,7 @@ class ContractEditorScreen(TView, Container):
         """Loads the contract for update if it is an update operation i.e self.contract_id_if_editing is not None"""
         if not self.contract_id_if_editing:
             return  # a new contract is being created
-        result = self.intent.get_contract_by_id(contractId=self.contract_id_if_editing)
+        result = self.intent.get_by_id(self.contract_id_if_editing)
         if not result.was_intent_successful or not result.data:
             self.show_snack(result.error_msg, is_error=True)
         self.old_contract_if_editing = result.data
@@ -681,7 +681,7 @@ class ContractsListView(TView, Column):
         """Called when the user confirms the delete action. Deletes the contract and reloads the list of contracts."""
         self.loading_indicator.visible = True
         self.update_self()
-        result = self.intent.delete_contract_by_id(contract_id=contract_id)
+        result = self.intent.delete(contract_id)
         is_error = not result.was_intent_successful
         msg = "Contract deleted!" if not is_error else result.error_msg
         self.show_snack(msg, is_error)
@@ -697,13 +697,13 @@ class ContractsListView(TView, Column):
     def on_filter_contracts(self, filterByState: ContractStates):
         """Called when the user changes the filter for the contracts. Reloads the list of contracts."""
         if filterByState.value == ContractStates.ACTIVE.value:
-            self.contracts_to_display = self.intent.get_active_contracts()
+            self.contracts_to_display = self.intent.get_active_as_map()
         elif filterByState.value == ContractStates.UPCOMING.value:
-            self.contracts_to_display = self.intent.get_upcoming_contracts()
+            self.contracts_to_display = self.intent.get_upcoming_as_map()
         elif filterByState.value == ContractStates.COMPLETED.value:
-            self.contracts_to_display = self.intent.get_completed_contracts()
+            self.contracts_to_display = self.intent.get_completed_as_map()
         else:
-            self.contracts_to_display = self.intent.get_all_contracts_as_map()
+            self.contracts_to_display = self.intent.get_all_as_map()
         self.display_currently_filtered_contracts()
         self.update_self()
 
@@ -724,7 +724,7 @@ class ContractsListView(TView, Column):
         self.update_self()
 
         # fetch contracts
-        self.contracts_to_display = self.intent.get_all_contracts_as_map()
+        self.contracts_to_display = self.intent.get_all_as_map()
         count = len(self.contracts_to_display)
         if count == 0:
             self.no_contracts_control.visible = True
@@ -819,7 +819,7 @@ class ViewContractScreen(TView, Row):
     def reload_data(self):
         """Reloads the data for the screen after mounting or resumed"""
         self.mounted = True
-        result: IntentResult = self.intent.get_contract_by_id(self.contract_id)
+        result: IntentResult = self.intent.get_by_id(self.contract_id)
         if not result.was_intent_successful:
             self.show_snack(result.error_msg, True)
         else:
@@ -877,7 +877,7 @@ class ViewContractScreen(TView, Row):
 
     def on_delete_confirmed(self, contract_id):
         """Called when the user confirms the deletion of the contract."""
-        result = self.intent.delete_contract_by_id(contract_id)
+        result = self.intent.delete(contract_id)
         is_err = not result.was_intent_successful
         msg = result.error_msg if is_err else "Contract deleted!"
         self.show_snack(msg, is_err)

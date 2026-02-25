@@ -366,7 +366,7 @@ class ViewProjectScreen(TView, Container):
 
     def on_delete_confirmed(self, project_id):
         """Called when the user confirms the deletion of a project"""
-        result = self.intent.delete_project_by_id(project_id)
+        result = self.intent.delete(project_id)
         is_err = not result.was_intent_successful
         msg = result.error_msg if is_err else "Project deleted!"
         self.show_snack(msg, is_err)
@@ -550,7 +550,7 @@ class ViewProjectScreen(TView, Container):
     def reload_data(self):
         """reloads data whem the view is first mounted or resumed"""
         self.mounted = True
-        result: IntentResult = self.intent.get_project_by_id(self.project_id)
+        result: IntentResult = self.intent.get_by_id(self.project_id)
         if not result.was_intent_successful:
             self.show_snack(result.error_msg, True)
         else:
@@ -632,7 +632,7 @@ class ProjectsListView(TView, Column):
         """Called when the user confirms the delete action"""
         self.loading_indicator.visible = True
         self.update_self()
-        result = self.intent.delete_project_by_id(project_id)
+        result = self.intent.delete(project_id)
         is_err = not result.was_intent_successful
         if not is_err:
             if int(project_id) in self.projects_to_display:
@@ -652,13 +652,13 @@ class ProjectsListView(TView, Column):
     def on_filter_projects(self, filterByState: ProjectStates):
         """Called when the user selects a filter option"""
         if filterByState.value == ProjectStates.ACTIVE.value:
-            self.projects_to_display = self.intent.get_active_projects_as_map()
+            self.projects_to_display = self.intent.get_active_as_map()
         elif filterByState.value == ProjectStates.UPCOMING.value:
-            self.projects_to_display = self.intent.get_upcoming_projects_as_map()
+            self.projects_to_display = self.intent.get_upcoming_as_map()
         elif filterByState.value == ProjectStates.COMPLETED.value:
-            self.projects_to_display = self.intent.get_completed_projects_as_map()
+            self.projects_to_display = self.intent.get_completed_as_map()
         else:
-            self.projects_to_display = self.intent.get_all_projects_as_map()
+            self.projects_to_display = self.intent.get_all_as_map()
         self.display_currently_filtered_projects()
         self.update_self()
 
@@ -675,7 +675,7 @@ class ProjectsListView(TView, Column):
         """reloads data displayed when view is mounted or when parent view sends a reload intent"""
         self.mounted = True
         self.loading_indicator.visible = True
-        self.projects_to_display = self.intent.get_all_projects_as_map()
+        self.projects_to_display = self.intent.get_all_as_map()
         count = len(self.projects_to_display)
         self.loading_indicator.visible = False
         if count == 0:
@@ -777,7 +777,7 @@ class ProjectEditorScreen(TView, Container):
         if not self.project_id_if_editing:
             return  # user is not updating a project
 
-        result = self.intent.get_project_by_id(self.project_id_if_editing)
+        result = self.intent.get_by_id(self.project_id_if_editing)
         if not result.was_intent_successful or not result.data:
             self.show_snack(result.error_msg)
             return  # error loading project
@@ -806,7 +806,7 @@ class ProjectEditorScreen(TView, Container):
         self,
     ):
         """Reloads the contracts for the dropdown field"""
-        self.contracts_map = self.intent.get_all_contracts_as_map_intent()
+        self.contracts_map = self.intent.get_all_contracts_as_map()
         self.contracts_field.error_text = (
             "Please create a new contract" if len(self.contracts_map) == 0 else None
         )

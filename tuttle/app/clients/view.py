@@ -449,7 +449,7 @@ class ClientsListView(TView, Column):
 
     def load_all_clients(self):
         """Loads all clients from the store"""
-        self.clients_to_display = self.intent.get_all_clients_as_map()
+        self.clients_to_display = self.intent.get_all_as_map()
 
     def load_all_contacts(self):
         """Loads all contacts from the store"""
@@ -502,7 +502,7 @@ class ClientsListView(TView, Column):
         """called when the user confirms the deletion of a client"""
         self.loading_indicator.visible = True
         self.update_self()
-        result = self.intent.delete_client_by_id(client_id)
+        result = self.intent.delete(client_id)
         is_error = not result.was_intent_successful
         msg = result.error_msg if is_error else "Client deleted!"
         self.show_snack(msg, is_error)

@@ -49,7 +49,7 @@ class InvoicingIntent(Intent):
         return IntentResult(was_intent_successful=True, data=user)
 
     def get_active_projects_as_map(self) -> Mapping[int, Project]:
-        return self._projects_intent.get_active_projects_as_map()
+        return self._projects_intent.get_active_as_map()
 
     def get_invoices_for_project_as_map(self, project_id) -> IntentResult:
         result = self._invoicing_data_source.get_invoices_for_project(project_id)

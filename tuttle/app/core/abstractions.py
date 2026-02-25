@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional, Type
+from typing import Any, Callable, List, Mapping, Optional, Type
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -13,6 +13,7 @@ from sqlmodel import pool
 from loguru import logger
 
 from .utils import AUTO_SCROLL, START_ALIGNMENT, AlertDialogControls
+from .intent_result import IntentResult
 
 
 class DatabaseStorage(ABC):
@@ -279,7 +280,7 @@ class Intent(ABC):
     def __getattribute__(self, name):
         """Logs all calls to methods of this class""" ""
         attr = object.__getattribute__(self, name)
-        if callable(attr):
+        if callable(attr) and not isinstance(attr, type):
 
             @functools.wraps(attr)
             def wrapped(*args, **kwargs):
@@ -293,3 +294,103 @@ class Intent(ABC):
 
             return wrapped
         return attr
+
+
+class CrudIntent(SQLModelDataSourceMixin, Intent):
+    """Generic CRUD intent that combines data access and business logic.
+
+    Subclasses must set `entity_type` to the SQLModel class they manage.
+    Optionally set `entity_name` for human-readable error messages.
+    """
+
+    entity_type: Type[sqlmodel.SQLModel]
+    entity_name: str = ""
+
+    def __init__(self):
+        SQLModelDataSourceMixin.__init__(self)
+        if not self.entity_name:
+            self.entity_name = self.entity_type.__name__
+
+    # -- Generic CRUD ----------------------------------------------------------
+
+    def get_all(self) -> IntentResult:
+        """Fetch all entities of this type."""
+        try:
+            entities = self.query(self.entity_type)
+            return IntentResult(was_intent_successful=True, data=entities)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=f"Failed to load {self.entity_name}s.",
+                log_message=f"{self.__class__.__name__}.get_all: {e}",
+                exception=e,
+            )
+
+    def get_all_as_map(self) -> Mapping[int, Any]:
+        """Fetch all entities as {id: entity} dict."""
+        result = self.get_all()
+        if result.was_intent_successful:
+            return {entity.id: entity for entity in result.data}
+        result.log_message_if_any()
+        return {}
+
+    def get_by_id(self, entity_id) -> IntentResult:
+        """Fetch a single entity by its id."""
+        try:
+            entity = self.query_by_id(self.entity_type, entity_id)
+            return IntentResult(was_intent_successful=True, data=entity)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=f"Failed to load {self.entity_name}.",
+                log_message=f"{self.__class__.__name__}.get_by_id({entity_id}): {e}",
+                exception=e,
+            )
+
+    def save(self, entity) -> IntentResult:
+        """Create or update an entity."""
+        try:
+            self.store(entity)
+            return IntentResult(was_intent_successful=True, data=entity)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=f"Failed to save {self.entity_name}.",
+                log_message=f"{self.__class__.__name__}.save: {e}",
+                exception=e,
+            )
+
+    def delete(self, entity_id) -> IntentResult:
+        """Delete an entity by its id."""
+        try:
+            self.delete_by_id(self.entity_type, entity_id)
+            return IntentResult(was_intent_successful=True)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=f"Failed to delete {self.entity_name}.",
+                log_message=f"{self.__class__.__name__}.delete({entity_id}): {e}",
+                exception=e,
+            )
+
+    # -- Filtered views (require is_completed / is_active / is_upcoming) -------
+
+    def get_completed_as_map(self) -> Mapping[int, Any]:
+        return {k: v for k, v in self.get_all_as_map().items() if v.is_completed}
+
+    def get_active_as_map(self) -> Mapping[int, Any]:
+        return {k: v for k, v in self.get_all_as_map().items() if v.is_active()}
+
+    def get_upcoming_as_map(self) -> Mapping[int, Any]:
+        return {k: v for k, v in self.get_all_as_map().items() if v.is_upcoming()}
+
+    # -- Toggle helpers --------------------------------------------------------
+
+    def toggle_completed(self, entity) -> IntentResult:
+        """Toggle is_completed and save. Rolls back on failure."""
+        entity.is_completed = not entity.is_completed
+        result = self.save(entity)
+        if not result.was_intent_successful:
+            entity.is_completed = not entity.is_completed
+        result.data = entity
+        return result
