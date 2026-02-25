@@ -13,6 +13,7 @@ from flet import (
     Column,
     Card,
     CrossAxisAlignment,
+    DatePicker,
     FontWeight,
     IconButton,
     Container,
@@ -461,7 +462,9 @@ class TDropDown(Column):
 
 
 class DateSelector(Container):
-    """Date selector using three dropdowns (Day / Month / Year)."""
+    """Date selector that opens a native Material DatePicker dialog."""
+
+    _DATE_FMT = "%b %d, %Y"
 
     def __init__(
         self,
@@ -471,89 +474,105 @@ class DateSelector(Container):
     ):
         super().__init__()
         self.label = label
-        self.initial_date = initial_date if initial_date else datetime.date.today()
-        self.date = str(self.initial_date.day)
-        self.month = str(self.initial_date.month)
-        self.year = str(self.initial_date.year)
+        self._selected_date: Optional[datetime.date] = (
+            initial_date if initial_date else datetime.date.today()
+        )
         self.label_color = label_color or colors.text_secondary
 
-        self.day_dropdown = TDropDown(
-            label="Day",
-            hint="",
-            on_change=self.on_date_set,
-            items=[str(day) for day in range(1, 32)],
-            width=50,
-            initial_value=self.date,
+        today = datetime.date.today()
+        self._picker = DatePicker(
+            value=datetime.datetime.combine(self._selected_date, datetime.time()),
+            first_date=datetime.datetime(year=today.year - 10, month=1, day=1),
+            last_date=datetime.datetime(year=today.year + 10, month=12, day=31),
+            help_text=label,
+            on_change=self._on_picked,
         )
 
-        self.month_dropdown = TDropDown(
-            label="Month",
-            on_change=self.on_month_set,
-            items=[str(month) for month in range(1, 13)],
-            width=50,
-            initial_value=self.month,
-        )
+    def _on_picked(self, e):
+        picked = e.control.value
+        if picked is not None:
+            if isinstance(picked, datetime.datetime):
+                self._selected_date = picked.date()
+            else:
+                self._selected_date = picked
+            self._date_text.value = self._selected_date.strftime(self._DATE_FMT)
+            self._date_text.color = colors.text_primary
+            self.update()
 
-        self.year_dropdown = TDropDown(
-            label="Year",
-            on_change=self.on_year_set,
-            # set items to a list of years -10 to + 10 years from now
-            items=[
-                str(year)
-                for year in range(
-                    datetime.date.today().year - 10, datetime.date.today().year + 10
-                )
-            ],
-            width=100,
-            initial_value=self.year,
-        )
-
-    def on_date_set(self, e):
-        self.date = e.control.value
-
-    def on_month_set(self, e):
-        self.month = e.control.value
-
-    def on_year_set(self, e):
-        self.year = e.control.value
+    def _open_picker(self, e):
+        if self._selected_date:
+            self._picker.value = datetime.datetime.combine(
+                self._selected_date, datetime.time()
+            )
+        self.page.show_dialog(self._picker)
 
     def build(self):
+        display = (
+            self._selected_date.strftime(self._DATE_FMT)
+            if self._selected_date
+            else "Select date"
+        )
+        display_color = (
+            colors.text_primary if self._selected_date else colors.text_muted
+        )
+
+        self._date_text = Text(
+            value=display,
+            size=fonts.BODY_1_SIZE,
+            color=display_color,
+        )
+
         self.content = Column(
+            spacing=dimens.SPACE_XXS,
             controls=[
-                TBodyText(txt=self.label, color=self.label_color),
-                Row(
-                    [
-                        self.day_dropdown,
-                        self.month_dropdown,
-                        self.year_dropdown,
-                    ],
+                Text(
+                    value=self.label,
+                    size=fonts.BODY_2_SIZE,
+                    color=self.label_color,
                 ),
-            ]
+                Container(
+                    on_click=self._open_picker,
+                    border_radius=dimens.RADIUS_MD,
+                    border=Border(
+                        top=BorderSide(width=1, color=colors.border),
+                        right=BorderSide(width=1, color=colors.border),
+                        bottom=BorderSide(width=1, color=colors.border),
+                        left=BorderSide(width=1, color=colors.border),
+                    ),
+                    bgcolor=colors.bg_input,
+                    padding=Padding(
+                        left=dimens.SPACE_SM,
+                        right=dimens.SPACE_XS,
+                        top=dimens.SPACE_XS,
+                        bottom=dimens.SPACE_XS,
+                    ),
+                    content=Row(
+                        alignment=MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=CrossAxisAlignment.CENTER,
+                        controls=[
+                            self._date_text,
+                            Icon(
+                                Icons.CALENDAR_MONTH_OUTLINED,
+                                size=dimens.ICON_SIZE,
+                                color=colors.accent,
+                            ),
+                        ],
+                    ),
+                ),
+            ],
         )
 
     def set_date(self, date: Optional[datetime.date] = None):
         if date is None:
             return
-        self.date = str(date.day)
-        self.month = str(date.month)
-        self.year = str(date.year)
-        self.day_dropdown.update_value(self.date)
-        self.month_dropdown.update_value(self.month)
-        self.year_dropdown.update_value(self.year)
-
+        self._selected_date = date
+        self._picker.value = datetime.datetime.combine(date, datetime.time())
+        self._date_text.value = date.strftime(self._DATE_FMT)
+        self._date_text.color = colors.text_primary
         self.update()
 
     def get_date(self) -> Optional[datetime.date]:
-        """Return the selected timeframe."""
-        if self.year is None or self.month is None or self.date is None:
-            return None
-
-        date = datetime.date(
-            year=int(self.year),
-            month=int(self.month),
-            day=int(self.date),
-        )
-        return date
+        return self._selected_date
 
 
 class ConfirmDisplayPopUp(DialogHandler):
