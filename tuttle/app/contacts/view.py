@@ -11,11 +11,9 @@ from flet import (
     Row,
     Text,
     Control,
-    border,
-    border_radius,
-    padding,
-    margin,
-    alignment,
+    Alignment,
+    Border,
+    Padding,
 )
 
 from ..contacts.intent import ContactsIntent
@@ -47,7 +45,7 @@ class ContactCard(Container):
             height=36,
             bgcolor=colors.accent_muted,
             border_radius=dimens.RADIUS_LG,
-            alignment=alignment.center,
+            alignment=Alignment.CENTER,
             content=Text(
                 initials,
                 size=fonts.BODY_1_SIZE,
@@ -110,9 +108,9 @@ class ContactCard(Container):
         super().__init__(
             expand=True,
             bgcolor=colors.bg_surface,
-            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
             border_radius=dimens.RADIUS_LG,
-            padding=padding.all(dimens.SPACE_MD),
+            padding=Padding.all(dimens.SPACE_MD),
             on_hover=self._on_hover,
             content=Column(
                 spacing=dimens.SPACE_SM,

@@ -1,6 +1,6 @@
 from typing import Callable
 
-from flet import Column, Container, Control, padding
+from flet import Column, Container, Control, Padding
 
 from ..core.abstractions import TView, TViewParams
 from ..core.utils import CENTER_ALIGNMENT
@@ -27,7 +27,7 @@ class Error404Screen(TView, Container):
                     ),
                 ],
             ),
-            padding=padding.all(SPACE_MD),
+            padding=Padding.all(SPACE_MD),
         )
 
         self.content = view

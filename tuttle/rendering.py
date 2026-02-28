@@ -245,6 +245,16 @@ def render_timesheet(
     template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
     # filters
     template_env.filters["as_hours"] = lambda td: td / pandas.Timedelta("1 hour")
+    template_env.filters["date"] = lambda dt: dt.strftime("%Y-%m-%d") if dt else ""
+    template_env.filters["time"] = lambda dt: dt.strftime("%H:%M") if dt else ""
+    template_env.filters["datetime"] = (
+        lambda dt: dt.strftime("%Y-%m-%d %H:%M") if dt else ""
+    )
+    template_env.filters["hours_minutes"] = (
+        lambda td: f"{int(td.total_seconds() // 3600)}:{int((td.total_seconds() % 3600) // 60):02d}"
+        if td
+        else ""
+    )
 
     timesheet_template = template_env.get_template("timesheet.html")
     html = timesheet_template.render(user=user, timesheet=timesheet, style=style)

@@ -1,6 +1,6 @@
 """Defines the app theme — dark only, macOS-inspired."""
 
-from flet import Theme, ColorScheme, TextTheme, ThemeMode
+from flet import Theme, ColorScheme, TextTheme, ThemeMode, VisualDensity
 from .fonts import DEFAULT_FONT
 from .colors import accent, bg, bg_surface, text_primary, text_secondary, border, danger
 from enum import Enum
@@ -29,10 +29,10 @@ APP_THEME = Theme(
         on_surface=text_primary,
         error=danger,
         outline=border,
-        surface_variant=bg_surface,
+        surface_container=bg_surface,
         on_surface_variant=text_secondary,
     ),
     use_material3=True,
     font_family=DEFAULT_FONT,
-    visual_density="compact",
+    visual_density=VisualDensity.COMPACT,
 )

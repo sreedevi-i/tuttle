@@ -5,23 +5,33 @@ from enum import Enum
 import datetime
 
 from flet import (
+    Alignment,
     AlertDialog,
+    Border,
+    BorderRadius,
+    BorderSide,
     Column,
     Card,
+    CrossAxisAlignment,
+    DatePicker,
     FontWeight,
     IconButton,
     Container,
     Dropdown,
+    DropdownOption,
     ElevatedButton,
     FilledButton,
     GridView,
     Icon,
+    Icons,
     Image,
+    MainAxisAlignment,
+    Margin,
+    Padding,
     PopupMenuButton,
     PopupMenuItem,
     ProgressBar,
     ButtonStyle,
-    margin,
     NavigationRail,
     ResponsiveRow,
     Row,
@@ -29,14 +39,6 @@ from flet import (
     TextField,
     TextStyle,
     Control,
-    alignment,
-    border,
-    border_radius,
-    dropdown,
-    icons,
-    padding,
-    Text,
-    colors as flet_colors,
     RoundedRectangleBorder,
 )
 
@@ -204,7 +206,7 @@ class TTextField(TextField):
         super().__init__(
             label=label,
             keyboard_type=keyboard_type,
-            content_padding=padding.symmetric(
+            content_padding=Padding.symmetric(
                 horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS
             ),
             hint_text=hint,
@@ -323,7 +325,7 @@ class TSecondaryButton(ElevatedButton):
             color=colors.text_primary,
             style=ButtonStyle(
                 shape=RoundedRectangleBorder(radius=dimens.RADIUS_MD),
-                side=border.BorderSide(width=1, color=colors.border),
+                side=BorderSide(width=1, color=colors.border),
                 bgcolor=colors.bg_surface,
             ),
         )
@@ -341,7 +343,7 @@ class TDangerButton(ElevatedButton):
         tooltip: Optional[str] = None,
     ):
         super().__init__(
-            text=label,
+            content=label,
             color=colors.danger,
             on_click=on_click,
             icon=icon,
@@ -351,7 +353,7 @@ class TDangerButton(ElevatedButton):
             height=dimens.CLICKABLE_STD_HEIGHT,
             style=ButtonStyle(
                 shape=RoundedRectangleBorder(radius=dimens.RADIUS_MD),
-                side=border.BorderSide(width=1, color=colors.danger),
+                side=BorderSide(width=1, color=colors.danger),
                 bgcolor=colors.bg_surface,
             ),
         )
@@ -365,7 +367,7 @@ class TProfilePhotoImg(Image):
             src=pic_src,
             width=64,
             height=64,
-            border_radius=border_radius.all(32),
+            border_radius=BorderRadius.all(32),
             fit=utils.CONTAIN,
         )
 
@@ -413,10 +415,10 @@ class TDropDown(Column):
         self.initial_value = initial_value
         self.width = width
         self.hint = hint
-        self.options = [dropdown.Option(text=item) for item in items]
+        self.options = [DropdownOption(text=item) for item in items]
 
     def update_dropdown_items(self, items: List[str]):
-        self.options = [dropdown.Option(text=item) for item in items]
+        self.options = [DropdownOption(text=item) for item in items]
         self.drop_down.options = self.options
         self.update()
 
@@ -440,28 +442,29 @@ class TDropDown(Column):
             options=self.options,
             text_size=fonts.BODY_1_SIZE,
             label_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.text_secondary),
-            on_change=self.on_change,
+            on_select=self.on_change,
             width=self.width,
             value=self.initial_value,
-            content_padding=padding.symmetric(
+            content_padding=Padding.symmetric(
                 horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS
             ),
             error_style=TextStyle(size=fonts.BODY_2_SIZE, color=colors.danger),
             visible=self.visible,
             filled=True,
             bgcolor=colors.bg_input,
-            focused_bgcolor=colors.bg_input,
             border_color=colors.border,
             focused_border_color=colors.accent,
             border_width=1,
             border_radius=dimens.RADIUS_MD,
             color=colors.text_primary,
         )
-        return self.drop_down
+        self.controls = [self.drop_down]
 
 
 class DateSelector(Container):
-    """Date selector using three dropdowns (Day / Month / Year)."""
+    """Date selector that opens a native Material DatePicker dialog."""
+
+    _DATE_FMT = "%b %d, %Y"
 
     def __init__(
         self,
@@ -471,89 +474,108 @@ class DateSelector(Container):
     ):
         super().__init__()
         self.label = label
-        self.initial_date = initial_date if initial_date else datetime.date.today()
-        self.date = str(self.initial_date.day)
-        self.month = str(self.initial_date.month)
-        self.year = str(self.initial_date.year)
+        if initial_date is None:
+            self._selected_date: Optional[datetime.date] = datetime.date.today()
+        elif isinstance(initial_date, datetime.datetime):
+            self._selected_date: Optional[datetime.date] = initial_date.date()
+        else:
+            self._selected_date: Optional[datetime.date] = initial_date
         self.label_color = label_color or colors.text_secondary
 
-        self.day_dropdown = TDropDown(
-            label="Day",
-            hint="",
-            on_change=self.on_date_set,
-            items=[str(day) for day in range(1, 32)],
-            width=50,
-            initial_value=self.date,
+        today = datetime.date.today()
+        self._picker = DatePicker(
+            value=datetime.datetime.combine(self._selected_date, datetime.time()),
+            first_date=datetime.datetime(year=today.year - 10, month=1, day=1),
+            last_date=datetime.datetime(year=today.year + 10, month=12, day=31),
+            help_text=label,
+            on_change=self._on_picked,
         )
 
-        self.month_dropdown = TDropDown(
-            label="Month",
-            on_change=self.on_month_set,
-            items=[str(month) for month in range(1, 13)],
-            width=50,
-            initial_value=self.month,
-        )
+    def _on_picked(self, e):
+        picked = e.control.value
+        if picked is not None:
+            if isinstance(picked, datetime.datetime):
+                self._selected_date = picked.date()
+            else:
+                self._selected_date = picked
+            self._date_text.value = self._selected_date.strftime(self._DATE_FMT)
+            self._date_text.color = colors.text_primary
+            self.update()
 
-        self.year_dropdown = TDropDown(
-            label="Year",
-            on_change=self.on_year_set,
-            # set items to a list of years -10 to + 10 years from now
-            items=[
-                str(year)
-                for year in range(
-                    datetime.date.today().year - 10, datetime.date.today().year + 10
-                )
-            ],
-            width=100,
-            initial_value=self.year,
-        )
-
-    def on_date_set(self, e):
-        self.date = e.control.value
-
-    def on_month_set(self, e):
-        self.month = e.control.value
-
-    def on_year_set(self, e):
-        self.year = e.control.value
+    def _open_picker(self, e):
+        if self._selected_date:
+            self._picker.value = datetime.datetime.combine(
+                self._selected_date, datetime.time()
+            )
+        self.page.show_dialog(self._picker)
 
     def build(self):
+        display = (
+            self._selected_date.strftime(self._DATE_FMT)
+            if self._selected_date
+            else "Select date"
+        )
+        display_color = (
+            colors.text_primary if self._selected_date else colors.text_muted
+        )
+
+        self._date_text = Text(
+            value=display,
+            size=fonts.BODY_1_SIZE,
+            color=display_color,
+        )
+
         self.content = Column(
+            spacing=dimens.SPACE_XXS,
             controls=[
-                TBodyText(txt=self.label, color=self.label_color),
-                Row(
-                    [
-                        self.day_dropdown,
-                        self.month_dropdown,
-                        self.year_dropdown,
-                    ],
+                Text(
+                    value=self.label,
+                    size=fonts.BODY_2_SIZE,
+                    color=self.label_color,
                 ),
-            ]
+                Container(
+                    on_click=self._open_picker,
+                    border_radius=dimens.RADIUS_MD,
+                    border=Border(
+                        top=BorderSide(width=1, color=colors.border),
+                        right=BorderSide(width=1, color=colors.border),
+                        bottom=BorderSide(width=1, color=colors.border),
+                        left=BorderSide(width=1, color=colors.border),
+                    ),
+                    bgcolor=colors.bg_input,
+                    padding=Padding(
+                        left=dimens.SPACE_SM,
+                        right=dimens.SPACE_XS,
+                        top=dimens.SPACE_XS,
+                        bottom=dimens.SPACE_XS,
+                    ),
+                    content=Row(
+                        alignment=MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=CrossAxisAlignment.CENTER,
+                        controls=[
+                            self._date_text,
+                            Icon(
+                                Icons.CALENDAR_MONTH_OUTLINED,
+                                size=dimens.ICON_SIZE,
+                                color=colors.accent,
+                            ),
+                        ],
+                    ),
+                ),
+            ],
         )
 
     def set_date(self, date: Optional[datetime.date] = None):
         if date is None:
             return
-        self.date = str(date.day)
-        self.month = str(date.month)
-        self.year = str(date.year)
-        self.day_dropdown.update_value(self.date)
-        self.month_dropdown.update_value(self.month)
-        self.year_dropdown.update_value(self.year)
-
+        self._selected_date = date
+        self._picker.value = datetime.datetime.combine(date, datetime.time())
+        self._date_text.value = date.strftime(self._DATE_FMT)
+        self._date_text.color = colors.text_primary
         self.update()
 
     def get_date(self) -> Optional[datetime.date]:
-        """Return the selected timeframe."""
-        if self.year is None or self.month is None or self.date is None:
-            return None
-
-        date = datetime.date(
-            year=int(self.year),
-            month=int(self.month),
-            day=int(self.date),
-        )
-        return date
+        return self._selected_date
 
 
 class ConfirmDisplayPopUp(DialogHandler):
@@ -647,19 +669,19 @@ class TContextMenu(PopupMenuButton):
         if on_click_view:
             items.append(
                 TPopUpMenuItem(
-                    icons.VISIBILITY_OUTLINED, txt=view_item_lbl, on_click=on_click_view
+                    Icons.VISIBILITY_OUTLINED, txt=view_item_lbl, on_click=on_click_view
                 )
             )
         if on_click_edit:
             items.append(
                 TPopUpMenuItem(
-                    icons.EDIT_OUTLINED, txt=edit_item_lbl, on_click=on_click_edit
+                    Icons.EDIT_OUTLINED, txt=edit_item_lbl, on_click=on_click_edit
                 )
             )
         if on_click_delete:
             items.append(
                 TPopUpMenuItem(
-                    icons.DELETE_OUTLINE,
+                    Icons.DELETE_OUTLINE,
                     txt=delete_item_lbl,
                     on_click=on_click_delete,
                     is_delete=True,
@@ -669,7 +691,7 @@ class TContextMenu(PopupMenuButton):
             items.extend(suffix_menu_items)
         super().__init__(
             items=items,
-            icon=icons.MORE_HORIZ,
+            icon=Icons.MORE_HORIZ,
             icon_size=dimens.ICON_SIZE,
             icon_color=colors.text_muted,
         )
@@ -683,9 +705,9 @@ class TStatusDisplay(Row):
             spacing=dimens.SPACE_SM,
             controls=[
                 Icon(
-                    icons.CHECK_CIRCLE_OUTLINE
+                    Icons.CHECK_CIRCLE_OUTLINE
                     if is_done
-                    else icons.RADIO_BUTTON_UNCHECKED,
+                    else Icons.RADIO_BUTTON_UNCHECKED,
                     size=dimens.SM_ICON_SIZE,
                     color=colors.success if is_done else colors.text_muted,
                 ),
@@ -736,7 +758,7 @@ class SectionLabel(Container):
 
     def __init__(self, title: str):
         super().__init__(
-            padding=padding.only(
+            padding=Padding.only(
                 left=dimens.SPACE_MD, top=dimens.SPACE_MD, bottom=dimens.SPACE_SM
             ),
             content=Text(
@@ -773,10 +795,10 @@ class SidebarNavItem(Container):
         super().__init__(
             bgcolor=bg,
             border_radius=dimens.RADIUS_MD,
-            padding=padding.symmetric(
+            padding=Padding.symmetric(
                 horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS + 2
             ),
-            margin=margin.symmetric(horizontal=dimens.SPACE_SM),
+            margin=Margin.symmetric(horizontal=dimens.SPACE_SM),
             on_click=on_click,
             on_hover=self._on_hover,
             content=Row(
@@ -918,9 +940,9 @@ class TNavigationMenuNoLeading(Column):
             ),
             expand=False,
             width=width,
-            alignment=alignment.center_left,
-            margin=margin.only(top=top_margin),
-            padding=padding.only(left=left_padding),
+            alignment=Alignment.CENTER_LEFT,
+            margin=Margin.only(top=top_margin),
+            padding=Padding.only(left=left_padding),
         )
         self.navigationRail = NavigationRail(
             selected_index=selected_index,
@@ -940,13 +962,11 @@ class TNavigationMenuNoLeading(Column):
             self.update()
 
     def build(self):
-        return Column(
-            controls=[self.titleContainer, self.navigationRail],
-            alignment=utils.START_ALIGNMENT,
-            horizontal_alignment=utils.START_ALIGNMENT,
-            spacing=0,
-            run_spacing=0,
-        )
+        self.alignment = utils.START_ALIGNMENT
+        self.horizontal_alignment = utils.START_ALIGNMENT
+        self.spacing = 0
+        self.run_spacing = 0
+        self.controls = [self.titleContainer, self.navigationRail]
 
 
 class TBackButton(IconButton):
@@ -954,7 +974,7 @@ class TBackButton(IconButton):
 
     def __init__(self, on_click: Optional[Callable] = None):
         return super().__init__(
-            icon=icons.CHEVRON_LEFT_ROUNDED,
+            icon=Icons.CHEVRON_LEFT_ROUNDED,
             on_click=on_click,
             icon_size=dimens.MD_ICON_SIZE,
             icon_color=colors.text_secondary,
@@ -967,16 +987,16 @@ class TFullScreenFormContainer(Container):
     def __init__(self, form_controls: list[Control]):
         return super().__init__(
             expand=True,
-            padding=padding.all(dimens.SPACE_LG),
-            margin=margin.symmetric(vertical=dimens.SPACE_MD),
+            padding=Padding.all(dimens.SPACE_LG),
+            margin=Margin.symmetric(vertical=dimens.SPACE_MD),
             content=Container(
                 expand=True,
                 bgcolor=colors.bg_surface,
-                border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+                border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
                 border_radius=dimens.RADIUS_LG,
                 content=Container(
                     Column(expand=True, controls=form_controls),
-                    padding=padding.all(dimens.SPACE_LG),
+                    padding=Padding.all(dimens.SPACE_LG),
                     width=800,
                 ),
             ),
@@ -1029,7 +1049,7 @@ class EntityFiltersView(Row):
         for state in self.states_enum:
             is_active = self.current_state == state
             self.filter_buttons[state] = ElevatedButton(
-                text=str(state),
+                content=str(state),
                 col={"xs": 6, "sm": 3, "lg": 2},
                 on_click=lambda e, s=state: self.on_filter_button_clicked(s),
                 height=dimens.CLICKABLE_PILL_HEIGHT,
@@ -1039,7 +1059,7 @@ class EntityFiltersView(Row):
                 style=ButtonStyle(
                     shape=RoundedRectangleBorder(radius=dimens.RADIUS_SM),
                     elevation=0,
-                    side=border.BorderSide(
+                    side=BorderSide(
                         width=1,
                         color=colors.accent if is_active else colors.border,
                     ),
@@ -1252,10 +1272,12 @@ class EntityDetailScreen(TView, Container):
     entity_name: str = ""
     edit_route: str = ""
 
-    def __init__(self, params: TViewParams, entity_id):
+    def __init__(self, params: TViewParams, entity_id, intent=None):
         TView.__init__(self, params)
         Container.__init__(self)
         self.entity_id = entity_id
+        if intent is not None:
+            self.intent = intent
         self.loading_indicator = TProgressBar()
         self.entity = None
         self.popup_handler = None

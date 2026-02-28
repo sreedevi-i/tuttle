@@ -3,14 +3,15 @@ from pathlib import Path
 from flet import (
     Column,
     Container,
-    alignment,
+    Alignment,
     IconButton,
-    icons,
-    border,
+    Icons,
+    Border,
+    BorderSide,
     ResponsiveRow,
     Row,
     Control,
-    padding,
+    Padding,
     NavigationRailDestination,
     Icon,
 )
@@ -79,22 +80,20 @@ class PaymentDataForm(Column):
             label="BIC",
             hint="Bank Identifier Code",
         )
-        return Column(
-            spacing=dimens.SPACE_MD,
-            controls=[
-                self.vat_number_field,
-                views.Spacer(xs_space=True),
-                views.TSubHeading("Bank Account"),
-                self.bank_name_field,
-                self.bank_iban_field,
-                self.bank_bic_field,
-                views.Spacer(),
-                views.TPrimaryButton(
-                    label="Save",
-                    on_click=self.on_click_save,
-                ),
-            ],
-        )
+        self.spacing = dimens.SPACE_MD
+        self.controls = [
+            self.vat_number_field,
+            views.Spacer(xs_space=True),
+            views.TSubHeading("Bank Account"),
+            self.bank_name_field,
+            self.bank_iban_field,
+            self.bank_bic_field,
+            views.Spacer(),
+            views.TPrimaryButton(
+                label="Save",
+                on_click=self.on_click_save,
+            ),
+        ]
 
 
 class UserDataForm(Column):
@@ -137,7 +136,7 @@ class UserDataForm(Column):
             self.phone_field,
             self.subtitle_field,
         ]:
-            field.error_text = ""
+            field.error = ""
         self.toggle_form_err()
         self.update()
 
@@ -165,15 +164,15 @@ class UserDataForm(Column):
         # validate the form data
         if utils.is_empty_str(subtitle):
             missing_required_data_err = "Please specify your job title. e.g. freelancer"
-            self.subtitle_field.error_text = missing_required_data_err
+            self.subtitle_field.error = missing_required_data_err
 
         elif utils.is_empty_str(name):
             missing_required_data_err = "Your name is required."
-            self.name_field.error_text = missing_required_data_err
+            self.name_field.error = missing_required_data_err
 
         elif utils.is_empty_str(email):
             missing_required_data_err = "Your email is required."
-            self.email_field.error_text = missing_required_data_err
+            self.email_field.error = missing_required_data_err
 
         elif (
             utils.is_empty_str(address_street)
@@ -266,33 +265,31 @@ class UserDataForm(Column):
             on_click=self.on_submit_btn_clicked,
             label=self.submit_btn_label,
         )
-        return Column(
-            spacing=dimens.SPACE_MD,
-            controls=[
-                self.subtitle_field,
-                self.name_field,
-                self.email_field,
-                self.phone_field,
-                self.website_field,
-                Row(
-                    vertical_alignment=utils.CENTER_ALIGNMENT,
-                    controls=[
-                        self.street_field,
-                        self.street_number_field,
-                    ],
-                ),
-                Row(
-                    vertical_alignment=utils.CENTER_ALIGNMENT,
-                    controls=[
-                        self.postal_code_field,
-                        self.city_field,
-                    ],
-                ),
-                self.country_field,
-                self.form_err_control,
-                self.submit_btn,
-            ],
-        )
+        self.spacing = dimens.SPACE_MD
+        self.controls = [
+            self.subtitle_field,
+            self.name_field,
+            self.email_field,
+            self.phone_field,
+            self.website_field,
+            Row(
+                vertical_alignment=utils.CENTER_ALIGNMENT,
+                controls=[
+                    self.street_field,
+                    self.street_number_field,
+                ],
+            ),
+            Row(
+                vertical_alignment=utils.CENTER_ALIGNMENT,
+                controls=[
+                    self.postal_code_field,
+                    self.city_field,
+                ],
+            ),
+            self.country_field,
+            self.form_err_control,
+            self.submit_btn,
+        ]
 
     def refresh_user_info(self, user: User):
         if user is None:
@@ -394,7 +391,7 @@ class SplashScreen(TView, Column):
             controls=[
                 Container(
                     col={"xs": 12, "sm": 5},
-                    padding=padding.all(dimens.SPACE_XS),
+                    padding=Padding.all(dimens.SPACE_XS),
                     content=Column(
                         alignment=utils.START_ALIGNMENT,
                         horizontal_alignment=utils.CENTER_ALIGNMENT,
@@ -419,7 +416,7 @@ class SplashScreen(TView, Column):
                 ),
                 Container(
                     col={"xs": 12, "sm": 7},
-                    padding=padding.all(dimens.SPACE_XL),
+                    padding=Padding.all(dimens.SPACE_XL),
                     content=Column(
                         [
                             self.form_container,
@@ -433,7 +430,7 @@ class SplashScreen(TView, Column):
                 ),
             ],
         )
-        return page_view
+        self.controls = [page_view]
 
     def will_unmount(self):
         self.mounted = False
@@ -550,9 +547,10 @@ class ProfilePhotoContent(TView, Column):
             self.profile_photo_img,
             self.update_photo_btn,
         ]
-        return profile_destination_content_wrapper(
+        wrapper = profile_destination_content_wrapper(
             controls=self.profile_photo_content,
         )
+        self.controls = [wrapper]
 
     def did_mount(self):
 
@@ -613,7 +611,8 @@ class UserInfoContent(TView, Column):
             ),
             self.user_info_form,
         ]
-        return profile_destination_content_wrapper(self.user_info_content)
+        wrapper = profile_destination_content_wrapper(self.user_info_content)
+        self.controls = [wrapper]
 
     def did_mount(self):
 
@@ -662,7 +661,8 @@ class PaymentInfoContent(TView, Column):
             ),
             self.payment_data_form,
         ]
-        return profile_destination_content_wrapper(self.payment_info_content)
+        wrapper = profile_destination_content_wrapper(self.payment_info_content)
+        self.controls = [wrapper]
 
     def did_mount(self):
         """Called when the view is mounted on page"""
@@ -713,8 +713,8 @@ class ProfileScreen(TView, Column):
             itemDestination = NavigationRailDestination(
                 icon=item.icon,
                 selected_icon=item.selected_icon,
-                label_content=views.TBodyText(item.label),
-                padding=padding.symmetric(horizontal=dimens.SPACE_SM),
+                label=views.TBodyText(item.label),
+                padding=Padding.symmetric(horizontal=dimens.SPACE_SM),
             )
             items.append(itemDestination)
         return items
@@ -731,7 +731,7 @@ class ProfileScreen(TView, Column):
     def build(self):
         """Builds the profile screen"""
         self.destination_content_container = Container(
-            padding=padding.all(dimens.SPACE_MD),
+            padding=Padding.all(dimens.SPACE_MD),
             content=self.destination_view,
             col={
                 "xs": 7,
@@ -741,23 +741,23 @@ class ProfileScreen(TView, Column):
         )
         self.side_bar = Container(
             col={"xs": 4, "md": 3, "lg": 2},
-            padding=padding.only(top=dimens.SPACE_SM),
+            padding=Padding.only(top=dimens.SPACE_SM),
             content=Column(
                 controls=[
                     Container(
                         IconButton(
-                            icon=icons.KEYBOARD_ARROW_LEFT,
+                            icon=Icons.KEYBOARD_ARROW_LEFT,
                             on_click=self.navigate_back,
                             icon_size=dimens.MD_ICON_SIZE,
                         ),
-                        padding=padding.symmetric(vertical=dimens.SPACE_STD),
+                        padding=Padding.symmetric(vertical=dimens.SPACE_STD),
                     ),
                     self.side_bar_menu,
                 ]
             ),
-            alignment=alignment.center,
-            border=border.only(
-                right=border.BorderSide(
+            alignment=Alignment.CENTER,
+            border=Border.only(
+                right=BorderSide(
                     width=0.2,
                     color=colors.BORDER_DARK_COLOR,
                 )
@@ -774,7 +774,7 @@ class ProfileScreen(TView, Column):
             vertical_alignment=utils.START_ALIGNMENT,
             expand=1,
         )
-        return self.profile_screen_view
+        self.controls = [self.profile_screen_view]
 
     def did_mount(self):
         """Called when the view is mounted on page"""

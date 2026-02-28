@@ -15,7 +15,6 @@ from ..timetracking.intent import TimeTrackingIntent
 
 from ... import invoicing, mail, os_functions, rendering, timetracking
 from ...model import Invoice, Project, Timesheet, User
-from ...os_functions import preview_pdf
 
 from .data_source import InvoicingDataSource
 from ..auth.intent import AuthIntent
@@ -322,8 +321,8 @@ class InvoicingIntent(Intent):
                 error_msg="Failed to toggle the invoice cancelled status. ",
             )
 
-    def view_invoice(self, invoice: Invoice) -> IntentResult[None]:
-        """Attempts to open the invoice in the default pdf viewer"""
+    def view_invoice(self, invoice: Invoice) -> IntentResult[Path]:
+        """Resolve the PDF path for an invoice."""
         if not invoice.rendered:
             return IntentResult(
                 was_intent_successful=False,
@@ -331,12 +330,14 @@ class InvoicingIntent(Intent):
             )
         try:
             pdf_path = Path().home() / ".tuttle" / "Invoices" / invoice.file_name
-            preview_pdf(pdf_path)
-            return IntentResult(was_intent_successful=True)
+            if not pdf_path.exists():
+                return IntentResult(
+                    was_intent_successful=False,
+                    error_msg=f"Invoice file not found: {pdf_path.name}",
+                )
+            return IntentResult(was_intent_successful=True, data=pdf_path)
         except Exception as ex:
-            # display the execption name in the error message
             error_message = f"Failed to open the invoice: {ex.__class__.__name__}"
-
             logger.error(error_message)
             logger.exception(ex)
             return IntentResult(
@@ -344,22 +345,25 @@ class InvoicingIntent(Intent):
                 error_msg=error_message,
             )
 
-    def view_timesheet_for_invoice(self, invoice: Invoice) -> IntentResult[None]:
-        """Attempts to open the timesheet for the invoice in the default pdf viewer"""
+    def view_timesheet_for_invoice(self, invoice: Invoice) -> IntentResult[Path]:
+        """Resolve the PDF path for the timesheet belonging to an invoice."""
         try:
             timesheet = self._invoicing_data_source.get_timesheet_for_invoice(invoice)
             timesheet_path = (
                 Path().home() / ".tuttle" / "Timesheets" / f"{timesheet.prefix}.pdf"
             )
-            preview_pdf(timesheet_path)
-            return IntentResult(was_intent_successful=True)
+            if not timesheet_path.exists():
+                return IntentResult(
+                    was_intent_successful=False,
+                    error_msg=f"Timesheet file not found: {timesheet_path.name}",
+                )
+            return IntentResult(was_intent_successful=True, data=timesheet_path)
         except ValueError as ve:
             logger.error(f"❌ Error getting timesheet for invoice: {ve}")
             logger.exception(ve)
             return IntentResult(was_intent_successful=False, error_msg=str(ve))
         except Exception as ex:
-            # display the execption name in the error message
-            error_message = f"❌ Failed to open the timesheet: {ex.__class__.__name__}"
+            error_message = f"Failed to open the timesheet: {ex.__class__.__name__}"
             logger.error(error_message)
             logger.exception(ex)
             return IntentResult(

@@ -10,11 +10,13 @@ from flet import (
     IconButton,
     Row,
     Tab,
+    TabBar,
+    TabBarView,
     Tabs,
     Control,
-    icons,
-    margin,
-    padding,
+    Icons,
+    Margin,
+    Padding,
 )
 
 from ..core import utils, views
@@ -135,26 +137,25 @@ class PreferencesScreen(TView, Row):
         logger.warning("Quitting app after reset. Please restart.")
         self.on_reset_app_callback()
 
-    def get_tab_item(self, label, icon, content_controls):
+    def _make_tab_header(self, label, icon):
         return Tab(
-            tab_content=Column(
+            label=Column(
                 alignment=CENTER_ALIGNMENT,
                 horizontal_alignment=CENTER_ALIGNMENT,
                 controls=[
-                    Icon(
-                        icon,
-                        size=dimens.ICON_SIZE,
-                    ),
+                    Icon(icon, size=dimens.ICON_SIZE),
                     views.Spacer(sm_space=True),
                     views.TBodyText(txt=label),
                     views.Spacer(md_space=True),
                 ],
             ),
-            content=Container(
-                content=Column(controls=content_controls),
-                padding=padding.symmetric(vertical=SPACE_XL),
-                margin=margin.symmetric(vertical=SPACE_MD),
-            ),
+        )
+
+    def _make_tab_content(self, content_controls):
+        return Container(
+            content=Column(controls=content_controls),
+            padding=Padding.symmetric(vertical=SPACE_XL),
+            margin=Margin.symmetric(vertical=SPACE_MD),
         )
 
     def build(self):
@@ -162,12 +163,12 @@ class PreferencesScreen(TView, Row):
         self.body_width = int(MIN_WINDOW_WIDTH * 0.7)
         self.loading_indicator = views.TProgressBar()
         self.sideBar = Container(
-            padding=padding.all(SPACE_STD),
+            padding=Padding.all(SPACE_STD),
             width=side_bar_width,
             content=Column(
                 controls=[
                     IconButton(
-                        icon=icons.KEYBOARD_ARROW_LEFT,
+                        icon=Icons.KEYBOARD_ARROW_LEFT,
                         icon_size=dimens.ICON_SIZE,
                         on_click=self.navigate_back,
                     ),
@@ -207,7 +208,7 @@ class PreferencesScreen(TView, Row):
         # a reset button for the app with a warning sign, warning color and a confirmation dialog
         self.reset_button = views.TDangerButton(
             label="Reset App and Quit",
-            icon=icons.RESTART_ALT_OUTLINED,
+            icon=Icons.RESTART_ALT_OUTLINED,
             on_click=self.on_reset_app_clicked,
             tooltip="Warning: This will reset the app to default state and delete all data. You will have to restart the app.",
         )
@@ -215,49 +216,59 @@ class PreferencesScreen(TView, Row):
         self.tabs = Tabs(
             selected_index=0,
             animation_duration=300,
+            length=3,
             width=self.body_width - SPACE_MD,
             height=MIN_WINDOW_HEIGHT,
-            tabs=[
-                self.get_tab_item(
-                    "General",
-                    icons.SETTINGS_OUTLINED,
-                    [
-                        self.theme_control,
-                        views.Spacer(lg_space=True),
-                        self.reset_button,
-                    ],
-                ),
-                self.get_tab_item(
-                    "Cloud",
-                    icons.CLOUD_OUTLINED,
-                    [
-                        views.TBodyText(
-                            txt="Setting up your cloud account will enable you to import time tracking data from your cloud calendar.",
-                        ),
-                        views.Spacer(sm_space=True),
-                        self.cloud_provider_control,
-                        self.cloud_account_id_control,
-                    ],
-                ),
-                self.get_tab_item(
-                    "Locale",
-                    icons.LANGUAGE_OUTLINED,
-                    [
-                        self.languages_control,
-                        self.currencies_control,
-                    ],
-                ),
-            ],
+            content=Column(
+                expand=True,
+                controls=[
+                    TabBar(
+                        tabs=[
+                            self._make_tab_header("General", Icons.SETTINGS_OUTLINED),
+                            self._make_tab_header("Cloud", Icons.CLOUD_OUTLINED),
+                            self._make_tab_header("Locale", Icons.LANGUAGE_OUTLINED),
+                        ],
+                    ),
+                    TabBarView(
+                        expand=True,
+                        controls=[
+                            self._make_tab_content(
+                                [
+                                    self.theme_control,
+                                    views.Spacer(lg_space=True),
+                                    self.reset_button,
+                                ]
+                            ),
+                            self._make_tab_content(
+                                [
+                                    views.TBodyText(
+                                        txt="Setting up your cloud account will enable you to import time tracking data from your cloud calendar.",
+                                    ),
+                                    views.Spacer(sm_space=True),
+                                    self.cloud_provider_control,
+                                    self.cloud_account_id_control,
+                                ]
+                            ),
+                            self._make_tab_content(
+                                [
+                                    self.languages_control,
+                                    self.currencies_control,
+                                ]
+                            ),
+                        ],
+                    ),
+                ],
+            ),
         )
         self.body = Container(
-            padding=padding.all(SPACE_MD),
+            padding=Padding.all(SPACE_MD),
             width=self.body_width,
             content=Column(
                 controls=[
                     Row(
                         controls=[
                             Icon(
-                                icons.SETTINGS_SUGGEST_OUTLINED,
+                                Icons.SETTINGS_SUGGEST_OUTLINED,
                                 size=dimens.ICON_SIZE,
                             ),
                             views.THeading(
@@ -271,15 +282,12 @@ class PreferencesScreen(TView, Row):
                 ],
             ),
         )
-        page_view = Row(
-            [self.sideBar, self.body],
-            spacing=SPACE_XS,
-            run_spacing=SPACE_MD,
-            alignment=START_ALIGNMENT,
-            vertical_alignment=START_ALIGNMENT,
-            expand=True,
-        )
-        return page_view
+        self.spacing = SPACE_XS
+        self.run_spacing = SPACE_MD
+        self.alignment = START_ALIGNMENT
+        self.vertical_alignment = START_ALIGNMENT
+        self.expand = True
+        self.controls = [self.sideBar, self.body]
 
     def did_mount(self):
         self.mounted = True

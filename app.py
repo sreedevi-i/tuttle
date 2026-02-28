@@ -7,8 +7,9 @@ from flet import (
     Page,
     SnackBar,
     TemplateRoute,
+    ThemeMode,
     View,
-    app,
+    run,
 )
 
 from loguru import logger
@@ -72,8 +73,8 @@ class TuttleApp:
         self.page.title = "Tuttle"
         self.page.fonts = APP_FONTS
         self.page.theme = APP_THEME
-        self.page.theme_mode = "dark"
-        self.page.bgcolor = bg
+        self.page.theme_mode = ThemeMode.DARK
+        self.page.window.bgcolor = bg
         self.client_storage = ClientStorageImpl(page=self.page)
         self.db = DatabaseStorageImpl(
             store_demo_timetracking_dataframe=self.store_demo_timetracking_dataframe,
@@ -84,7 +85,6 @@ class TuttleApp:
         self.page.window.width = MIN_WINDOW_WIDTH + 400
         self.page.window.height = MIN_WINDOW_HEIGHT + 200
         self.file_picker = FilePicker()
-        self.page.overlay.append(self.file_picker)
 
         """holds the RouteView object associated with a route
         used in on route change"""
@@ -93,13 +93,11 @@ class TuttleApp:
         self.page.on_view_pop = self.on_view_pop
         self.route_parser = TuttleRoutes(self)
         self.current_route_view: Optional[RouteView] = None
-        self.page.on_resized = self.page_resize
+        self.page.on_resize = self.page_resize
 
     def page_resize(self, e):
         if self.current_route_view:
-            self.current_route_view.on_window_resized(
-                self.page.window.width, self.page.window.height
-            )
+            self.current_route_view.on_window_resized(e.width, e.height)
 
     def pick_file_callback(
         self,
@@ -108,19 +106,55 @@ class TuttleApp:
         dialog_title,
         file_type,
     ):
-        # used by views to request a file upload
-        self.file_picker.on_result = on_file_picker_result
-        self.file_picker.pick_files(
-            allow_multiple=False,
-            allowed_extensions=allowed_extensions,
-            dialog_title=dialog_title,
-            file_type=file_type,
+        from types import SimpleNamespace
+        from flet import FilePickerFileType
+
+        file_type_map = {
+            "any": FilePickerFileType.ANY,
+            "custom": FilePickerFileType.CUSTOM,
+            "image": FilePickerFileType.IMAGE,
+            "media": FilePickerFileType.MEDIA,
+            "video": FilePickerFileType.VIDEO,
+            "audio": FilePickerFileType.AUDIO,
+        }
+        ft_file_type = (
+            file_type_map.get(file_type, FilePickerFileType.ANY)
+            if isinstance(file_type, str)
+            else file_type
         )
+
+        import sys
+
+        if sys.platform == "darwin" and ft_file_type == FilePickerFileType.CUSTOM:
+            ft_file_type = FilePickerFileType.ANY
+
+        async def _pick_files():
+            pick_kwargs = dict(
+                allow_multiple=False,
+                dialog_title=dialog_title,
+                file_type=ft_file_type,
+            )
+            if ft_file_type == FilePickerFileType.CUSTOM and allowed_extensions:
+                pick_kwargs["allowed_extensions"] = allowed_extensions
+            files = await self.file_picker.pick_files(**pick_kwargs)
+            if files and allowed_extensions:
+                files = [
+                    f
+                    for f in files
+                    if any(
+                        f.name.lower().endswith(f".{ext.lower()}")
+                        for ext in allowed_extensions
+                    )
+                ]
+            result = SimpleNamespace(files=files)
+            on_file_picker_result(result)
+
+        self.page.run_task(_pick_files)
 
     def on_theme_mode_changed(self, selected_theme: str):
         """callback function used by views for changing app theme mode"""
         mode = get_theme_mode_from_value(selected_theme)
-        self.page.theme_mode = mode.value
+        self.page.theme_mode = ThemeMode.DARK
         self.page.update()
 
     def show_snack(
@@ -131,22 +165,26 @@ class TuttleApp:
         action_callback: Optional[Callable] = None,
     ):
         """callback function used by views to display a snack bar message"""
-        if self.page.snack_bar and self.page.snack_bar.open:
-            self.page.snack_bar.open = False
-            self.page.update()
-        self.page.snack_bar = SnackBar(
-            THeading(
+        from flet import SnackBarAction
+
+        action = None
+        if action_label:
+            action = SnackBarAction(
+                label=action_label,
+                text_color=accent,
+                on_click=action_callback,
+            )
+        snack = SnackBar(
+            content=THeading(
                 title=message,
                 size=HEADLINE_4_SIZE,
                 color=danger if is_error else text_primary,
             ),
             bgcolor=bg_surface,
-            action=action_label,
-            action_color=accent,
-            on_action=action_callback,
+            action=action,
+            open=True,
         )
-        self.page.snack_bar.open = True
-        self.page.update()
+        self.page.show_dialog(snack)
 
     def control_alert_dialog(
         self,
@@ -155,71 +193,65 @@ class TuttleApp:
     ):
         """handles adding, opening and closing of page alert dialogs"""
         if control.value == AlertDialogControls.ADD_AND_OPEN.value:
-            if self.page.dialog:
-                # make sure no two dialogs attempt to open at once
-                self.page.dialog.open = False
-                self.page.update()
             if dialog:
-                self.page.dialog = dialog
                 dialog.open = True
-                self.page.update()
+                self.page.show_dialog(dialog)
 
         if control.value == AlertDialogControls.CLOSE.value:
-            if self.page.dialog:
+            if dialog:
                 dialog.open = False
-                self.page.update()
+                self.page.pop_dialog()
 
     def change_route(self, to_route: str, data: Optional[any] = None):
         """navigates to a new route"""
         newRoute = to_route if data is None else f"{to_route}/{data}"
-        self.page.go(newRoute)
+        self.page.run_task(self.page.push_route, newRoute)
 
-    def on_view_pop(self, view: Optional[View] = None):
+    def on_view_pop(self, e=None):
         """invoked on back pressed"""
         if len(self.page.views) == 1:
             return
-        self.page.views.pop()
+        if e is not None and hasattr(e, "view") and e.view is not None:
+            self.page.views.remove(e.view)
+        else:
+            self.page.views.pop()
         current_page_view: View = self.page.views[-1]
-        self.page.go(current_page_view.route)
+        self.page.run_task(self.page.push_route, current_page_view.route)
         if current_page_view.controls:
             try:
-                # the controls should contain a TView as first control
                 tuttle_view: TView = current_page_view.controls[0]
-                # notify view that it has been resumed
                 tuttle_view.on_resume_after_back_pressed()
-            except Exception as e:
+            except Exception as ex:
                 logger.error(
-                    f"Exception raised @TuttleApp.on_view_pop {e.__class__.__name__}"
+                    f"Exception raised @TuttleApp.on_view_pop {ex.__class__.__name__}"
                 )
-                logger.exception(e)
+                logger.exception(ex)
 
-    def on_route_change(self, route):
+    def on_route_change(self, e=None):
         """auto invoked when the route changes
 
         parses the new destination route
         then appends the new page to page views
         """
+        current_route = self.page.route
 
-        # if route is already in stack, get it's view
-        # this happens when the user presses back
-        view_for_route = None
-        for view in self.page.views:
-            if view.route == route.route:
-                view_for_route = view
-                break
+        if current_route in self.route_to_route_view_cache:
+            # route already visited: reuse cached view
+            self.current_route_view = self.route_to_route_view_cache[current_route]
+            self.page.update()
+            self.current_route_view.on_window_resized(
+                self.page.window.width, self.page.window.height
+            )
+            return
 
-        # get a new view if no view found in stack
-        if not view_for_route:
-            route_view_wrapper = self.route_parser.parse_route(pageRoute=route.route)
-            if not route_view_wrapper.keep_back_stack:
-                """clear previous views"""
-                self.route_to_route_view_cache.clear()
-                self.page.views.clear()
-            view_for_route = route_view_wrapper.view
-            self.route_to_route_view_cache[route.route] = route_view_wrapper
-            self.page.views.append(view_for_route)
-
-        self.current_route_view: RouteView = self.route_to_route_view_cache[route.route]
+        # build a new view for this route
+        route_view_wrapper = self.route_parser.parse_route(pageRoute=current_route)
+        if not route_view_wrapper.keep_back_stack:
+            self.route_to_route_view_cache.clear()
+            self.page.views.clear()
+        self.route_to_route_view_cache[current_route] = route_view_wrapper
+        self.page.views.append(route_view_wrapper.view)
+        self.current_route_view = route_view_wrapper
         self.page.update()
         self.current_route_view.on_window_resized(
             self.page.window.width, self.page.window.height
@@ -233,7 +265,7 @@ class TuttleApp:
         self.timetracking_intent.set_timetracking_data(data=time_tracking_data)
 
     def build(self):
-        self.page.go(self.page.route)
+        self.on_route_change()
 
     def close(self):
         """Closes the application."""
@@ -253,6 +285,7 @@ class TuttleRoutes:
         self.on_theme_changed = app.on_theme_mode_changed
         self.on_reset_and_quit = app.reset_and_quit
         self.on_install_demo_data = app.db.install_demo_data
+        self.file_picker = app.file_picker
         # init common params for views
         self.tuttle_view_params = TViewParams(
             navigate_to_route=app.change_route,
@@ -277,6 +310,8 @@ class TuttleRoutes:
             controls=[view],
             vertical_alignment=view.vertical_alignment_in_parent,
             horizontal_alignment=view.horizontal_alignment_in_parent,
+            bgcolor=bg,
+            services=[self.file_picker],
         )
 
         return RouteView(
@@ -351,20 +386,23 @@ def get_assets_uploads_url(with_parent_dir: bool = False):
     return uploads_dir
 
 
-def main(page: Page):
+async def main(page: Page):
     """Entry point of the app"""
     app = TuttleApp(page)
 
     # if database does not exist, create it
     app.db.ensure_database()
 
+    # pre-load shared preferences cache (async in Flet 0.80+)
+    await app.client_storage.load_cache()
+
     app.build()
 
 
 if __name__ == "__main__":
-    app(
+    run(
         name="Tuttle",
-        target=main,
+        main=main,
         assets_dir="assets",
         upload_dir=get_assets_uploads_url(with_parent_dir=True),
     )

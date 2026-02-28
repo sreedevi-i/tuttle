@@ -662,7 +662,7 @@ class InvoiceItem(SQLModel, table=True):
         description="End date of the invoice item."
     )
     #
-    quantity: int
+    quantity: float
     unit: str
     unit_price: Decimal
     description: str
@@ -676,8 +676,7 @@ class InvoiceItem(SQLModel, table=True):
 
     @property
     def subtotal(self) -> Decimal:
-        """."""
-        return self.quantity * self.unit_price
+        return Decimal(str(self.quantity)) * self.unit_price
 
     @property
     def VAT(self) -> Decimal:

@@ -12,7 +12,17 @@ from typing import List, Tuple
 import base64
 from enum import Enum
 
-from flet import icons
+from flet import (
+    BoxFit,
+    ControlState,
+    CrossAxisAlignment,
+    Icons,
+    KeyboardType,
+    MainAxisAlignment,
+    NavigationRailLabelType,
+    ScrollMode,
+    TextAlign,
+)
 
 import pycountry
 
@@ -26,48 +36,56 @@ class AlertDialogControls(Enum):
     CLOSE = 2
 
 
-# Layout Alignments
-STRETCH_ALIGNMENT = "stretch"
-SPACE_BETWEEN_ALIGNMENT = "spaceBetween"
-START_ALIGNMENT = "start"
-END_ALIGNMENT = "end"
-CENTER_ALIGNMENT = "center"
+# Layout Alignments — use the proper Flet enums.
+# The *_ALIGNMENT names are kept for backward compat with existing call-sites
+# that pass them to Column.alignment / Row.alignment (MainAxisAlignment)
+# or Column.horizontal_alignment / Row.vertical_alignment (CrossAxisAlignment).
+STRETCH_ALIGNMENT = CrossAxisAlignment.STRETCH
+SPACE_BETWEEN_ALIGNMENT = MainAxisAlignment.SPACE_BETWEEN
+START_ALIGNMENT = MainAxisAlignment.START
+END_ALIGNMENT = MainAxisAlignment.END
+CENTER_ALIGNMENT = MainAxisAlignment.CENTER
 
+# Cross-axis specific aliases (use when assigning horizontal/vertical_alignment)
+CROSS_STRETCH = CrossAxisAlignment.STRETCH
+CROSS_START = CrossAxisAlignment.START
+CROSS_CENTER = CrossAxisAlignment.CENTER
+CROSS_END = CrossAxisAlignment.END
 
 # Fit
-CONTAIN = "cover"
+CONTAIN = BoxFit.COVER
 
 # Keyboard types
-KEYBOARD_NAME = "name"
-KEYBOARD_PHONE = "phone"
-KEYBOARD_EMAIL = "email"
-KEYBOARD_TEXT = "text"
-KEYBOARD_MULTILINE = "multiline"
-KEYBOARD_NUMBER = "number"
-KEYBOARD_DATETIME = "datetime"
-KEYBOARD_URL = "url"
-KEYBOARD_PASSWORD = "visiblePassword"
-KEYBOARD_ADDRESS = "streetAddress"
-KEYBOARD_NONE = "none"
+KEYBOARD_NAME = KeyboardType.NAME
+KEYBOARD_PHONE = KeyboardType.PHONE
+KEYBOARD_EMAIL = KeyboardType.EMAIL
+KEYBOARD_TEXT = KeyboardType.TEXT
+KEYBOARD_MULTILINE = KeyboardType.MULTILINE
+KEYBOARD_NUMBER = KeyboardType.NUMBER
+KEYBOARD_DATETIME = KeyboardType.DATETIME
+KEYBOARD_URL = KeyboardType.URL
+KEYBOARD_PASSWORD = KeyboardType.VISIBLE_PASSWORD
+KEYBOARD_ADDRESS = KeyboardType.STREET_ADDRESS
+KEYBOARD_NONE = KeyboardType.NONE
 
-# scrolling
-AUTO_SCROLL = "auto"
-ADAPTIVE_SCROLL = "adaptive"
-HIDDEN_SCROLL = "hidden"
-ALWAYS_SCROLL = "always"
+# Scrolling
+AUTO_SCROLL = ScrollMode.AUTO
+ADAPTIVE_SCROLL = ScrollMode.ADAPTIVE
+HIDDEN_SCROLL = ScrollMode.HIDDEN
+ALWAYS_SCROLL = ScrollMode.ALWAYS
 
 # Text Alignment
-TXT_ALIGN_RIGHT = "right"
-TXT_ALIGN_CENTER = "center"
-TXT_ALIGN_JUSTIFY = "justify"
-TXT_ALIGN_START = "start"
-TXT_ALIGN_END = "end"
-TXT_ALIGN_LEFT = "left"
+TXT_ALIGN_RIGHT = TextAlign.RIGHT
+TXT_ALIGN_CENTER = TextAlign.CENTER
+TXT_ALIGN_JUSTIFY = TextAlign.JUSTIFY
+TXT_ALIGN_START = TextAlign.START
+TXT_ALIGN_END = TextAlign.END
+TXT_ALIGN_LEFT = TextAlign.LEFT
 
 # Navigation rail label style
-ALWAYS_SHOW = "all"
-NEVER_SHOW = "none"
-ONLY_SELECTED = "selected"
+ALWAYS_SHOW = NavigationRailLabelType.ALL
+NEVER_SHOW = NavigationRailLabelType.NONE
+ONLY_SELECTED = NavigationRailLabelType.SELECTED
 # compact rail type (label is none)
 COMPACT_RAIL_WIDTH = 56
 # rail group_alignment
@@ -75,11 +93,11 @@ CENTER_RAIL = 0.0
 
 
 # Control state
-HOVERED = "hovered"
-FOCUSED = "focused"
-SELECTED = "selected"
-PRESSED = "pressed"
-OTHER_CONTROL_STATES = ""
+HOVERED = ControlState.HOVERED
+FOCUSED = ControlState.FOCUSED
+SELECTED = ControlState.SELECTED
+PRESSED = ControlState.PRESSED
+OTHER_CONTROL_STATES = ControlState.DEFAULT
 
 
 @deprecated
@@ -107,28 +125,28 @@ def image_to_base64(image_path):
 class TuttleComponentIcons(Enum):
     """ "Defines the icons used for different components throughout the app"""
 
-    dashboard_icon = icons.SPEED
-    dashboard_selected_icon = icons.SPEED_ROUNDED
-    project_icon = icons.WORK_OUTLINE
-    project_selected_icon = icons.WORK_ROUNDED
-    contact_icon = icons.CONTACT_MAIL_OUTLINED
-    contact_selected_icon = icons.CONTACT_MAIL_ROUNDED
-    client_icon = icons.CONTACTS_OUTLINED
-    client_selected_icon = icons.CONTACTS_ROUNDED
-    contract_icon = icons.HANDSHAKE_OUTLINED
-    contract_selected_icon = icons.HANDSHAKE_ROUNDED
-    timetracking_icon = icons.TIMER_OUTLINED
-    timetracking_selected_icon = icons.TIMER_ROUNDED
-    invoicing_icon = icons.RECEIPT_OUTLINED
-    invoicing_selected_icon = icons.RECEIPT_ROUNDED
-    datatable_icon = icons.TABLE_CHART
-    datatable_selected_icon = icons.TABLE_CHART_ROUNDED
-    profile_icon = icons.PERSON_OUTLINE
-    profile_selected_icon = icons.PERSON_ROUNDED
-    payment_icon = icons.PAYMENT
-    payment_selected_icon = icons.PAYMENT_ROUNDED
-    profile_photo_icon = icons.PHOTO_OUTLINED
-    profile_photo_selected_icon = icons.PHOTO_ROUNDED
+    dashboard_icon = Icons.SPEED
+    dashboard_selected_icon = Icons.SPEED_ROUNDED
+    project_icon = Icons.WORK_OUTLINE
+    project_selected_icon = Icons.WORK_ROUNDED
+    contact_icon = Icons.CONTACT_MAIL_OUTLINED
+    contact_selected_icon = Icons.CONTACT_MAIL_ROUNDED
+    client_icon = Icons.CONTACTS_OUTLINED
+    client_selected_icon = Icons.CONTACTS_ROUNDED
+    contract_icon = Icons.HANDSHAKE_OUTLINED
+    contract_selected_icon = Icons.HANDSHAKE_ROUNDED
+    timetracking_icon = Icons.TIMER_OUTLINED
+    timetracking_selected_icon = Icons.TIMER_ROUNDED
+    invoicing_icon = Icons.RECEIPT_OUTLINED
+    invoicing_selected_icon = Icons.RECEIPT_ROUNDED
+    datatable_icon = Icons.TABLE_CHART
+    datatable_selected_icon = Icons.TABLE_CHART_ROUNDED
+    profile_icon = Icons.PERSON_OUTLINE
+    profile_selected_icon = Icons.PERSON_ROUNDED
+    payment_icon = Icons.PAYMENT
+    payment_selected_icon = Icons.PAYMENT_ROUNDED
+    profile_photo_icon = Icons.PHOTO_OUTLINED
+    profile_photo_selected_icon = Icons.PHOTO_ROUNDED
 
     def __str__(self) -> str:
         return str(self.value)
@@ -151,11 +169,11 @@ def toBase64(
     image_path,
 ) -> str:
     """Returns base64 encoded image from the path"""
-    
+
     # Read the image file as bytes
     with open(image_path, "rb") as image_file:
         image_bytes = image_file.read()
     # Convert the bytes to a base64
     stringbase64_string = base64.b64encode(image_bytes).decode("utf-8")
- 
+
     return stringbase64_string

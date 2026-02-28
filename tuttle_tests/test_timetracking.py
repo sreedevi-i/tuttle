@@ -81,3 +81,8 @@ def test_create_timesheet(
     assert timesheet.date == datetime.date.today()
     assert timesheet.total == datetime.timedelta(hours=8)
     assert timesheet.empty == False
+    # period dates must be date objects (not strings) for SQLite persistence
+    assert isinstance(timesheet.period_start, datetime.date)
+    assert isinstance(timesheet.period_end, datetime.date)
+    assert timesheet.period_start == period_start
+    assert timesheet.period_end == period_end

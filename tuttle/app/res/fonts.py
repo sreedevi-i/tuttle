@@ -28,5 +28,7 @@ OVERLINE_SIZE = 11  # overline / section headers
 CAPTION_SIZE = 11  # captions, helper text
 
 # ── Font weights ─────────────────────────────────────────────
-BOLD_FONT = "w500"
-BOLDER_FONT = "w700"
+from flet import FontWeight
+
+BOLD_FONT = FontWeight.W_500
+BOLDER_FONT = FontWeight.BOLD

@@ -4,23 +4,24 @@ import webbrowser
 from dataclasses import dataclass
 
 from flet import (
+    Alignment,
+    Border,
+    BorderSide,
     Column,
     Container,
     ElevatedButton,
     Icon,
     IconButton,
+    Icons,
+    Margin,
     NavigationRailDestination,
+    Padding,
     PopupMenuButton,
     PopupMenuItem,
     ResponsiveRow,
     Row,
     Text,
     Control,
-    alignment,
-    border,
-    icons,
-    padding,
-    margin,
     ScrollMode,
     MainAxisAlignment,
     CrossAxisAlignment,
@@ -48,29 +49,29 @@ def get_toolbar(
 ):
     """Compact toolbar — title on the left, actions on the right."""
     return Container(
-        alignment=alignment.center,
+        alignment=Alignment.CENTER,
         height=dimens.TOOLBAR_HEIGHT,
         bgcolor=colors.bg_toolbar,
-        padding=padding.symmetric(horizontal=dimens.SPACE_MD),
-        border=border.only(
-            bottom=border.BorderSide(width=1, color=colors.border_subtle),
+        padding=Padding.symmetric(horizontal=dimens.SPACE_MD),
+        border=Border.only(
+            bottom=BorderSide(width=1, color=colors.border_subtle),
         ),
         content=Row(
             alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-            vertical_alignment=utils.CENTER_ALIGNMENT,
+            vertical_alignment=CrossAxisAlignment.CENTER,
             controls=[
                 Row(
                     controls=[
                         views.THeading(title, size=fonts.HEADLINE_4_SIZE),
                     ],
-                    vertical_alignment=utils.CENTER_ALIGNMENT,
+                    vertical_alignment=CrossAxisAlignment.CENTER,
                 ),
                 Row(
                     spacing=dimens.SPACE_XS,
                     controls=[
                         ElevatedButton(
-                            text="New",
-                            icon=icons.ADD,
+                            content="New",
+                            icon=Icons.ADD,
                             icon_color=colors.accent,
                             color=colors.accent,
                             bgcolor=colors.bg_surface,
@@ -80,39 +81,39 @@ def get_toolbar(
                                 shape=views.RoundedRectangleBorder(
                                     radius=dimens.RADIUS_MD
                                 ),
-                                side=border.BorderSide(width=1, color=colors.border),
+                                side=BorderSide(width=1, color=colors.border),
                                 elevation=0,
                             ),
                         ),
                         IconButton(
-                            icon=icons.SETTINGS_OUTLINED,
+                            icon=Icons.SETTINGS_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
                             icon_color=colors.text_secondary,
                             on_click=on_view_settings_clicked,
                             tooltip="Preferences",
                         ),
                         IconButton(
-                            icons.PERSON_OUTLINE_OUTLINED,
+                            icon=Icons.PERSON_OUTLINE_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
                             icon_color=colors.text_secondary,
                             tooltip="Profile",
                             on_click=on_click_profile_btn,
                         ),
                         PopupMenuButton(
-                            icon=icons.HELP_OUTLINE,
+                            icon=Icons.HELP_OUTLINE,
                             icon_size=dimens.ICON_SIZE,
                             icon_color=colors.text_secondary,
                             items=[
                                 PopupMenuItem(
-                                    icon=icons.CONTACT_SUPPORT,
-                                    text="Ask a question",
+                                    icon=Icons.CONTACT_SUPPORT,
+                                    content="Ask a question",
                                     on_click=lambda _: webbrowser.open(
                                         "https://github.com/tuttle-dev/tuttle/discussions"
                                     ),
                                 ),
                                 PopupMenuItem(
-                                    icon=icons.BUG_REPORT,
-                                    text="Report a bug",
+                                    icon=Icons.BUG_REPORT,
+                                    content="Report a bug",
                                     on_click=lambda _: webbrowser.open(
                                         "https://github.com/tuttle-dev/tuttle/issues"
                                     ),
@@ -288,7 +289,7 @@ class HomeScreen(TView, Container):
     # ── Build ─────────────────────────────────────────────────
     def build(self):
         self.destination_content_container = Container(
-            padding=padding.all(dimens.SPACE_MD),
+            padding=Padding.all(dimens.SPACE_MD),
             content=self.destination_view,
             expand=True,
         )
@@ -297,13 +298,13 @@ class HomeScreen(TView, Container):
         self.status_bar = Container(
             height=dimens.FOOTER_HEIGHT,
             bgcolor=colors.bg_statusbar,
-            padding=padding.symmetric(horizontal=dimens.SPACE_SM),
+            padding=Padding.symmetric(horizontal=dimens.SPACE_SM),
             content=Row(
                 controls=[
                     Text("Tuttle", size=11, color=colors.text_inverse),
                 ],
-                alignment=utils.START_ALIGNMENT,
-                vertical_alignment=utils.CENTER_ALIGNMENT,
+                alignment=MainAxisAlignment.START,
+                vertical_alignment=CrossAxisAlignment.CENTER,
             ),
         )
 
@@ -311,23 +312,23 @@ class HomeScreen(TView, Container):
         self.side_bar = Container(
             width=dimens.SIDEBAR_WIDTH,
             bgcolor=colors.bg_sidebar,
-            padding=padding.only(top=dimens.SPACE_LG),
+            padding=Padding.only(top=dimens.SPACE_LG),
             content=Column(
                 controls=[self.sidebar_panel],
-                alignment=utils.START_ALIGNMENT,
+                alignment=MainAxisAlignment.START,
                 spacing=0,
                 expand=True,
             ),
-            border=border.only(
-                right=border.BorderSide(width=1, color=colors.border_subtle),
+            border=Border.only(
+                right=BorderSide(width=1, color=colors.border_subtle),
             ),
         )
 
         # Main body
         self.main_body = Column(
             expand=True,
-            alignment=utils.START_ALIGNMENT,
-            horizontal_alignment=utils.START_ALIGNMENT,
+            alignment=MainAxisAlignment.START,
+            horizontal_alignment=CrossAxisAlignment.START,
             spacing=0,
             controls=[
                 self.toolbar,
@@ -343,14 +344,14 @@ class HomeScreen(TView, Container):
                     Row(
                         controls=[self.side_bar, self.main_body],
                         spacing=0,
-                        alignment=utils.START_ALIGNMENT,
-                        vertical_alignment=utils.START_ALIGNMENT,
+                        alignment=MainAxisAlignment.START,
+                        vertical_alignment=CrossAxisAlignment.START,
                         expand=True,
                     ),
                     self.status_bar,
                 ],
-                alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                horizontal_alignment=utils.STRETCH_ALIGNMENT,
+                alignment=MainAxisAlignment.SPACE_BETWEEN,
+                horizontal_alignment=CrossAxisAlignment.STRETCH,
                 spacing=0,
             ),
         )

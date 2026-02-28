@@ -12,7 +12,7 @@ from sqlmodel import pool
 
 from loguru import logger
 
-from .utils import AUTO_SCROLL, START_ALIGNMENT, AlertDialogControls
+from .utils import AUTO_SCROLL, START_ALIGNMENT, CROSS_START, AlertDialogControls
 from .intent_result import IntentResult
 
 
@@ -98,11 +98,11 @@ class TViewParams:
     dialog_controller: Callable
     pick_file_callback: Callable
     client_storage: ClientStorage
-    vertical_alignment_in_parent: str = START_ALIGNMENT
-    horizontal_alignment_in_parent: str = START_ALIGNMENT
+    vertical_alignment_in_parent = START_ALIGNMENT
+    horizontal_alignment_in_parent = CROSS_START
     keep_back_stack: bool = True
     on_navigate_back: Optional[Callable] = None
-    page_scroll_type: Optional[str] = AUTO_SCROLL
+    page_scroll_type = AUTO_SCROLL
 
 
 class TView(ABC):

@@ -17,12 +17,10 @@ from flet import (
     Text,
     TextButton,
     Control,
-    alignment,
-    border,
-    border_radius,
-    icons,
-    margin,
-    padding,
+    Alignment,
+    Border,
+    Icons,
+    Padding,
 )
 
 from ..clients.view import ClientViewPopUp
@@ -65,7 +63,7 @@ class ProjectCard(Container):
             height=36,
             bgcolor=colors.accent_muted,
             border_radius=dimens.RADIUS_LG,
-            alignment=alignment.center,
+            alignment=Alignment.CENTER,
             content=Text(
                 initials,
                 size=fonts.BODY_1_SIZE,
@@ -135,9 +133,9 @@ class ProjectCard(Container):
         super().__init__(
             expand=True,
             bgcolor=colors.bg_surface,
-            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
             border_radius=dimens.RADIUS_LG,
-            padding=padding.all(dimens.SPACE_MD),
+            padding=Padding.all(dimens.SPACE_MD),
             on_hover=self._on_hover,
             on_click=lambda e: self.on_view_details_clicked(project.id),
             content=Column(
@@ -197,9 +195,9 @@ class ViewProjectScreen(views.EntityDetailScreen):
         self.project_tagline_control.value = f"{p.tag}"
         is_project_completed = p.is_completed
         self.toggle_complete_status_btn.icon = (
-            icons.RADIO_BUTTON_CHECKED_OUTLINED
+            Icons.RADIO_BUTTON_CHECKED_OUTLINED
             if is_project_completed
-            else icons.RADIO_BUTTON_UNCHECKED_OUTLINED
+            else Icons.RADIO_BUTTON_UNCHECKED_OUTLINED
         )
         self.toggle_complete_status_btn.tooltip = (
             "Mark as incomplete" if is_project_completed else "Mark as complete"
@@ -227,21 +225,21 @@ class ViewProjectScreen(views.EntityDetailScreen):
     def build(self):
         """Called when page is built"""
         self.edit_project_btn = IconButton(
-            icon=icons.EDIT_OUTLINED,
+            icon=Icons.EDIT_OUTLINED,
             tooltip="Edit project",
             on_click=self.on_edit_clicked,
             icon_size=dimens.ICON_SIZE,
         )
 
         self.toggle_complete_status_btn = IconButton(
-            icon=icons.RADIO_BUTTON_UNCHECKED_OUTLINED,
+            icon=Icons.RADIO_BUTTON_UNCHECKED_OUTLINED,
             icon_color=colors.accent,
             tooltip="Mark as complete",
             icon_size=dimens.ICON_SIZE,
             on_click=self.on_toggle_complete_status,
         )
         self.delete_project_btn = IconButton(
-            icon=icons.DELETE_OUTLINE_ROUNDED,
+            icon=Icons.DELETE_OUTLINE_ROUNDED,
             icon_color=colors.danger,
             tooltip="Delete project",
             icon_size=dimens.ICON_SIZE,
@@ -273,12 +271,12 @@ class ViewProjectScreen(views.EntityDetailScreen):
         page_view = Row(
             [
                 Container(
-                    padding=padding.all(dimens.SPACE_STD),
+                    padding=Padding.all(dimens.SPACE_STD),
                     width=int(dimens.MIN_WINDOW_WIDTH * 0.3),
                     content=Column(
                         controls=[
                             IconButton(
-                                icon=icons.KEYBOARD_ARROW_LEFT,
+                                icon=Icons.KEYBOARD_ARROW_LEFT,
                                 on_click=self.navigate_back,
                                 icon_size=dimens.ICON_SIZE,
                             ),
@@ -297,14 +295,14 @@ class ViewProjectScreen(views.EntityDetailScreen):
                 ),
                 Container(
                     expand=True,
-                    padding=padding.all(dimens.SPACE_MD),
+                    padding=Padding.all(dimens.SPACE_MD),
                     content=Column(
                         controls=[
                             self.loading_indicator,
                             Row(
                                 controls=[
                                     Icon(
-                                        icons.WORK_ROUNDED,
+                                        Icons.WORK_ROUNDED,
                                         size=dimens.ICON_SIZE,
                                     ),
                                     Column(
@@ -358,14 +356,14 @@ class ViewProjectScreen(views.EntityDetailScreen):
                                     Card(
                                         Container(
                                             self.project_status_control,
-                                            padding=padding.all(dimens.SPACE_SM),
+                                            padding=Padding.all(dimens.SPACE_SM),
                                         ),
                                         elevation=2,
                                     ),
                                     Card(
                                         Container(
                                             self.project_tagline_control,
-                                            padding=padding.all(dimens.SPACE_SM),
+                                            padding=Padding.all(dimens.SPACE_SM),
                                         ),
                                         elevation=2,
                                     ),
@@ -470,14 +468,14 @@ class ProjectEditorScreen(TView, Container):
 
     def clear_title_error(self, e):
         """Called when the title input is focused"""
-        if self.title_field.error_text:
-            self.title_field.error_text = None
+        if self.title_field.error:
+            self.title_field.error = None
             self.update_self()
 
     def clear_description_error(self, e):
         """Called when the description input is focused"""
-        if self.description_field.error_text:
-            self.description_field.error_text = None
+        if self.description_field.error:
+            self.description_field.error = None
             self.update_self()
 
     def toggle_progress_indicator(self, is_action_ongoing: bool):
@@ -520,8 +518,8 @@ class ProjectEditorScreen(TView, Container):
     ):
         """Reloads the contracts for the dropdown field"""
         self.contracts_map = self.intent.get_all_contracts_as_map()
-        self.contracts_field.error_text = (
-            "Please create a new contract" if len(self.contracts_map) == 0 else None
+        self.contracts_field.update_error_txt(
+            "Please create a new contract" if len(self.contracts_map) == 0 else ""
         )
         self.contracts_field.update_dropdown_items(self.get_contracts_as_list())
 
@@ -532,12 +530,12 @@ class ProjectEditorScreen(TView, Container):
     def on_save(self, e):
         """Called when the save button is clicked, validates the form and saves the project"""
         if not self.title_field.value:
-            self.title_field.error_text = "Project title is required"
+            self.title_field.error = "Project title is required"
             self.update_self()
             return
 
         if not self.description_field.value:
-            self.description_field.error_text = "Project description is required"
+            self.description_field.error = "Project description is required"
             self.update_self()
             return
 
@@ -563,20 +561,21 @@ class ProjectEditorScreen(TView, Container):
             return
 
         if not self.tag_field.value:
-            self.tag_field.error_text = "The project must have a tag."
+            self.tag_field.error = "The project must have a tag."
             self.update_self()
             return
 
         self.toggle_progress_indicator(is_action_ongoing=True)
-        result: IntentResult = self.intent.save_project(
-            title=self.title_field.value,
-            description=self.description_field.value,
-            start_date=self.start_date,
-            end_date=self.end_date,
-            unique_tag=self.tag_field.value,
-            contract=self.contract,
-            project=self.old_project_if_editing,
-        )
+
+        project = self.old_project_if_editing or Project()
+        project.title = self.title_field.value
+        project.description = self.description_field.value
+        project.start_date = self.start_date
+        project.end_date = self.end_date
+        project.tag = self.tag_field.value
+        project.contract = self.contract
+
+        result: IntentResult = self.intent.save_project(project)
         successMsg = (
             "Changes saved"
             if self.old_project_if_editing
@@ -621,7 +620,7 @@ class ProjectEditorScreen(TView, Container):
             controls=[
                 self.contracts_field,
                 IconButton(
-                    icon=icons.ADD_CIRCLE_OUTLINE,
+                    icon=Icons.ADD_CIRCLE_OUTLINE,
                     on_click=self.on_add_contract,
                     icon_size=dimens.ICON_SIZE,
                 ),

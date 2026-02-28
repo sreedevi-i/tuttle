@@ -14,12 +14,10 @@ from flet import (
     Text,
     TextButton,
     Control,
-    alignment,
-    border,
-    border_radius,
-    icons,
-    margin,
-    padding,
+    Alignment,
+    Border,
+    Icons,
+    Padding,
 )
 
 from ..clients.view import ClientEditorPopUp, ClientViewPopUp
@@ -58,7 +56,7 @@ class ContractCard(Container):
             height=36,
             bgcolor=colors.accent_muted,
             border_radius=dimens.RADIUS_LG,
-            alignment=alignment.center,
+            alignment=Alignment.CENTER,
             content=Text(
                 initials,
                 size=fonts.BODY_1_SIZE,
@@ -116,9 +114,9 @@ class ContractCard(Container):
         super().__init__(
             expand=True,
             bgcolor=colors.bg_surface,
-            border=border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
             border_radius=dimens.RADIUS_LG,
-            padding=padding.all(dimens.SPACE_MD),
+            padding=Padding.all(dimens.SPACE_MD),
             on_hover=self._on_hover,
             on_click=lambda e: self.on_click_view(contract.id),
             content=Column(
@@ -173,8 +171,8 @@ class ContractEditorScreen(TView, Container):
             self.vat_rate_ui_field,
         ]
         for field in fields:
-            if field.error_text:
-                field.error_text = None
+            if field.error:
+                field.error = None
         self.currency_ui_field.update_error_txt()
         self.update_self()
 
@@ -348,7 +346,7 @@ class ContractEditorScreen(TView, Container):
 
         # check for missing fields
         if not title:
-            self.title_ui_field.error_text = "Contract title is required"
+            self.title_ui_field.error = "Contract title is required"
             self.update_self()
             return  # error occurred, stop here
 
@@ -358,7 +356,7 @@ class ContractEditorScreen(TView, Container):
             return
 
         if not rate:
-            self.rate_ui_field.error_text = "Rate of enumeration is required"
+            self.rate_ui_field.error = "Rate of enumeration is required"
             self.update_self()
             return
 
@@ -368,7 +366,7 @@ class ContractEditorScreen(TView, Container):
             return
 
         if not unit_pw:
-            self.unit_PW_ui_field.error_text = "Units per workday is required"
+            self.unit_PW_ui_field.error = "Units per workday is required"
             self.update_self()
             return
 
@@ -409,22 +407,22 @@ class ContractEditorScreen(TView, Container):
 
         self.toggle_progress(is_on_going_action=True)
 
-        result: IntentResult = self.intent.save_contract(
-            title=title,
-            signature_date=signatureDate,
-            start_date=startDate,
-            end_date=endDate,
-            client=self.client,
-            rate=rate,
-            currency=currency,
-            VAT_rate=vat_rate,
-            unit=time_unit,
-            units_per_workday=unit_pw,
-            volume=volume,
-            term_of_payment=term_of_payment,
-            billing_cycle=billing_cycle,
-            contract=self.old_contract_if_editing,
-        )
+        contract = self.old_contract_if_editing or Contract()
+        contract.title = title
+        contract.signature_date = signatureDate
+        contract.start_date = startDate
+        contract.end_date = endDate
+        contract.client = self.client
+        contract.rate = rate
+        contract.currency = currency
+        contract.VAT_rate = vat_rate
+        contract.unit = time_unit
+        contract.units_per_workday = unit_pw
+        contract.volume = volume
+        contract.term_of_payment = term_of_payment
+        contract.billing_cycle = billing_cycle
+
+        result: IntentResult = self.intent.save_contract(contract)
         success_msg = (
             "Changes saved"
             if self.contract_id_if_editing
@@ -529,7 +527,7 @@ class ContractEditorScreen(TView, Container):
                     controls=[
                         self.clients_ui_field,
                         IconButton(
-                            icon=icons.ADD_CIRCLE_OUTLINE,
+                            icon=Icons.ADD_CIRCLE_OUTLINE,
                             on_click=self.on_add_client_clicked,
                             icon_size=dimens.ICON_SIZE,
                         ),
@@ -632,28 +630,28 @@ class ViewContractScreen(views.EntityDetailScreen):
             "Mark as incomplete" if c.is_completed else "Mark as completed"
         )
         self.toggle_compete_status_btn.icon = (
-            icons.RADIO_BUTTON_CHECKED_OUTLINED
+            Icons.RADIO_BUTTON_CHECKED_OUTLINED
             if c.is_completed
-            else icons.RADIO_BUTTON_UNCHECKED_OUTLINED
+            else Icons.RADIO_BUTTON_UNCHECKED_OUTLINED
         )
 
     def build(self):
         """Called when page is built"""
         self.edit_contract_btn = IconButton(
-            icon=icons.EDIT_OUTLINED,
+            icon=Icons.EDIT_OUTLINED,
             tooltip="Edit contract",
             on_click=self.on_edit_clicked,
             icon_size=dimens.ICON_SIZE,
         )
         self.toggle_compete_status_btn = IconButton(
-            icon=icons.RADIO_BUTTON_CHECKED_OUTLINED,
+            icon=Icons.RADIO_BUTTON_CHECKED_OUTLINED,
             icon_color=colors.accent,
             icon_size=dimens.ICON_SIZE,
             tooltip="Mark contract as completed",
             on_click=self.on_toggle_complete_status,
         )
         self.delete_contract_btn = IconButton(
-            icon=icons.DELETE_OUTLINE_ROUNDED,
+            icon=Icons.DELETE_OUTLINE_ROUNDED,
             icon_color=colors.danger,
             tooltip="Delete contract",
             on_click=self.on_delete_clicked,
@@ -682,12 +680,12 @@ class ViewContractScreen(views.EntityDetailScreen):
         self.content = Row(
             [
                 Container(
-                    padding=padding.all(dimens.SPACE_STD),
+                    padding=Padding.all(dimens.SPACE_STD),
                     width=int(dimens.MIN_WINDOW_WIDTH * 0.3),
                     content=Column(
                         controls=[
                             IconButton(
-                                icon=icons.KEYBOARD_ARROW_LEFT,
+                                icon=Icons.KEYBOARD_ARROW_LEFT,
                                 on_click=self.navigate_back,
                                 icon_size=dimens.ICON_SIZE,
                             ),
@@ -701,14 +699,14 @@ class ViewContractScreen(views.EntityDetailScreen):
                 ),
                 Container(
                     expand=True,
-                    padding=padding.all(dimens.SPACE_MD),
+                    padding=Padding.all(dimens.SPACE_MD),
                     content=Column(
                         controls=[
                             self.loading_indicator,
                             Row(
                                 controls=[
                                     Icon(
-                                        icons.HANDSHAKE_ROUNDED,
+                                        Icons.HANDSHAKE_ROUNDED,
                                         size=dimens.ICON_SIZE,
                                     ),
                                     Column(
@@ -780,7 +778,7 @@ class ViewContractScreen(views.EntityDetailScreen):
                                     Card(
                                         Container(
                                             self.status_control,
-                                            padding=padding.all(dimens.SPACE_SM),
+                                            padding=Padding.all(dimens.SPACE_SM),
                                         ),
                                         elevation=2,
                                     ),

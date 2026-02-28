@@ -4,7 +4,7 @@ import io
 import re
 import xml.etree.ElementTree as ET
 
-from flet import alignment
+from flet import Alignment
 from flet.container import Container
 from flet.control import OptionalNumber
 from flet.image import Image
@@ -82,7 +82,7 @@ class CustomMatplotlibChart(Container):
         return self.__isolated
 
     def _build(self):
-        self.alignment = alignment.center
+        self.alignment = Alignment.CENTER
         self.__img = Image(fit="fill")
         self.content = self.__img
 
