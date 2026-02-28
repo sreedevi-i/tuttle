@@ -36,11 +36,16 @@ jobs:
       run: uv sync --all-groups
     - name: Build app bundle
       run: uv run python scripts/pack_app.py
-    - name: Create zip archive
-      shell: bash
+    - name: Create zip archive (Unix)
+      if: runner.os != 'Windows'
       run: |
         cd dist
         zip -r ../Tuttle-${{ github.ref_name }}-${{ matrix.platform }}.zip .
+    - name: Create zip archive (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Compress-Archive -Path dist\* -DestinationPath Tuttle-${{ github.ref_name }}-${{ matrix.platform }}.zip
     - uses: actions/upload-artifact@v4
       with:
         name: Tuttle-${{ github.ref_name }}-${{ matrix.platform }}
