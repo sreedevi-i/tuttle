@@ -421,6 +421,11 @@ class ClientsListView(views.CrudListView):
     entity_name_plural = "clients"
     on_add_intent_key = res_utils.ADD_CLIENT_INTENT
 
+    def get_sortable_fields(self):
+        return [
+            ("Name", lambda c: (c.name or "").lower()),
+        ]
+
     def __init__(self, params: TViewParams):
         self.intent = ClientsIntent()
         super().__init__(params=params)

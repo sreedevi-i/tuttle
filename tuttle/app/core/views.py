@@ -1099,24 +1099,78 @@ class CrudListView(TView, Column):
     entity_name_plural: str = ""
     on_add_intent_key: Optional[str] = None
 
+    def get_sortable_fields(self) -> list[tuple[str, Callable]]:
+        """Return a list of (label, key_func) for fields the user can sort by.
+
+        Override in subclasses. Each key_func receives an entity and returns
+        a comparable value. Sorting direction is toggled via a separate button.
+        """
+        return []
+
     def __init__(self, params: TViewParams):
         TView.__init__(self, params)
         Column.__init__(self)
+        self._sort_ascending: bool = True
+        self._sort_field_index: int = 0
         self.loading_indicator = TProgressBar()
         self.no_items_control = TBodyText(
             txt=f"You have not added any {self.entity_name_plural} yet",
             color=colors.text_muted,
             show=False,
         )
+
+        sortable = self.get_sortable_fields()
+        sort_control = None
+        if sortable:
+            self._sort_dropdown = Dropdown(
+                value="0",
+                options=[
+                    DropdownOption(key=str(i), text=label)
+                    for i, (label, _) in enumerate(sortable)
+                ],
+                on_select=self._on_sort_field_changed,
+                width=180,
+                text_size=fonts.BODY_2_SIZE,
+                content_padding=Padding.symmetric(
+                    horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
+                ),
+                dense=True,
+            )
+            self._sort_dir_btn = IconButton(
+                icon=Icons.ARROW_UPWARD,
+                icon_size=dimens.ICON_SIZE,
+                icon_color=colors.text_secondary,
+                tooltip="Ascending",
+                on_click=self._on_sort_dir_toggled,
+            )
+            sort_control = Row(
+                spacing=0,
+                vertical_alignment=CrossAxisAlignment.CENTER,
+                controls=[
+                    Icon(Icons.SORT, size=dimens.ICON_SIZE, color=colors.text_muted),
+                    self._sort_dropdown,
+                    self._sort_dir_btn,
+                ],
+            )
+
+        heading_row = Row(
+            alignment=MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=CrossAxisAlignment.CENTER,
+            controls=[
+                THeading(
+                    f"My {self.entity_name_plural.title()}",
+                    size=fonts.HEADLINE_3_SIZE,
+                ),
+            ]
+            + ([sort_control] if sort_control else []),
+        )
+
         self.title_control = ResponsiveRow(
             controls=[
                 Column(
                     col={"xs": 12},
                     controls=[
-                        THeading(
-                            f"My {self.entity_name_plural.title()}",
-                            size=fonts.HEADLINE_3_SIZE,
-                        ),
+                        heading_row,
                         self.loading_indicator,
                         self.no_items_control,
                     ],
@@ -1157,13 +1211,36 @@ class CrudListView(TView, Column):
         """Override for inline save handling (contacts, clients)."""
         pass
 
+    def _on_sort_field_changed(self, e):
+        self._sort_field_index = int(e.control.value)
+        self.refresh_list()
+        self.update_self()
+
+    def _on_sort_dir_toggled(self, e):
+        self._sort_ascending = not self._sort_ascending
+        self._sort_dir_btn.icon = (
+            Icons.ARROW_UPWARD if self._sort_ascending else Icons.ARROW_DOWNWARD
+        )
+        self._sort_dir_btn.tooltip = (
+            "Ascending" if self._sort_ascending else "Descending"
+        )
+        self.refresh_list()
+        self.update_self()
+
     # -- Lifecycle methods (generic) -------------------------------------------
 
     def refresh_list(self):
         """Clears and rebuilds the items container from items_to_display."""
         self.items_container.controls.clear()
-        for key in self.items_to_display:
-            entity = self.items_to_display[key]
+        entities = list(self.items_to_display.values())
+        sortable = self.get_sortable_fields()
+        if sortable and 0 <= self._sort_field_index < len(sortable):
+            _, key_func = sortable[self._sort_field_index]
+            entities.sort(
+                key=lambda ent: (key_func(ent) is None, key_func(ent)),
+                reverse=not self._sort_ascending,
+            )
+        for entity in entities:
             card = self.make_card(entity)
             self.items_container.controls.append(card)
 
@@ -1377,6 +1454,50 @@ class EntityDetailScreen(TView, Container):
                 ),
             ]
         )
+
+    # -- Declarative field binding ---------------------------------------------
+
+    @staticmethod
+    def _resolve_field_value(entity, accessor) -> str:
+        """Resolve *accessor* against *entity* to a Flet-safe string.
+
+        *accessor* is either a callable ``(entity) -> str`` or an attribute
+        name.  For attribute names the value is auto-converted:
+        ``None`` -> ``""``, ``Enum`` -> ``.value``, everything else -> ``str()``.
+        """
+        if callable(accessor):
+            val = accessor(entity)
+            return str(val) if val is not None else ""
+        val = getattr(entity, accessor, None)
+        if val is None:
+            return ""
+        if isinstance(val, Enum):
+            return str(val.value)
+        if isinstance(val, str):
+            return val
+        return str(val)
+
+    def build_field_rows(self, specs: list[tuple]) -> list[ResponsiveRow]:
+        """Create controls and layout rows from a list of field specs.
+
+        Each spec is ``(label, accessor)`` where *accessor* is a string
+        attribute name or a callable ``(entity) -> str``.
+
+        Returns a list of ``ResponsiveRow`` controls ready to be placed in the
+        layout.  Call :meth:`update_field_rows` later to populate them.
+        """
+        self._field_specs: list[tuple[str, typing.Any, TBodyText]] = []
+        rows: list[ResponsiveRow] = []
+        for label, accessor in specs:
+            control = TBodyText(align=utils.TXT_ALIGN_JUSTIFY)
+            self._field_specs.append((label, accessor, control))
+            rows.append(self.get_body_element(label, control))
+        return rows
+
+    def update_field_rows(self, entity) -> None:
+        """Refresh all controls created by :meth:`build_field_rows`."""
+        for _label, accessor, control in self._field_specs:
+            control.value = self._resolve_field_value(entity, accessor)
 
     def will_unmount(self):
         self.mounted = False

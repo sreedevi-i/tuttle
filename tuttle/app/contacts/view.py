@@ -283,6 +283,13 @@ class ContactsListView(views.CrudListView):
     entity_name_plural = "contacts"
     on_add_intent_key = res_utils.ADD_CONTACT_INTENT
 
+    def get_sortable_fields(self):
+        return [
+            ("Last Name", lambda c: (c.last_name or "").lower()),
+            ("First Name", lambda c: (c.first_name or "").lower()),
+            ("Company", lambda c: (c.company or "").lower()),
+        ]
+
     def __init__(self, params: TViewParams):
         self.intent = ContactsIntent()
         super().__init__(params)
