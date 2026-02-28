@@ -1,5 +1,6 @@
 from typing import Callable, Optional
 
+import datetime
 from enum import Enum
 
 from flet import (
@@ -558,6 +559,17 @@ class ContractsListView(views.CrudListView):
 
     entity_name = "contract"
     entity_name_plural = "contracts"
+
+    def get_sortable_fields(self):
+        return [
+            ("Title", lambda c: (c.title or "").lower()),
+            (
+                "Start Date",
+                lambda c: c.start_date if c.start_date else datetime.date.min,
+            ),
+            ("End Date", lambda c: c.end_date if c.end_date else datetime.date.min),
+            ("Client", lambda c: (c.client.name if c.client else "").lower()),
+        ]
 
     def __init__(self, params: TViewParams):
         self.intent = ContractsIntent()
