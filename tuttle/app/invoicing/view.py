@@ -3,6 +3,7 @@ from typing import Callable, List, Optional
 import datetime as _dt
 from datetime import datetime, timedelta, date
 from decimal import Decimal
+from pathlib import Path
 
 from flet import (
     AlertDialog,
@@ -10,17 +11,22 @@ from flet import (
     Border,
     BorderRadius,
     BorderSide,
+    ClipBehavior,
     Column,
     Container,
     Icon,
     IconButton,
     Icons,
+    Image,
     ListTile,
     ListView,
     Padding,
+    ProgressRing,
     ResponsiveRow,
     Row,
+    ScrollMode,
     Text,
+    TextOverflow,
     TextStyle,
     Control,
 )
@@ -33,6 +39,7 @@ from pandas import DataFrame
 from ..res import colors, dimens, fonts, res_utils
 
 from ...model import Invoice, Project, User
+from ...os_functions import render_pdf_pages
 
 from .intent import InvoicingIntent
 
@@ -136,6 +143,89 @@ class _FilterChip(Container):
         )
 
 
+class PdfViewerPanel(Container):
+    """Side panel that renders PDF pages as scrollable images."""
+
+    def __init__(self, on_close: Callable):
+        self._title_text = views.THeading(title="", size=fonts.HEADLINE_4_SIZE)
+        self._close_btn = IconButton(
+            icon=Icons.CLOSE,
+            icon_size=dimens.ICON_SIZE,
+            icon_color=colors.text_secondary,
+            tooltip="Close",
+            on_click=lambda e: on_close(),
+        )
+        self._header = Row(
+            alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+            vertical_alignment=utils.CENTER_ALIGNMENT,
+            controls=[self._title_text, self._close_btn],
+        )
+        self._page_list = ListView(expand=True, spacing=dimens.SPACE_XS)
+        self._spinner = ProgressRing(width=32, height=32, stroke_width=3, visible=False)
+        self._empty_label = views.TBodyText(
+            "No PDF loaded",
+            size=fonts.BODY_2_SIZE,
+            color=colors.text_muted,
+        )
+
+        super().__init__(
+            visible=False,
+            expand=True,
+            bgcolor=colors.bg_surface,
+            border=Border(left=BorderSide(1, colors.border)),
+            border_radius=BorderRadius(
+                top_left=dimens.RADIUS_LG,
+                bottom_left=dimens.RADIUS_LG,
+                top_right=0,
+                bottom_right=0,
+            ),
+            padding=Padding.all(dimens.SPACE_MD),
+            content=Column(
+                expand=True,
+                controls=[
+                    self._header,
+                    Container(height=dimens.SPACE_XS),
+                    self._spinner,
+                    self._empty_label,
+                    self._page_list,
+                ],
+            ),
+        )
+
+    def show_pdf(self, pdf_path: Path, title: str = "PDF"):
+        """Render and display a PDF file."""
+        self._title_text.title = title
+        self._page_list.controls.clear()
+        self._empty_label.visible = False
+        self._spinner.visible = True
+        self.visible = True
+
+        try:
+            pages = render_pdf_pages(str(pdf_path))
+        except Exception:
+            self._spinner.visible = False
+            self._empty_label.value = "Failed to render PDF"
+            self._empty_label.visible = True
+            return
+
+        self._spinner.visible = False
+        for i, page_b64 in enumerate(pages):
+            self._page_list.controls.append(
+                Image(
+                    src=page_b64,
+                    fit="contain",
+                    expand=True,
+                )
+            )
+
+    def close(self):
+        """Hide the panel and free rendered images."""
+        self.visible = False
+        self._page_list.controls.clear()
+        self._empty_label.visible = True
+        self._title_text.title = ""
+
+
 class InvoicingEditorPopUp(DialogHandler, Column):
     """Pop up used for editing or creating an invoice
 
@@ -188,6 +278,12 @@ class InvoicingEditorPopUp(DialogHandler, Column):
             items=project_options,
             show=not is_editing,
         )
+        self.error_text = Text(
+            "",
+            color=colors.danger,
+            size=fonts.BODY_2_SIZE,
+            visible=False,
+        )
         dialog = AlertDialog(
             bgcolor=colors.bg_surface,
             content=Container(
@@ -214,6 +310,7 @@ class InvoicingEditorPopUp(DialogHandler, Column):
                         self.from_date_field,
                         self.to_date_field,
                         views.Spacer(xs_space=True),
+                        self.error_text,
                     ],
                 ),
             ),
@@ -226,6 +323,12 @@ class InvoicingEditorPopUp(DialogHandler, Column):
         super().__init__(dialog=dialog, dialog_controller=dialog_controller)
         self.project = self.invoice.project if is_editing else None
         self.on_submit = on_submit
+
+    def _show_error(self, message: str):
+        """Display an inline error message inside the dialog."""
+        self.error_text.value = message
+        self.error_text.visible = True
+        self.dialog.update()
 
     def on_project_selected(self, e):
         selected_project = e.control.value
@@ -241,6 +344,17 @@ class InvoicingEditorPopUp(DialogHandler, Column):
             self.invoice.date = date
         from_date: Optional[datetime.date] = self.from_date_field.get_date()
         to_date: Optional[datetime.date] = self.to_date_field.get_date()
+
+        if not self.project:
+            self._show_error("Please select a project.")
+            return
+        if not from_date or not to_date:
+            self._show_error("Please specify the date range.")
+            return
+        if to_date < from_date:
+            self._show_error("The start date cannot be after the end date.")
+            return
+
         self.close_dialog()
         self.on_submit(self.invoice, self.project, from_date, to_date)
 
@@ -271,6 +385,7 @@ class InvoicingListView(TView, Column):
         self.contacts = {}
         self.active_projects = {}
         self.editor = None
+        self._viewed_invoice_id: Optional[int] = None
         object.__setattr__(self, "time_tracking_data", None)
         object.__setattr__(self, "user", None)
         self.active_filter: str = self._FILTER_ALL
@@ -468,6 +583,7 @@ class InvoicingListView(TView, Column):
                     toggle_paid_status=self.toggle_paid_status,
                     toggle_cancelled_status=self.toggle_cancelled_status,
                     toggle_sent_status=self.toggle_sent_status,
+                    is_selected=invoice.id == self._viewed_invoice_id,
                 )
             except Exception as ex:
                 logger.error(f"Error while refreshing invoice: {ex}")
@@ -482,16 +598,26 @@ class InvoicingListView(TView, Column):
             self.show_snack(result.error_msg, is_error=True)
 
     def on_view_invoice(self, invoice: Invoice):
-        """Called when the user clicks view in the context menu of an invoice"""
+        """Open the invoice PDF in the side panel."""
         result = self.intent.view_invoice(invoice)
         if not result.was_intent_successful:
             self.show_snack(result.error_msg, is_error=True)
+            return
+        self._viewed_invoice_id = invoice.id
+        self.pdf_panel.show_pdf(result.data, title=f"Invoice {invoice.number}")
+        self.refresh_invoices()
+        self.update_self()
 
     def on_view_timesheet(self, invoice: Invoice):
-        """Called when the user clicks view in the context menu of an invoice"""
+        """Open the timesheet PDF in the side panel."""
         result = self.intent.view_timesheet_for_invoice(invoice)
         if not result.was_intent_successful:
             self.show_snack(result.error_msg, is_error=True)
+            return
+        self._viewed_invoice_id = invoice.id
+        self.pdf_panel.show_pdf(result.data, title="Timesheet")
+        self.refresh_invoices()
+        self.update_self()
 
     def on_delete_invoice_clicked(self, invoice: Invoice):
         """Called when the user clicks delete in the context menu of an invoice"""
@@ -638,6 +764,13 @@ class InvoicingListView(TView, Column):
             self.refresh_invoices()
         self.update_self()
 
+    def _close_pdf_panel(self):
+        """Hide the PDF side panel and restore full-width list."""
+        self._viewed_invoice_id = None
+        self.pdf_panel.close()
+        self.refresh_invoices()
+        self.update_self()
+
     def build(self):
         """build the view"""
         self.loading_indicator = views.TProgressBar()
@@ -706,9 +839,22 @@ class InvoicingListView(TView, Column):
             spacing=dimens.SPACE_XS,
         )
 
+        # ── PDF side panel ───────────────────────────────────
+        self.pdf_panel = PdfViewerPanel(on_close=self._close_pdf_panel)
+
         self.title_control = Row(
             controls=[
                 views.THeading(title="Invoicing", size=fonts.HEADLINE_4_SIZE),
+            ],
+        )
+
+        # Split layout: invoice list (left) + pdf panel (right)
+        self.split_row = Row(
+            expand=True,
+            spacing=dimens.SPACE_SM,
+            controls=[
+                Container(self.invoices_list_control, expand=True),
+                self.pdf_panel,
             ],
         )
 
@@ -720,7 +866,7 @@ class InvoicingListView(TView, Column):
             self.filter_row,
             Container(height=dimens.SPACE_XS),
             self.no_invoices_control,
-            Container(self.invoices_list_control, expand=True),
+            self.split_row,
         ]
 
     def will_unmount(self):
@@ -744,8 +890,10 @@ class InvoiceTile(Container):
         toggle_paid_status,
         toggle_sent_status,
         toggle_cancelled_status,
+        is_selected: bool = False,
     ):
         self.invoice = invoice
+        self._is_selected = is_selected
 
         _project_title = invoice.project.title if invoice.project else ""
         _currency = invoice.contract.currency if invoice.contract else ""
@@ -861,11 +1009,13 @@ class InvoiceTile(Container):
                     size=fonts.HEADLINE_4_SIZE,
                     weight=fonts.BOLD_FONT,
                     color=colors.text_primary,
+                    no_wrap=True,
                 ),
                 Text(
                     f"Net {net_val}  ·  VAT {vat_val}",
                     size=fonts.CAPTION_SIZE,
                     color=colors.text_muted,
+                    no_wrap=True,
                 ),
             ],
         )
@@ -873,6 +1023,7 @@ class InvoiceTile(Container):
         # ── Status badges row ────────────────────────────────
         status_badges = Row(
             spacing=dimens.SPACE_SM,
+            wrap=True,
             controls=[
                 views.TStatusDisplay(txt="Paid", is_done=invoice.paid),
                 views.TStatusDisplay(txt="Sent", is_done=invoice.sent),
@@ -886,11 +1037,18 @@ class InvoiceTile(Container):
         )
 
         # ── Assemble tile ────────────────────────────────────
+        _bg = colors.accent_muted if is_selected else colors.bg_surface
+        _border = (
+            Border.all(2, colors.accent)
+            if is_selected
+            else Border.all(dimens.CARD_BORDER_WIDTH, colors.border)
+        )
         super().__init__(
-            bgcolor=colors.bg_surface,
-            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
+            bgcolor=_bg,
+            border=_border,
             border_radius=dimens.RADIUS_LG,
             padding=Padding.all(0),
+            clip_behavior=ClipBehavior.HARD_EDGE,
             on_hover=self._on_hover,
             content=Row(
                 spacing=0,
@@ -909,6 +1067,7 @@ class InvoiceTile(Container):
                     # Main content
                     Container(
                         expand=True,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
                         padding=Padding.only(
                             left=dimens.SPACE_SM,
                             right=dimens.SPACE_MD,
@@ -931,16 +1090,15 @@ class InvoiceTile(Container):
                                                 views.TBodyText(
                                                     invoice.number or "—",
                                                     weight=fonts.BOLD_FONT,
+                                                    no_wrap=True,
                                                 ),
-                                                views.TBodyText(
+                                                Text(
                                                     _client_name,
                                                     color=colors.text_primary,
                                                     size=fonts.BODY_2_SIZE,
-                                                ),
-                                                views.TBodyText(
-                                                    f"· {_project_title}",
-                                                    color=colors.text_secondary,
-                                                    size=fonts.BODY_2_SIZE,
+                                                    overflow=TextOverflow.ELLIPSIS,
+                                                    no_wrap=True,
+                                                    expand=True,
                                                 ),
                                             ],
                                         ),
@@ -963,6 +1121,7 @@ class InvoiceTile(Container):
                                             f'{invoice.date.strftime("%d %b %Y")}',
                                             size=fonts.BODY_2_SIZE,
                                             color=colors.text_secondary,
+                                            no_wrap=True,
                                         ),
                                         status_badges,
                                     ],
@@ -975,6 +1134,8 @@ class InvoiceTile(Container):
         )
 
     def _on_hover(self, e):
+        if self._is_selected:
+            return
         self.bgcolor = (
             colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
         )

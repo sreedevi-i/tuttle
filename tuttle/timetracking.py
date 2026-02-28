@@ -26,21 +26,22 @@ def generate_timesheet(
 ) -> Timesheet:
     """Create a timesheet from a dataframe of time tracking data."""
 
-    # convert period_start and period_end to strings that can be used as index for a DateTimeIndex
-    period_start = period_start.strftime("%Y-%m-%d")
-    period_end = period_end.strftime("%Y-%m-%d")
+    # string keys for pandas DatetimeIndex slicing
+    start_key = period_start.strftime("%Y-%m-%d")
+    end_key = period_end.strftime("%Y-%m-%d")
 
     tag_query = f"tag == '{project.tag}'"
+    timetracking_data = timetracking_data.sort_index()
     if period_end:
         ts_table = (
-            timetracking_data.loc[period_start:period_end].query(tag_query).sort_index()
+            timetracking_data.loc[start_key:end_key].query(tag_query).sort_index()
         )
         if ts_table.empty:
             raise ValueError(
-                f"No time tracking data found for project {project.title} in period {period_start} - {period_end}"
+                f"No time tracking data found for project {project.title} in period {start_key} - {end_key}"
             )
     else:
-        ts_table = timetracking_data.loc[period_start].query(tag_query).sort_index()
+        ts_table = timetracking_data.loc[start_key].query(tag_query).sort_index()
     # convert all-day entries
     ts_table.loc[ts_table["all_day"], "duration"] = (
         project.contract.unit.to_timedelta() * project.contract.units_per_workday
@@ -49,7 +50,7 @@ def generate_timesheet(
         # TODO: extract item description from calendar
         ts_table["description"] = item_description
 
-    period_str = f"{period_start} - {period_end}"
+    period_str = f"{start_key} - {end_key}"
     ts = Timesheet(
         title=f"{project.title} - {period_str}",
         period_start=period_start,

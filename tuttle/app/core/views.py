@@ -474,9 +474,12 @@ class DateSelector(Container):
     ):
         super().__init__()
         self.label = label
-        self._selected_date: Optional[datetime.date] = (
-            initial_date if initial_date else datetime.date.today()
-        )
+        if initial_date is None:
+            self._selected_date: Optional[datetime.date] = datetime.date.today()
+        elif isinstance(initial_date, datetime.datetime):
+            self._selected_date: Optional[datetime.date] = initial_date.date()
+        else:
+            self._selected_date: Optional[datetime.date] = initial_date
         self.label_color = label_color or colors.text_secondary
 
         today = datetime.date.today()
