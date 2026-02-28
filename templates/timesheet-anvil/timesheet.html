@@ -81,9 +81,9 @@
     <tbody>
       {% for item in timesheet.items %}
       <tr>
-        <td>{{ item.begin }}</td>
-        <td>{{ item.end }}</td>
-        <td>{{ item.duration }}</td>
+        <td>{{ item.begin | date }}</td>
+        <td>{{ item.end | date }}</td>
+        <td>{{ item.duration | hours_minutes }}</td>
         <td>{{ item.description }}</td>
       </tr>
       {% endfor %}
