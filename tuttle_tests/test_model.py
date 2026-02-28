@@ -111,13 +111,20 @@ class TestClient:
             email="sam.lowry@miniinf.gov",
             company="Ministry of Information",
         )
-        client = Client.validate(
-            dict(
-                name="Ministry of Information",
-                invoicing_contact=invoicing_contact,
-            )
+        client = Client(
+            name="Ministry of Information",
+            invoicing_contact=invoicing_contact,
         )
-        assert store_and_retrieve(client)
+        db_engine = create_engine("sqlite:///")
+        SQLModel.metadata.create_all(db_engine)
+        with Session(db_engine) as session:
+            session.add(invoicing_contact)
+            session.add(client)
+            session.commit()
+        with Session(db_engine) as session:
+            retrieved = session.exec(select(Client)).first()
+            assert retrieved is not None
+            assert retrieved.name == "Ministry of Information"
 
     def test_missing_name(self):
         """Test that a ValidationError is raised when the name is missing."""

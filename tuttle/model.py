@@ -132,6 +132,7 @@ class User(SQLModel, table=True):
         sa_relationship_kwargs={"lazy": "subquery"},
     )
     VAT_number: Optional[str] = Field(
+        default=None,
         description="Value Added Tax number of the user, legally required for invoices.",
     )
     # User 1:1* ICloudAccount
