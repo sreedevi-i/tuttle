@@ -20,19 +20,19 @@ If you are reporting a bug, please include:
 
 ## Fix Bugs
 
-Look through the GitHub issues for bugs. Anything tagged with \"bug\"
-and \"help wanted\" is open to whoever wants to implement it.
+Look through the GitHub issues for bugs. Anything tagged with "bug"
+and "help wanted" is open to whoever wants to implement it.
 
 ## Implement Features
 
 Look through the GitHub issues for features. Anything tagged with
-\"enhancement\" and \"help wanted\" is open to whoever wants to
+"enhancement" and "help wanted" is open to whoever wants to
 implement it.
 
 ## Write Documentation
 
-tuttle could always use more documentation, whether as part of the
-official tuttle docs, in docstrings, or even on the web in blog posts,
+Tuttle could always use more documentation, whether as part of the
+official docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 ## Submit Feedback
@@ -50,31 +50,28 @@ If you are proposing a feature:
 
 # Get Started!
 
-Ready to contribute? Here\'s how to set up [tuttle]{.title-ref} for
+Ready to contribute? Here's how to set up Tuttle for
 local development.
 
-1.  Fork the [tuttle]{.title-ref} repo on GitHub.
+1.  Fork the repo on GitHub.
 
 2.  Clone your fork locally:
 
-    ``` shell
-    $ git clone git@github.com:your_name_here/tuttle.git
+    ```shell
+    git clone git@github.com:your_name_here/tuttle.git
     ```
 
-3.  Install your local copy into a virtualenv. Assuming you have
-    virtualenvwrapper installed, this is how you set up your fork for
-    local development:
+3.  Install dependencies with [uv](https://docs.astral.sh/uv/):
 
-    ``` shell
-    $ mkvirtualenv tuttle
-    $ cd tuttle/
-    $ python setup.py develop
+    ```shell
+    cd tuttle/
+    uv sync
     ```
 
 4.  Create a branch for local development:
 
-    ``` shell
-    $ git checkout -b name-of-your-bugfix-or-feature
+    ```shell
+    git checkout -b name-of-your-bugfix-or-feature
     ```
 
     Now you can make your changes locally.
@@ -82,9 +79,10 @@ local development.
 
     **Install the pre-commit hooks before making your first commit to ensure that you match the code style**:
 
-    ``` shell
-    $ pre-commit install
+    ```shell
+    pre-commit install
     ```
+
 5.  If you haven't done so already, install and/or activate
     [pyright](https://github.com/microsoft/pyright).
     The "basic" level should suffice and help you to avoid type errors.
@@ -98,20 +96,20 @@ local development.
     Oftentimes, type errors indicate bad design,
     so keep refactoring in mind as a third option.
 
-6.  When you\'re done making changes, check that your changes pass
-    code style checks and the tests:
+6.  When you're done making changes, check that your changes pass
+    the tests:
 
-    ``` shell
-    $ pytest
+    ```shell
+    uv run pytest
     ```
 
 
 7.  Commit your changes and push your branch to GitHub:
 
-    ``` shell
-    $ git add .
-    $ git commit -m "Your detailed description of your changes."
-    $ git push origin name-of-your-bugfix-or-feature
+    ```shell
+    git add .
+    git commit -m "Your detailed description of your changes."
+    git push origin name-of-your-bugfix-or-feature
     ```
 
 8.  Submit a pull request through the GitHub website.
@@ -122,38 +120,40 @@ Before you submit a pull request, check that it meets these guidelines:
 
 1.  The pull request should include tests.
 2.  If the pull request adds functionality, the docs should be updated.
-    Put your new functionality into a function with a docstring, and add
-    the feature to the list in README.rst.
-3.  The pull request should work for Python  3.8, 3.9, 3.10.
+    Put your new functionality into a function with a docstring.
+3.  The pull request should work for Python 3.10, 3.11, 3.12, and 3.13.
 
 # Tips
 
 To run a subset of tests:
 
-``` shell
-$ pytest tests.test_tuttle
+```shell
+uv run pytest tuttle_tests/test_model.py
+```
+
+To run a specific test:
+
+```shell
+uv run pytest tuttle_tests/test_model.py::TestContract::test_valid_instantiation
 ```
 
 # Deploying
 
-A reminder for the maintainers on how to deploy. Make sure all your
-changes are committed (including an entry in HISTORY.rst). Then run:
+Make sure all your changes are committed. Then run:
 
-``` shell
-$ bump2version patch # possible: major / minor / patch
-$ git push
-$ git push --tags
+```shell
+bump2version patch  # possible: major / minor / patch
+git push
+git push --tags
 ```
-
-Travis will then deploy to PyPI if tests pass.
 
 
 ## Architecture Notes
 
 **The View**
 
-- builds Ui,
-- reacts to data changes (by updating the Ui)
+- builds UI,
+- reacts to data changes (by updating the UI)
 - listens for events and forwards them to the Intent
 
 **The Intent**
@@ -161,7 +161,7 @@ Travis will then deploy to PyPI if tests pass.
 - receives events
 - if some data is affected by the event, figure out which data source corresponds to that data
 - transforms the event data to the data format required by the data source
-- transform returned data source data to the data format required by the Ui
+- transform returned data source data to the data format required by the UI
 - else, no data is affected by the event, handle the event (often using a util class).
 - an example of this is sending invoices by mail.
 
@@ -174,12 +174,12 @@ Travis will then deploy to PyPI if tests pass.
 - defines classes that manipulate this source (open, read, write, ....)
 
 
-As you go outer in layers (the outmost layer is the Ui, the innermost is the data layer), communication can occur down_ward across layers, and horizontally (for lack of a better word) BUT a layer cannot skip the layer directly below it. This is to say:
+As you go outer in layers (the outmost layer is the UI, the innermost is the data layer), communication can occur downward across layers, and horizontally, BUT a layer cannot skip the layer directly below it. This is to say:
 
-* Data sources can communicate with each other. Thus `ClientDatasource.delete_client` can call. `ContractDatasource.get_contract ` for example.
+* Data sources can communicate with each other. Thus `ClientDatasource.delete_client` can call `ContractDatasource.get_contract` for example.
 
-* Intents can communicate with each other, and with any data source. Thus `ClientIntent` can call `ContractIntent` or  `ContractDatasource` for example.
-The Ui can communicate with any intent (though often the Ui is tied to only a single intent, and the intent can instead call the 'other' intent). But it cannot communicate with a data source -> this would violate the do not skip layers rule.
-An inner layer cannot have a dependency on the layer above it. Thus an intent cannot instantiate a Ui class, and a data source cannot instantiate an Intent class.
+* Intents can communicate with each other, and with any data source. Thus `ClientIntent` can call `ContractIntent` or `ContractDatasource` for example.
+The UI can communicate with any intent (though often the UI is tied to only a single intent, and the intent can instead call the "other" intent). But it cannot communicate with a data source -- this would violate the do-not-skip-layers rule.
+An inner layer cannot have a dependency on the layer above it. Thus an intent cannot instantiate a UI class, and a data source cannot instantiate an Intent class.
 
 ![](assets/images/mvi-concept.png)

@@ -38,23 +38,22 @@ We develop the solution as a desktop application. Sensitive financial data is pr
 
 ## Features
 
-
 ### Business Data Management
 
-Manage your business contacts and contract terms for your project - all in one place.
+Manage your business contacts, clients and contract terms for your projects - all in one place. Entity list views support sorting by any field.
 
 <img src="assets/images/screenshot-contract.png" width=768 />
 
 ### Time Tracking
 
-Track the time you spend on your projects. Import from your cloud calendar or from your favorite time tracking tool.
+Track the time you spend on your projects. Import from your cloud calendar (iCloud), from an ICS file, or from a CSV export of your favorite time tracking tool.
 
 <img src="assets/images/screenshot-timetracking.png" width=768 />
 
 
 ### Invoicing
 
-Generate invoices and timesheets automatically from your time tracking data. Export to PDF and send via email.
+Generate invoices and timesheets automatically from your time tracking data, or create invoices manually by entering the quantity of hours or days directly. Export to PDF and send via email.
 
 <img src="assets/images/screenshot-invoicing.png" width=768 />
 
@@ -74,56 +73,44 @@ Track regular expenses, taxes and social security contributions. Estimate them f
 Calculate your effective income and see how much you can spend without risking your financial security.
 
 
-## Test via Python
+## Getting Started
 
-### Setup
+### Prerequisites
 
-1. Clone or download the current version.
+- Python 3.10 or newer
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
-2. We recommend installation into a new [virtual environment](https://calmcode.io/virtualenv/intro.html).
+### Installation
 
-3. Install the Python module in development mode:
+1. Clone the repository:
 
 ```shell
-pip install -e .
+git clone https://github.com/tuttle-dev/tuttle.git
+cd tuttle
 ```
 
-1. To verify, run the unit tests:
+2. Install dependencies (this creates a virtual environment automatically):
 
 ```shell
-$ pytest
+uv sync
 ```
 
-1. Start the app with
+### Running the App
 
 ```shell
-$ python app/app.py
+uv run app.py
 ```
 
-## Test the App Bundle
-
-Download the latest [release](https://github.com/tuttle-dev/tuttle/releases) for your platform.
-
-### macOS
-
-1. Run the .app bundle.
-
-### Linux
-
-1. Run the executable.
-
-### Windows
-
-1. Requires [GTK](https://www.gtk.org).
-2. Run the .exe file.
-
-
-## Build
-
-To build an app bundle, run
+### Running the Tests
 
 ```shell
-python scripts/pack_app.py
+uv run pytest
+```
+
+To include GUI tests (requires a display):
+
+```shell
+uv run pytest -m gui
 ```
 
 
