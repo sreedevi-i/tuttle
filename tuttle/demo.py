@@ -15,6 +15,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from tuttle import rendering
 from tuttle.calendar import Calendar, ICSCalendar
+from tuttle.migrations.run import run_migrations
 from tuttle.model import (
     Address,
     BankAccount,
@@ -402,12 +403,12 @@ def install_demo_data(
     db_path (str): The path to the database.
     on_cache_timetracking_dataframe (Optional[Callable], optional): A callback function to be called when the timetracking dataframe is cached. Defaults to None.
     """
-    db_path = f"""sqlite:///{db_path}"""
-    logger.info(f"Installing demo data in {db_path}...")
-    logger.info(f"Creating database engine at: {db_path}...")
-    db_engine = create_engine(db_path)
-    logger.info("Creating database tables...")
-    SQLModel.metadata.create_all(db_engine)
+    db_url = f"""sqlite:///{db_path}"""
+    logger.info(f"Installing demo data in {db_url}...")
+    logger.info(f"Creating database engine at: {db_url}...")
+    db_engine = create_engine(db_url)
+    logger.info("Creating database tables via migrations...")
+    run_migrations(db_url)
 
     logger.info("Creating demo user...")
     with Session(db_engine) as session:

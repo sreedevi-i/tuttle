@@ -6,6 +6,7 @@ import sqlmodel
 from loguru import logger
 
 from ... import demo
+from ...migrations.run import run_migrations
 
 from .abstractions import DatabaseStorage
 
@@ -21,18 +22,21 @@ class DatabaseStorageImpl(DatabaseStorage):
         self.store_demo_dataframe_callback = store_demo_timetracking_dataframe
         self.debug_mode = debug_mode
 
+    @property
+    def db_url(self) -> str:
+        return f"sqlite:///{self.db_path}"
+
     def create_model(self):
-        logger.info("Creating database model")
-        sqlmodel.SQLModel.metadata.create_all(self.db_engine, checkfirst=True)
+        logger.info("Creating/migrating database model")
+        run_migrations(self.db_url)
 
     def ensure_database(self):
         if not self.db_path.exists():
-            self.db_engine = sqlmodel.create_engine(
-                f"sqlite:///{self.db_path}", echo=True
-            )
+            self.db_engine = sqlmodel.create_engine(self.db_url, echo=True)
             self.create_model()
         else:
-            logger.info("Database exists, skipping creation")
+            logger.info("Database exists, running pending migrations")
+            run_migrations(self.db_url)
 
     def reset_database(self):
         logger.info("Clearing database")
@@ -41,7 +45,7 @@ class DatabaseStorageImpl(DatabaseStorage):
         except FileNotFoundError:
             logger.info("Database file not found, skipping delete")
         self.db_engine = sqlmodel.create_engine(
-            f"sqlite:///{self.db_path}",
+            self.db_url,
             echo=self.debug_mode,
         )
         self.create_model()
