@@ -17,7 +17,6 @@ from pandas import DataFrame
 
 
 from tuttle.app.auth.view import ProfileScreen, SplashScreen
-from tuttle.app.contracts.view import ContractEditorScreen, ViewContractScreen
 from tuttle.app.core.abstractions import TView, TViewParams
 from tuttle.app.core.client_storage_impl import ClientStorageImpl
 from tuttle.app.core.database_storage_impl import DatabaseStorageImpl
@@ -29,7 +28,6 @@ from tuttle.app.home.view import HomeScreen
 from tuttle.app.preferences.intent import PreferencesIntent
 from tuttle.app.preferences.model import PreferencesStorageKeys
 from tuttle.app.preferences.view import PreferencesScreen
-from tuttle.app.projects.view import ProjectEditorScreen, ViewProjectScreen
 from tuttle.app.res.colors import (
     accent,
     bg,
@@ -46,13 +44,9 @@ from tuttle.app.res.colors import (
 from tuttle.app.res.dimens import MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH
 from tuttle.app.res.fonts import APP_FONTS, HEADLINE_4_SIZE, HEADLINE_FONT
 from tuttle.app.res.res_utils import (
-    CONTRACT_DETAILS_SCREEN_ROUTE,
-    CONTRACT_EDITOR_SCREEN_ROUTE,
     HOME_SCREEN_ROUTE,
     PREFERENCES_SCREEN_ROUTE,
     PROFILE_SCREEN_ROUTE,
-    PROJECT_DETAILS_SCREEN_ROUTE,
-    PROJECT_EDITOR_SCREEN_ROUTE,
     SPLASH_SCREEN_ROUTE,
 )
 from tuttle.app.res.theme import APP_THEME, THEME_MODES, get_theme_mode_from_value
@@ -338,39 +332,11 @@ class TuttleRoutes:
             screen = ProfileScreen(
                 params=self.tuttle_view_params,
             )
-        elif routePath.match(CONTRACT_EDITOR_SCREEN_ROUTE):
-            screen = ContractEditorScreen(params=self.tuttle_view_params)
-        elif routePath.match(f"{CONTRACT_DETAILS_SCREEN_ROUTE}/:contractId"):
-            screen = ViewContractScreen(
-                params=self.tuttle_view_params, contract_id=routePath.contractId
-            )
-        elif routePath.match(f"{CONTRACT_EDITOR_SCREEN_ROUTE}/:contractId"):
-            contractId = None
-            if hasattr(routePath, "contractId"):
-                contractId = routePath.contractId
-            screen = ContractEditorScreen(
-                params=self.tuttle_view_params, contract_id_if_editing=contractId
-            )
         elif routePath.match(PREFERENCES_SCREEN_ROUTE):
             screen = PreferencesScreen(
                 params=self.tuttle_view_params,
                 on_theme_changed_callback=self.on_theme_changed,
                 on_reset_app_callback=self.on_reset_and_quit,
-            )
-        elif routePath.match(PROJECT_EDITOR_SCREEN_ROUTE):
-            screen = ProjectEditorScreen(params=self.tuttle_view_params)
-        elif routePath.match(f"{PROJECT_DETAILS_SCREEN_ROUTE}/:projectId"):
-            screen = ViewProjectScreen(
-                params=self.tuttle_view_params, project_id=routePath.projectId
-            )
-        elif routePath.match(PROJECT_EDITOR_SCREEN_ROUTE) or routePath.match(
-            f"{PROJECT_EDITOR_SCREEN_ROUTE}/:projectId"
-        ):
-            projectId = None
-            if hasattr(routePath, "projectId"):
-                projectId = routePath.projectId
-            screen = ProjectEditorScreen(
-                params=self.tuttle_view_params, project_id_if_editing=projectId
             )
         else:
             screen = Error404Screen(params=self.tuttle_view_params)

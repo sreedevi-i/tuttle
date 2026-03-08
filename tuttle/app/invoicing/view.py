@@ -129,7 +129,7 @@ class _FilterChip(Container):
         self._label = label
         self._active = active
         super().__init__(
-            bgcolor=colors.accent_muted if active else colors.bg_input,
+            bgcolor=colors.accent if active else colors.bg_input,
             border_radius=dimens.RADIUS_PILL,
             padding=Padding.symmetric(
                 horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
@@ -950,7 +950,7 @@ class InvoicingListView(TView, Column):
 
         self.title_control = Row(
             controls=[
-                views.THeading(title="Invoicing", size=fonts.HEADLINE_4_SIZE),
+                views.THeading(title="Invoicing", size=fonts.HEADLINE_2_SIZE),
             ],
         )
 

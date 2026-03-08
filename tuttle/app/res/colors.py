@@ -1,24 +1,25 @@
 """Design tokens — semantic colors for Tuttle's dark theme.
 
-Inspired by macOS dark-mode conventions and VS Code's editor palette.
-All entity views, components, and the app shell should reference these
-tokens instead of hard-coding hex values.
+Based on Apple Human Interface Guidelines dark-mode system colors
+and macOS Ventura's native app palette.
 """
 
 # ── Backgrounds ──────────────────────────────────────────────
-bg = "#1E1E1E"  # main window / page background
-bg_sidebar = "#252526"  # sidebar panel
-bg_surface = "#2D2D2D"  # cards, panels, inputs
-bg_surface_hovered = "#383838"  # hovered cards / elevated surfaces
-bg_titlebar = "#1E1E1E"  # title bar (matches bg for seamless look)
-bg_statusbar = "#007ACC"  # VS Code-style status bar accent
-bg_toolbar = "#252526"  # action bar / toolbar
-bg_input = "#3C3C3C"  # text field fill
+bg = "#1C1C1E"  # main window / page background (Apple systemBackground)
+bg_sidebar = "#2C2C2E"  # sidebar panel (Apple secondarySystemBackground)
+bg_surface = "#3A3A3C"  # cards, panels (Apple systemGray4)
+bg_surface_hovered = "#48484A"  # hovered cards (Apple systemGray3)
+bg_titlebar = "#1C1C1E"  # title bar (seamless with bg)
+bg_statusbar = "#007ACC"  # status bar accent
+bg_statusbar_warning = "#CC7700"  # status bar with warnings
+bg_statusbar_danger = "#CC3333"  # status bar with overdue items
+bg_toolbar = "#1C1C1E"  # toolbar merges into background
+bg_input = "#3A3A3C"  # text field fill
 
 # ── Text ─────────────────────────────────────────────────────
-text_primary = "#CCCCCC"  # main text
-text_secondary = "#9D9D9D"  # secondary / subtitle text
-text_muted = "#6D6D6D"  # labels, section headers, placeholders
+text_primary = "#E5E5E7"  # main text (Apple label, dark)
+text_secondary = "#AEAEB2"  # secondary text (Apple secondaryLabel)
+text_muted = "#8E8E93"  # labels, placeholders (Apple systemGray)
 text_inverse = "#FFFFFF"  # text on accent backgrounds
 
 # ── Accent ───────────────────────────────────────────────────
@@ -31,14 +32,21 @@ danger = "#FF453A"  # destructive actions (macOS system red)
 success = "#30D158"  # success indicators (macOS system green)
 warning = "#FFD60A"  # warnings (macOS system yellow)
 
+# ── Status colors ────────────────────────────────────────────
+status_active = "#30D158"  # active projects/contracts
+status_upcoming = "#0A84FF"  # upcoming / scheduled
+status_completed = "#8E8E93"  # completed / archived
+status_overdue = "#FF453A"  # overdue invoices
+status_draft = "#636366"  # draft / not yet sent
+
 # ── Borders & separators ─────────────────────────────────────
-border = "#3C3C3C"  # card borders, dividers
-border_subtle = "#2D2D2D"  # very subtle separators
-separator = "#1a1a1a"  # hairline dividers
+border = "#38383A"  # card borders, dividers
+border_subtle = "#2C2C2E"  # very subtle separators
+separator = "#1C1C1E"  # hairline dividers
 
 # ── Activity bar ─────────────────────────────────────────────
 activity_bar_bg = "#333333"  # activity bar background
-activity_bar_icon = "#858585"  # inactive icon
+activity_bar_icon = "#8E8E93"  # inactive icon
 activity_bar_icon_active = "#FFFFFF"  # active icon
 activity_bar_indicator = "#FFFFFF"  # active indicator bar
 

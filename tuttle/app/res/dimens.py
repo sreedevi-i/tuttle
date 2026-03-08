@@ -18,9 +18,9 @@ SPACE_XL = 32
 SPACE_XXL = 48
 
 # ── Layout chrome ────────────────────────────────────────────
-TOOLBAR_HEIGHT = 44
-FOOTER_HEIGHT = 22  # VS Code-style status bar
-SIDEBAR_WIDTH = 220
+TOOLBAR_HEIGHT = 48
+FOOTER_HEIGHT = 26  # status bar — slightly taller for interactive widgets
+SIDEBAR_WIDTH = 240  # wider for data tree
 SIDEBAR_COLLAPSED_WIDTH = 48
 ACTIVITY_BAR_WIDTH = 48
 TITLEBAR_HEIGHT = 38
@@ -30,6 +30,7 @@ RADIUS_SM = 4
 RADIUS_MD = 6
 RADIUS_LG = 8
 RADIUS_XL = 12
+RADIUS_2XL = 16
 RADIUS_PILL = 999
 
 # ── Icon sizes ───────────────────────────────────────────────
@@ -43,6 +44,11 @@ CLICKABLE_PILL_HEIGHT = 28
 CLICKABLE_STD_HEIGHT = 36
 
 # ── Cards ────────────────────────────────────────────────────
-CARD_MAX_EXTENT = 400
-CARD_SPACING = 16
-CARD_BORDER_WIDTH = 1
+CARD_MAX_EXTENT = 420
+CARD_SPACING = 20  # more breathing room
+CARD_BORDER_WIDTH = 0  # borderless cards — rely on bg contrast
+
+# ── Status bar items ─────────────────────────────────────────
+STATUSBAR_ITEM_PADDING_H = 10
+STATUSBAR_ITEM_SPACING = 6
+STATUSBAR_DIVIDER_WIDTH = 1

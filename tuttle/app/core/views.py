@@ -21,10 +21,10 @@ from flet import (
     DropdownOption,
     ElevatedButton,
     FilledButton,
-    GridView,
     Icon,
     Icons,
     Image,
+    ListView,
     MainAxisAlignment,
     Margin,
     Padding,
@@ -37,6 +37,7 @@ from flet import (
     Row,
     Text,
     TextField,
+    TextButton,
     TextStyle,
     Control,
     RoundedRectangleBorder,
@@ -416,26 +417,6 @@ class TDropDown(Column):
         self.width = width
         self.hint = hint
         self.options = [DropdownOption(text=item) for item in items]
-
-    def update_dropdown_items(self, items: List[str]):
-        self.options = [DropdownOption(text=item) for item in items]
-        self.drop_down.options = self.options
-        self.update()
-
-    def update_value(self, new_value: str):
-        self.drop_down.value = new_value
-        self.drop_down.error_text = None
-        self.update()
-
-    @property
-    def value(self):
-        return self.drop_down.value
-
-    def update_error_txt(self, error_txt: str = ""):
-        self.drop_down.error_text = error_txt if error_txt else None
-        self.update()
-
-    def build(self):
         self.drop_down = Dropdown(
             label=self.label,
             hint_text=self.hint,
@@ -458,6 +439,25 @@ class TDropDown(Column):
             border_radius=dimens.RADIUS_MD,
             color=colors.text_primary,
         )
+
+    def update_dropdown_items(self, items: List[str]):
+        self.options = [DropdownOption(text=item) for item in items]
+        self.drop_down.options = self.options
+        self.update()
+
+    def update_value(self, new_value: str):
+        self.drop_down.value = new_value
+        self.drop_down.error_text = None
+
+    @property
+    def value(self):
+        return self.drop_down.value
+
+    def update_error_txt(self, error_txt: str = ""):
+        self.drop_down.error_text = error_txt if error_txt else None
+        self.update()
+
+    def build(self):
         self.controls = [self.drop_down]
 
 
@@ -491,6 +491,20 @@ class DateSelector(Container):
             on_change=self._on_picked,
         )
 
+        display = (
+            self._selected_date.strftime(self._DATE_FMT)
+            if self._selected_date
+            else "Select date"
+        )
+        display_color = (
+            colors.text_primary if self._selected_date else colors.text_muted
+        )
+        self._date_text = Text(
+            value=display,
+            size=fonts.BODY_1_SIZE,
+            color=display_color,
+        )
+
     def _on_picked(self, e):
         picked = e.control.value
         if picked is not None:
@@ -510,21 +524,6 @@ class DateSelector(Container):
         self.page.show_dialog(self._picker)
 
     def build(self):
-        display = (
-            self._selected_date.strftime(self._DATE_FMT)
-            if self._selected_date
-            else "Select date"
-        )
-        display_color = (
-            colors.text_primary if self._selected_date else colors.text_muted
-        )
-
-        self._date_text = Text(
-            value=display,
-            size=fonts.BODY_1_SIZE,
-            color=display_color,
-        )
-
         self.content = Column(
             spacing=dimens.SPACE_XXS,
             controls=[
@@ -572,7 +571,6 @@ class DateSelector(Container):
         self._picker.value = datetime.datetime.combine(date, datetime.time())
         self._date_text.value = date.strftime(self._DATE_FMT)
         self._date_text.color = colors.text_primary
-        self.update()
 
     def get_date(self) -> Optional[datetime.date]:
         return self._selected_date
@@ -754,25 +752,29 @@ class NavigationMenuItem:
 
 
 class SectionLabel(Container):
-    """Uppercase muted section header (like VS Code sidebar sections)."""
+    """Uppercase muted section header — macOS sidebar style."""
 
     def __init__(self, title: str):
         super().__init__(
             padding=Padding.only(
-                left=dimens.SPACE_MD, top=dimens.SPACE_MD, bottom=dimens.SPACE_SM
+                left=dimens.SPACE_STD, top=dimens.SPACE_LG, bottom=dimens.SPACE_XS
             ),
             content=Text(
                 title.upper(),
-                size=fonts.OVERLINE_SIZE,
+                size=fonts.CAPTION_SIZE,
                 color=colors.text_muted,
-                weight=fonts.BOLDER_FONT,
+                weight=fonts.BOLD_FONT,
                 style=TextStyle(letter_spacing=1.2),
             ),
         )
 
 
 class SidebarNavItem(Container):
-    """A single sidebar navigation item — flat, with hover highlight."""
+    """A single sidebar navigation item — macOS-native feel."""
+
+    # Semi-transparent white tint for selected state (native macOS style)
+    _SELECTED_BG = "#14FFFFFF"  # ~8% white
+    _HOVER_BG = "#0AFFFFFF"  # ~4% white
 
     def __init__(
         self,
@@ -787,24 +789,29 @@ class SidebarNavItem(Container):
         self._selected_icon = selected_icon
         self._on_click = on_click
 
-        bg = colors.accent_muted if selected else None
-        icon_color = colors.text_inverse if selected else colors.text_secondary
+        bg = self._SELECTED_BG if selected else None
+        icon_color = colors.text_inverse if selected else colors.text_muted
         text_color = colors.text_primary if selected else colors.text_secondary
         current_icon = selected_icon if selected else icon
 
         super().__init__(
             bgcolor=bg,
-            border_radius=dimens.RADIUS_MD,
+            border_radius=dimens.RADIUS_LG,
             padding=Padding.symmetric(
-                horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS + 2
+                horizontal=dimens.SPACE_SM + 2, vertical=dimens.SPACE_XS + 2
             ),
-            margin=Margin.symmetric(horizontal=dimens.SPACE_SM),
+            margin=Margin.symmetric(horizontal=dimens.SPACE_XS, vertical=1),
             on_click=on_click,
             on_hover=self._on_hover,
             content=Row(
                 controls=[
                     Icon(current_icon, size=dimens.ICON_SIZE, color=icon_color),
-                    Text(label, size=fonts.BODY_1_SIZE, color=text_color),
+                    Text(
+                        label,
+                        size=fonts.BODY_1_SIZE,
+                        color=text_color,
+                        weight=fonts.BOLD_FONT if selected else None,
+                    ),
                 ],
                 spacing=dimens.SPACE_SM,
                 vertical_alignment=utils.CENTER_ALIGNMENT,
@@ -813,7 +820,7 @@ class SidebarNavItem(Container):
 
     def _on_hover(self, e):
         if not self._selected:
-            self.bgcolor = colors.bg_surface_hovered if e.data == "true" else None
+            self.bgcolor = self._HOVER_BG if e.data == "true" else None
             self.update()
 
 
@@ -992,12 +999,11 @@ class TFullScreenFormContainer(Container):
             content=Container(
                 expand=True,
                 bgcolor=colors.bg_surface,
-                border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
-                border_radius=dimens.RADIUS_LG,
+                border_radius=dimens.RADIUS_XL,
                 content=Container(
                     Column(expand=True, controls=form_controls),
                     padding=Padding.all(dimens.SPACE_LG),
-                    width=800,
+                    width=720,
                 ),
             ),
         )
@@ -1030,49 +1036,298 @@ class EntityStates(Enum):
 
 
 class EntityFiltersView(Row):
-    """Segmented-control-style filter bar for entity lists."""
+    """Compact text-tab filter bar for entity lists — macOS style."""
 
     def __init__(self, on_state_changed: Callable, states_enum=EntityStates):
         super().__init__()
         self.states_enum = states_enum
         self.current_state = states_enum.ALL
         self.on_state_changed = on_state_changed
-        self.filter_buttons = {}
 
     def on_filter_button_clicked(self, state):
         self.current_state = state
-        self.set_filter_buttons()
+        self._rebuild_chips()
         self.on_state_changed(state)
         self.update()
 
-    def set_filter_buttons(self):
+    def _rebuild_chips(self):
+        """Rebuild chip controls into the inner row, like invoicing does."""
+        chips = []
         for state in self.states_enum:
             is_active = self.current_state == state
-            self.filter_buttons[state] = ElevatedButton(
-                content=str(state),
-                col={"xs": 6, "sm": 3, "lg": 2},
-                on_click=lambda e, s=state: self.on_filter_button_clicked(s),
-                height=dimens.CLICKABLE_PILL_HEIGHT,
-                color=colors.text_inverse if is_active else colors.text_secondary,
-                bgcolor=colors.accent if is_active else colors.bg_surface,
-                tooltip=state.tooltip,
-                style=ButtonStyle(
-                    shape=RoundedRectangleBorder(radius=dimens.RADIUS_SM),
-                    elevation=0,
-                    side=BorderSide(
-                        width=1,
-                        color=colors.accent if is_active else colors.border,
+            chips.append(
+                Container(
+                    on_click=lambda e, s=state: self.on_filter_button_clicked(s),
+                    border_radius=dimens.RADIUS_PILL,
+                    padding=Padding.symmetric(
+                        horizontal=dimens.SPACE_SM,
+                        vertical=dimens.SPACE_XXS,
                     ),
-                ),
+                    bgcolor=colors.accent if is_active else colors.bg_input,
+                    content=Text(
+                        str(state),
+                        size=fonts.CAPTION_SIZE,
+                        color=colors.text_inverse
+                        if is_active
+                        else colors.text_secondary,
+                        weight=fonts.BOLD_FONT if is_active else None,
+                    ),
+                    tooltip=state.tooltip,
+                )
             )
+        self._chip_row.controls = chips
 
     def build(self):
-        self.set_filter_buttons()
-        self.controls = [
-            ResponsiveRow(
-                controls=list(self.filter_buttons.values()),
+        self._chip_row = Row(
+            controls=[],
+            spacing=dimens.SPACE_XXS,
+        )
+        self._rebuild_chips()
+        self.controls = [self._chip_row]
+
+
+# ---------------------------------------------------------------------------
+# EntitySidePanel — unified right-side panel for detail & edit
+# ---------------------------------------------------------------------------
+
+
+class EntitySidePanel(Container):
+    """Slide-in right-side panel for viewing and editing entities.
+
+    Modeled after PdfViewerPanel: hidden by default, uses ``visible`` toggle.
+    Sits inside a ``Row`` next to the entity grid. When visible the grid
+    shrinks and the panel fills the remaining space.
+
+    Subclasses override:
+        - ``build_detail_content(entity)`` -> list[Control]
+        - ``build_edit_content(entity)``   -> list[Control]
+        - ``on_save(entity)``              -> handle save result
+    """
+
+    def __init__(
+        self,
+        on_close: Callable,
+        on_save: Optional[Callable] = None,
+        on_delete: Optional[Callable] = None,
+        on_edit_requested: Optional[Callable] = None,
+    ):
+        self._on_close = on_close
+        self._on_save_cb = on_save
+        self._on_delete_cb = on_delete
+        self._on_edit_requested = on_edit_requested
+        self._entity = None
+        self._mode = "view"  # "view" or "edit"
+        # When used as an inline content builder (not mounted in tree),
+        # update() calls are routed through this container instead.
+        self._inline_container: Optional[Container] = None
+
+        # Header
+        self._title_text = THeading(title="", size=fonts.HEADLINE_4_SIZE)
+        self._close_btn = IconButton(
+            icon=Icons.CLOSE,
+            icon_size=dimens.ICON_SIZE,
+            icon_color=colors.text_secondary,
+            tooltip="Close",
+            on_click=lambda e: self.close(),
+        )
+        self._edit_btn = IconButton(
+            icon=Icons.EDIT_OUTLINED,
+            icon_size=dimens.ICON_SIZE,
+            icon_color=colors.text_secondary,
+            tooltip="Edit",
+            on_click=lambda e: self._switch_to_edit(),
+        )
+        self._header = Row(
+            alignment=MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=CrossAxisAlignment.CENTER,
+            controls=[
+                self._title_text,
+                Row(
+                    spacing=0,
+                    controls=[self._edit_btn, self._close_btn],
+                ),
+            ],
+        )
+
+        # Scrollable body
+        self._body = ListView(expand=True, spacing=dimens.SPACE_XS)
+
+        super().__init__(
+            visible=False,
+            width=400,
+            bgcolor=colors.bg_surface,
+            border=Border(left=BorderSide(1, colors.border)),
+            border_radius=BorderRadius(
+                top_left=dimens.RADIUS_LG,
+                bottom_left=dimens.RADIUS_LG,
+                top_right=0,
+                bottom_right=0,
+            ),
+            padding=Padding.symmetric(
+                horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_SM
+            ),
+            content=Column(
+                expand=True,
+                spacing=0,
+                controls=[
+                    self._header,
+                    Container(height=dimens.SPACE_XS),
+                    self._body,
+                ],
+            ),
+        )
+
+    # -- Public API -----------------------------------------------------------
+
+    def show_detail(self, entity, title: str = ""):
+        """Open the panel in view mode for *entity*."""
+        self._entity = entity
+        self._mode = "view"
+        self._title_text.value = title or str(entity)
+        self._edit_btn.visible = True
+        self._body.controls = self.build_detail_content(entity)
+        self.visible = True
+
+    def show_editor(self, entity=None, title: str = ""):
+        """Open the panel in edit mode, optionally pre-filled with *entity*."""
+        self._entity = entity
+        self._mode = "edit"
+        is_new = entity is None
+        self._title_text.value = title or ("New" if is_new else "Edit")
+        self._edit_btn.visible = False
+        self._body.controls = self.build_edit_content(entity)
+        self.visible = True
+
+    def close(self):
+        """Hide the panel and notify the parent."""
+        self.visible = False
+        self._body.controls.clear()
+        self._entity = None
+        self._on_close()
+
+    def update(self):
+        """Safe update — routes through inline container when panel isn't mounted."""
+        try:
+            super().update()
+        except Exception:
+            if self._inline_container and self._inline_container.page:
+                self._inline_container.update()
+
+    # -- Subclass hooks -------------------------------------------------------
+
+    def build_detail_content(self, entity) -> list[Control]:
+        """Return controls for the read-only detail view. Override me."""
+        return [TBodyText(txt=str(entity))]
+
+    def build_compact_detail(self, entity) -> list[Control]:
+        """Return controls for compact inline detail. Override for grid layouts.
+
+        Defaults to build_detail_content(). Override in subclasses to use
+        multi-column ResponsiveRow layouts optimised for full-width inline
+        display.
+        """
+        return self.build_detail_content(entity)
+
+    def _compact_field(self, label: str, value: str, col: dict = None) -> Column:
+        """A label + value pair sized for ResponsiveRow columns."""
+        if col is None:
+            col = {"xs": 6, "sm": 4, "md": 3}
+        return Column(
+            col=col,
+            spacing=1,
+            controls=[
+                Text(
+                    label,
+                    size=fonts.CAPTION_SIZE,
+                    color=colors.text_muted,
+                    weight=FontWeight.W_600,
+                ),
+                Text(
+                    value or "—",
+                    size=fonts.BODY_2_SIZE,
+                    color=colors.text_primary if value else colors.text_muted,
+                ),
+            ],
+        )
+
+    def build_edit_content(self, entity) -> list[Control]:
+        """Return controls for the edit/create form. Override me."""
+        return [TBodyText(txt="Editor not implemented")]
+
+    @staticmethod
+    def _edit_action_bar(
+        save_label: str,
+        on_save: Callable,
+        on_cancel: Callable,
+    ) -> Row:
+        """Compact right-aligned Save / Cancel action bar for inline edit."""
+        return Row(
+            alignment=MainAxisAlignment.END,
+            spacing=dimens.SPACE_SM,
+            controls=[
+                TextButton(
+                    content=Text("Cancel", size=fonts.BODY_2_SIZE),
+                    on_click=on_cancel,
+                ),
+                TPrimaryButton(label=save_label, on_click=on_save),
+            ],
+        )
+
+    def _switch_to_edit(self):
+        """Toggle from view mode to edit mode."""
+        if self._on_edit_requested and self._entity:
+            self._on_edit_requested(self._entity)
+        elif self._entity:
+            self.show_editor(self._entity, title="Edit")
+            self.update()
+
+    def _get_detail_field(self, label: str, value: str, icon=None) -> Container:
+        """Helper: a styled label + value row for detail view."""
+        controls = []
+        if icon:
+            controls.append(
+                Icon(icon, size=dimens.SM_ICON_SIZE, color=colors.text_muted)
             )
-        ]
+        controls.append(
+            Text(
+                label,
+                size=fonts.CAPTION_SIZE,
+                color=colors.text_muted,
+                weight=FontWeight.W_600,
+            )
+        )
+        return Container(
+            padding=Padding.symmetric(vertical=2),
+            content=Column(
+                spacing=2,
+                controls=[
+                    Row(spacing=dimens.SPACE_XXS, controls=controls),
+                    Text(
+                        value or "—",
+                        size=fonts.BODY_2_SIZE,
+                        color=colors.text_primary if value else colors.text_muted,
+                    ),
+                ],
+            ),
+        )
+
+    def _get_section_divider(self) -> Container:
+        """Thin horizontal divider between sections."""
+        return Container(
+            height=1,
+            bgcolor=colors.border,
+            margin=Margin.symmetric(vertical=dimens.SPACE_XS),
+        )
+
+    def _get_action_bar(self, *buttons) -> Container:
+        """Bottom action bar with buttons."""
+        return Container(
+            padding=Padding.only(top=dimens.SPACE_SM),
+            content=Row(
+                spacing=dimens.SPACE_SM,
+                controls=list(buttons),
+            ),
+        )
 
 
 class CrudListView(TView, Column):
@@ -1084,10 +1339,10 @@ class CrudListView(TView, Column):
         - entity_name_plural: str (e.g. "projects")
 
     Subclasses must implement:
-        - make_card(entity) -> Card control
-        - get_card_callbacks() -> dict of callbacks for make_card (optional override)
+        - make_card(entity) -> row control
 
     Optional overrides:
+        - get_column_headers() -> list[tuple[str, int|None]] or None
         - get_filters_view() -> Control or None (for filter bar)
         - on_add_intent_key -> str or None (res_utils intent key for add action)
         - open_add_editor(data) -> open inline editor for add
@@ -1106,6 +1361,14 @@ class CrudListView(TView, Column):
         a comparable value. Sorting direction is toggled via a separate button.
         """
         return []
+
+    def get_column_headers(self) -> Optional[list[tuple[str, Optional[int]]]]:
+        """Return column headers as (label, width_or_None_for_expand).
+
+        Override in subclasses. Example:
+            [("Title", None), ("Client", 200), ("Dates", 180)]
+        """
+        return None
 
     def __init__(self, params: TViewParams):
         TView.__init__(self, params)
@@ -1159,7 +1422,8 @@ class CrudListView(TView, Column):
             controls=[
                 THeading(
                     f"My {self.entity_name_plural.title()}",
-                    size=fonts.HEADLINE_3_SIZE,
+                    size=fonts.HEADLINE_2_SIZE,
+                    color=colors.text_secondary,
                 ),
             ]
             + ([sort_control] if sort_control else []),
@@ -1177,11 +1441,13 @@ class CrudListView(TView, Column):
                 )
             ]
         )
-        self.items_container = GridView(
-            max_extent=dimens.CARD_MAX_EXTENT,
-            spacing=dimens.CARD_SPACING,
-            run_spacing=dimens.CARD_SPACING,
+        self.items_container = ListView(
+            expand=True,
+            spacing=0,
         )
+        self._selected_entity_id = None
+        self._expanded_mode = None  # None | "detail" | "edit"
+        self._inline_expansion = None  # cached expansion Container
         self.items_to_display = {}
         self.popup_handler = None
 
@@ -1240,9 +1506,26 @@ class CrudListView(TView, Column):
                 key=lambda ent: (key_func(ent) is None, key_func(ent)),
                 reverse=not self._sort_ascending,
             )
+
+        # If creating a new entity (no selected row), show edit form at top
+        if (
+            self._expanded_mode == "edit"
+            and self._selected_entity_id is None
+            and self._inline_expansion is not None
+        ):
+            self.items_container.controls.append(self._inline_expansion)
+
         for entity in entities:
             card = self.make_card(entity)
             self.items_container.controls.append(card)
+            # Insert inline expansion right after the selected row
+            eid = getattr(entity, "id", None)
+            if (
+                eid is not None
+                and eid == self._selected_entity_id
+                and self._inline_expansion is not None
+            ):
+                self.items_container.controls.append(self._inline_expansion)
 
     def on_delete_clicked(self, entity):
         """Opens delete confirmation popup."""
@@ -1314,17 +1597,119 @@ class CrudListView(TView, Column):
         self.loading_indicator.visible = False
         self.update_self()
 
+    # -- Inline expansion (replaces side panel) ---------------------------------
+
+    def get_side_panel(self) -> Optional[EntitySidePanel]:
+        """Override to return a panel used as inline content builder."""
+        return None
+
+    def _collapse(self):
+        """Collapse any open inline expansion."""
+        self._selected_entity_id = None
+        self._expanded_mode = None
+        self._inline_expansion = None
+        self.refresh_list()
+        self.update_self()
+
+    def _on_panel_closed(self):
+        """Called when the panel's close/cancel button is pressed."""
+        self._collapse()
+
+    def _on_inline_edit_requested(self, entity):
+        """Switch the inline expansion from detail to edit mode."""
+        self._expanded_mode = "edit"
+        self._inline_expansion = self._build_inline_expansion(entity)
+        self.refresh_list()
+        self.update_self()
+
+    def open_detail_panel(self, entity):
+        """Toggle inline detail expansion for *entity*."""
+        eid = getattr(entity, "id", None)
+        if eid == self._selected_entity_id and self._expanded_mode == "detail":
+            # Already expanded — collapse
+            self._collapse()
+            return
+        self._selected_entity_id = eid
+        self._expanded_mode = "detail"
+        if self._side_panel:
+            self._side_panel._entity = entity
+        self._inline_expansion = self._build_inline_expansion(entity)
+        self.refresh_list()
+        self.update_self()
+
+    def open_edit_panel(self, entity=None):
+        """Show inline edit form (new or existing entity)."""
+        self._selected_entity_id = getattr(entity, "id", None) if entity else None
+        self._expanded_mode = "edit"
+        if self._side_panel:
+            self._side_panel._entity = entity
+        self._inline_expansion = self._build_inline_expansion(entity)
+        self.refresh_list()
+        self.update_self()
+
+    def _build_inline_expansion(self, entity) -> Optional[Container]:
+        """Build the inline detail/edit container from the panel's content."""
+        if not self._side_panel:
+            return None
+
+        if self._expanded_mode == "edit":
+            content_controls = self._side_panel.build_edit_content(entity)
+        else:
+            content_controls = self._side_panel.build_compact_detail(entity)
+
+        expansion = Container(
+            bgcolor=colors.bg_surface,
+            border=Border(bottom=BorderSide(1, colors.border)),
+            padding=Padding.symmetric(
+                horizontal=dimens.SPACE_LG, vertical=dimens.SPACE_SM
+            ),
+            content=Column(
+                spacing=dimens.SPACE_XXS,
+                controls=content_controls,
+            ),
+        )
+        # Let the panel route update() calls through this container
+        self._side_panel._inline_container = expansion
+        return expansion
+
     def build(self):
+        self._side_panel = self.get_side_panel()
         filters = self.get_filters_view()
         controls = [self.title_control, Spacer(md_space=True)]
         if filters:
             controls.append(filters)
-        controls.append(
-            Container(
-                expand=True,
-                content=self.items_container,
+
+        # Column header row
+        col_headers = self.get_column_headers()
+        if col_headers:
+            header_cells = []
+            for label, width in col_headers:
+                cell = Text(
+                    label.upper(),
+                    size=fonts.CAPTION_SIZE,
+                    color=colors.text_muted,
+                    weight=FontWeight.W_600,
+                )
+                if width:
+                    header_cells.append(Container(width=width, content=cell))
+                else:
+                    header_cells.append(Container(expand=True, content=cell))
+            header_row = Container(
+                padding=Padding.symmetric(
+                    horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_XS
+                ),
+                border=Border(bottom=BorderSide(1, colors.border)),
+                content=Row(
+                    controls=header_cells,
+                    spacing=dimens.SPACE_MD,
+                    vertical_alignment=CrossAxisAlignment.CENTER,
+                ),
             )
-        )
+            controls.append(header_row)
+
+        list_container = Container(expand=True, content=self.items_container)
+        controls.append(list_container)
+
         self.controls = controls
 
     def will_unmount(self):

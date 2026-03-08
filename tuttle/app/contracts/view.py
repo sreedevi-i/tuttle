@@ -5,11 +5,14 @@ from enum import Enum
 
 from flet import (
     Card,
+    ClipBehavior,
     Column,
     Container,
     Icon,
     IconButton,
     ListTile,
+    MainAxisAlignment,
+    CrossAxisAlignment,
     ResponsiveRow,
     Row,
     Text,
@@ -17,11 +20,11 @@ from flet import (
     Control,
     Alignment,
     Border,
+    BorderSide,
     Icons,
     Padding,
 )
 
-from ..clients.view import ClientEditorPopUp, ClientViewPopUp
 from ..contracts.intent import ContractsIntent
 from ..core import utils, views
 from ..core.abstractions import DialogHandler, TView, TViewParams
@@ -39,519 +42,547 @@ def _contract_initials(title: str) -> str:
     return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
 
 
-class ContractCard(Container):
-    """Flat, bordered card for a contract — VS Code panel style."""
+class ContractRow(Container):
+    """Single-line list row for a contract — macOS native table style."""
 
     def __init__(
-        self, contract: Contract, on_click_view, on_click_edit, on_click_delete
+        self,
+        contract: Contract,
+        on_click,
+        on_click_edit,
+        on_click_delete,
+        is_selected=False,
     ):
         self.contract = contract
-        self.on_click_view = on_click_view
-        self.on_click_edit = on_click_edit
-        self.on_click_delete = on_click_delete
 
-        client_name = contract.client.name if contract.client else "Unknown"
-        initials = _contract_initials(contract.title)
-        avatar = Container(
-            width=36,
-            height=36,
-            bgcolor=colors.accent_muted,
-            border_radius=dimens.RADIUS_LG,
-            alignment=Alignment.CENTER,
-            content=Text(
-                initials,
-                size=fonts.BODY_1_SIZE,
-                color=colors.accent,
-                weight=fonts.BOLD_FONT,
-            ),
+        client_name = contract.client.name if contract.client else "—"
+
+        _status = contract.get_status()
+        _dot_color = {
+            "Active": colors.status_active,
+            "Upcoming": colors.status_upcoming,
+            "Completed": colors.status_completed,
+        }.get(_status, colors.text_muted)
+
+        status_dot = Container(
+            width=8,
+            height=8,
+            bgcolor=_dot_color,
+            border_radius=dimens.RADIUS_PILL,
         )
 
-        header = Row(
-            controls=[
-                avatar,
-                Column(
-                    spacing=0,
-                    controls=[
-                        views.TBodyText(
-                            utils.truncate_str(contract.title, 30),
-                            weight=fonts.BOLD_FONT,
-                        ),
-                        views.TBodyText(
-                            client_name,
-                            color=colors.text_secondary,
-                            size=fonts.BODY_2_SIZE,
-                        ),
-                    ],
-                ),
-            ],
-            spacing=dimens.SPACE_SM,
-            expand=True,
-            vertical_alignment=utils.CENTER_ALIGNMENT,
+        rate_str = (
+            f"{contract.rate} {contract.currency}/{contract.unit}"
+            if contract.rate
+            else "—"
         )
 
-        context_menu = views.TContextMenu(
-            on_click_view=lambda e: self.on_click_view(contract.id),
-            on_click_edit=lambda e: self.on_click_edit(contract.id),
-            on_click_delete=lambda e: self.on_click_delete(contract.id),
-        )
-
-        def _info_row(label, value):
-            return Column(
-                spacing=2,
-                controls=[
-                    views.TBodyText(
-                        label, color=colors.text_muted, size=fonts.OVERLINE_SIZE
-                    ),
-                    views.TBodyText(value, size=fonts.BODY_2_SIZE),
-                ],
-            )
-
-        body_items = [
-            _info_row("Rate", f"{contract.rate} {contract.currency} / {contract.unit}"),
-            _info_row("Billing Cycle", f"{contract.billing_cycle}"),
-            _info_row("Volume", f"{contract.volume} {contract.unit}s"),
-        ]
+        _bg = colors.accent_muted if is_selected else colors.bg
 
         super().__init__(
-            expand=True,
-            bgcolor=colors.bg_surface,
-            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
-            border_radius=dimens.RADIUS_LG,
-            padding=Padding.all(dimens.SPACE_MD),
+            bgcolor=_bg,
+            border=Border(bottom=BorderSide(1, colors.border)),
+            padding=Padding.symmetric(
+                horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_SM
+            ),
+            on_click=lambda e: on_click(contract.id),
             on_hover=self._on_hover,
-            on_click=lambda e: self.on_click_view(contract.id),
-            content=Column(
-                spacing=dimens.SPACE_SM,
+            clip_behavior=ClipBehavior.HARD_EDGE,
+            content=Row(
+                spacing=dimens.SPACE_MD,
+                vertical_alignment=utils.CENTER_ALIGNMENT,
                 controls=[
-                    Row(
-                        controls=[header, context_menu],
-                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                        vertical_alignment=utils.START_ALIGNMENT,
+                    Container(
+                        expand=True,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Row(
+                            spacing=dimens.SPACE_XS,
+                            vertical_alignment=utils.CENTER_ALIGNMENT,
+                            controls=[
+                                status_dot,
+                                Text(
+                                    contract.title or "",
+                                    size=fonts.BODY_1_SIZE,
+                                    color=colors.text_primary,
+                                    weight=fonts.BOLD_FONT if is_selected else None,
+                                    overflow="ellipsis",
+                                    max_lines=1,
+                                    expand=True,
+                                ),
+                            ],
+                        ),
                     ),
-                    Container(height=1, bgcolor=colors.border_subtle),
-                    *body_items,
+                    Container(
+                        width=180,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            client_name,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_secondary,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
+                    Container(
+                        width=160,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            rate_str,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_secondary,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
+                    Container(
+                        width=120,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            str(contract.billing_cycle)
+                            if contract.billing_cycle
+                            else "—",
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_muted,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
                 ],
             ),
         )
+        self._is_selected = is_selected
 
     def _on_hover(self, e):
-        self.bgcolor = (
-            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
-        )
+        if self._is_selected:
+            return
+        self.bgcolor = colors.bg_surface_hovered if e.data == "true" else colors.bg
         self.update()
 
 
-class ContractEditorScreen(TView, Container):
-    """Used to edit or create a contract"""
+# ── Side panel ────────────────────────────────────────────────
+
+
+class ContractSidePanel(views.EntitySidePanel):
+    """Right-side panel for viewing and editing contracts."""
 
     def __init__(
-        self, params: TViewParams, contract_id_if_editing: Optional[str] = False
+        self,
+        on_close,
+        on_save,
+        on_delete,
+        intent: ContractsIntent,
+        client_storage=None,
+        on_edit_requested=None,
     ):
-        super().__init__(params=params)
-        self.horizontal_alignment_in_parent = utils.CENTER_ALIGNMENT
-        self.intent = ContractsIntent()
-        self.contract_id_if_editing: Optional[str] = contract_id_if_editing
-        self.old_contract_if_editing: Optional[Contract] = None
-        self.loading_indicator = views.TProgressBar()
-        self.new_client_pop_up: Optional[DialogHandler] = None
-
-        # info of contract being edited / created
-        self.clients_map = {}
-        self.contacts_map = {}
-        self.available_currencies = []
-        self.client = None
-
-    def clear_ui_field_errors(self, e):
-        """Clears all the errors in the ui form fields"""
-        fields = [
-            self.title_ui_field,
-            self.rate_ui_field,
-            self.volume_ui_field,
-            self.term_of_payment_ui_field,
-            self.unit_PW_ui_field,
-            self.vat_rate_ui_field,
-        ]
-        for field in fields:
-            if field.error:
-                field.error = None
-        self.currency_ui_field.update_error_txt()
-        self.update_self()
-
-    def toggle_progress(self, is_on_going_action: bool):
-        """Hides or shows the progress bar and enables or disables the submit btn"""
-        self.loading_indicator.visible = is_on_going_action
-        self.submit_btn.disabled = is_on_going_action
-
-    def did_mount(self):
-        """Called when the view is mounted"""
-        self.mounted = True
-        self.toggle_progress(is_on_going_action=True)
-        self.load_clients()
-        self.fetch_and_set_contacts()
-        self.load_currencies()
-        # contract_for_update should be loaded last
-        self.load_contract_for_update()
-        self.toggle_progress(is_on_going_action=False)
-        self.update_self()
-
-    def load_contract_for_update(self):
-        """Loads the contract for update if it is an update operation i.e self.contract_id_if_editing is not None"""
-        if not self.contract_id_if_editing:
-            return  # a new contract is being created
-        result = self.intent.get_by_id(self.contract_id_if_editing)
-        if not result.was_intent_successful or not result.data:
-            self.show_snack(result.error_msg, is_error=True)
-        self.old_contract_if_editing = result.data
-        self.display_contract_info()
-
-    def load_currencies(self):
-        """Loads the available currencies into a dropdown"""
-        self.available_currencies = [
-            abbreviation for (name, abbreviation, symbol) in utils.get_currencies()
-        ]
-        self.currency_ui_field.update_dropdown_items(self.available_currencies)
-        result = self.intent.get_preferred_currency_intent(self.client_storage)
-        if result.was_intent_successful:
-            preferred_currency = result.data
-            self.currency_ui_field.update_value(preferred_currency)
-
-    def load_clients(self):
-        """Loads the clients into a dropdown"""
-        self.clients_map = self.intent.get_all_clients_as_map()
-        self.clients_ui_field.update_error_txt(
-            "Please create a new client" if len(self.clients_map) == 0 else ""
+        self.intent = intent
+        self._clients_map: dict = {}
+        self._contacts_map: dict = {}
+        self._client: Optional[Client] = None
+        self._client_storage = client_storage
+        super().__init__(
+            on_close=on_close,
+            on_save=on_save,
+            on_delete=on_delete,
+            on_edit_requested=on_edit_requested,
         )
-        self.clients_ui_field.update_dropdown_items(self.get_clients_names_as_list())
 
-    def fetch_and_set_contacts(self):
-        """fetches the contacts and sets them in the contacts map"""
-        self.contacts_map = self.intent.get_all_contacts_as_map()
+    def _load_data(self):
+        self._clients_map = self.intent.get_all_clients_as_map()
+        self._contacts_map = self.intent.get_all_contacts_as_map()
+        self._currencies = [abbr for (_, abbr, _) in utils.get_currencies()]
 
-    def get_clients_names_as_list(self):
-        """transforms a map of id-client_title to a list for dropdown options"""
-        client_names_list = []
-        for key in self.clients_map:
-            client_names_list.append(self.get_client_dropdown_item(key))
-        return client_names_list
+    def _client_item(self, cid):
+        return f"{cid}. {self._clients_map[cid].name}"
 
-    def get_client_dropdown_item(self, client_id):
-        """returns a string for the client's dropdown item"""
-        if client_id not in self.clients_map:
-            return ""
-        # prefix client name with a key {client_id}
-        return f"{client_id}. {self.clients_map[client_id].name}"
+    def _client_options(self):
+        return [self._client_item(cid) for cid in self._clients_map]
 
-    def on_client_selected(self, e):
-        # parse selected value to extract id
-        selected = e.control.value
-        _id = ""
-        for c in selected:
-            if c == ".":
-                break
-            _id = _id + c
+    # -- Detail view ----------------------------------------------------------
 
-        # clear the error text if any
-        self.clients_ui_field.update_error_txt()
-        self.update_self()
-        if int(_id) in self.clients_map:
-            # set the client
-            self.client = self.clients_map[int(_id)]
+    def build_detail_content(self, entity: Contract) -> list:
+        c = entity
+        _status = c.get_status(default="")
+        _status_color = {
+            "Active": colors.status_active,
+            "Upcoming": colors.status_upcoming,
+            "Completed": colors.status_completed,
+        }.get(_status, colors.text_muted)
 
-    def on_add_client_clicked(self, e):
-        """Called when the add client button is clicked"""
-        if self.new_client_pop_up:
-            self.new_client_pop_up.close_dialog()
-        # open the client editor pop up
-        self.new_client_pop_up = ClientEditorPopUp(
-            dialog_controller=self.dialog_controller,
-            on_submit=self.on_client_set_from_pop_up,
-            contacts_map=self.contacts_map,
-            on_error=lambda error: self.show_snack(
-                error,
-                is_error=True,
-            ),
-        )
-        self.new_client_pop_up.open_dialog()
-
-    def on_client_set_from_pop_up(self, client):
-        """Called when the client is set from the client editor pop up"""
-        if client:
-            result: IntentResult = self.intent.save_client(client)
-            if result.was_intent_successful:
-                self.client: Client = result.data
-                self.clients_map[self.client.id] = self.client
-
-                self.clients_ui_field.update_dropdown_items(
-                    self.get_clients_names_as_list()
+        controls = []
+        if _status:
+            controls.append(
+                Container(
+                    border_radius=dimens.RADIUS_PILL,
+                    bgcolor=_status_color,
+                    padding=Padding.symmetric(
+                        horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
+                    ),
+                    content=Text(
+                        _status,
+                        size=fonts.CAPTION_SIZE,
+                        color=colors.text_inverse,
+                        weight=fonts.BOLD_FONT,
+                    ),
                 )
-
-                item = self.get_client_dropdown_item(self.client.id)
-                self.clients_ui_field.update_value(item)
-                self.clients_ui_field.update_error_txt()
-            else:
-                self.show_snack(result.error_msg, True)
-            self.update_self()
-
-    def display_contract_info(self):
-        """initialize form fields with data from old contract"""
-        self.title_ui_field.value = self.old_contract_if_editing.title
-        signature_date = self.old_contract_if_editing.signature_date
-        self.signature_date_ui_field.set_date(signature_date)
-        start_date = self.old_contract_if_editing.start_date
-        self.start_date_ui_field.set_date(start_date)
-        end_date = self.old_contract_if_editing.end_date
-        self.end_date_ui_field.set_date(end_date)
-        self.client = self.old_contract_if_editing.client
-        if self.client:
-            self.clients_ui_field.update_value(
-                self.get_client_dropdown_item(self.client.id)
             )
-        self.rate_ui_field.value = self.old_contract_if_editing.rate
-        self.currency_ui_field.update_value(self.old_contract_if_editing.currency)
-        self.vat_rate_ui_field.value = self.old_contract_if_editing.VAT_rate
-        if self.old_contract_if_editing.unit:
-            self.time_unit_field.update_value(self.old_contract_if_editing.unit.name)
-        self.unit_PW_ui_field.value = self.old_contract_if_editing.units_per_workday
-        self.volume_ui_field.value = self.old_contract_if_editing.volume
-        self.term_of_payment_ui_field.value = (
-            self.old_contract_if_editing.term_of_payment
+
+        client_name = c.client.name if c.client else "Not specified"
+        controls.append(
+            self._get_detail_field("Client", client_name, Icons.PERSON_OUTLINE)
         )
-        if self.old_contract_if_editing.billing_cycle:
-            self.billing_cycle_ui_field.update_value(
-                self.old_contract_if_editing.billing_cycle.name
-            )
-        self.form_title_ui_field.value = "Edit Contract"
-        self.submit_btn.text = "Save changes"
+        controls.append(self._get_section_divider())
 
-    def on_save(self, e):
-        """Called when the edit / save button is clicked"""
-        # get data from form fields
-        title = self.title_ui_field.value
-        rate = self.rate_ui_field.value
-        vat_rate = self.vat_rate_ui_field.value
-        unit_pw = self.unit_PW_ui_field.value
-        volume = self.volume_ui_field.value
-        term_of_payment = self.term_of_payment_ui_field.value
-        currency = self.currency_ui_field.value
-        time_unit_str = self.time_unit_field.value
+        # Financial details
+        rate_str = f"{c.rate} {c.currency}" if c.rate else "—"
+        unit_str = c.unit.value if c.unit else ""
+        controls.append(self._get_detail_field("Rate", f"{rate_str} / {unit_str}"))
+        vat_str = f"{float(c.VAT_rate)*100:.0f}%" if c.VAT_rate is not None else "—"
+        controls.append(self._get_detail_field("VAT Rate", vat_str))
+        controls.append(
+            self._get_detail_field(
+                "Billing Cycle", str(c.billing_cycle) if c.billing_cycle else "—"
+            )
+        )
+        vol_str = f"{c.volume} {unit_str}" if c.volume is not None else "—"
+        controls.append(self._get_detail_field("Volume", vol_str))
+        upw_str = f"{c.units_per_workday} {unit_str}" if c.units_per_workday else "—"
+        controls.append(self._get_detail_field("Units / Workday", upw_str))
+        top_str = f"{c.term_of_payment} days" if c.term_of_payment else "—"
+        controls.append(self._get_detail_field("Term of Payment", top_str))
+        controls.append(self._get_section_divider())
+
+        # Dates
+        sig = c.signature_date.strftime("%d %b %Y") if c.signature_date else "—"
+        start = c.start_date.strftime("%d %b %Y") if c.start_date else "—"
+        end = c.end_date.strftime("%d %b %Y") if c.end_date else "—"
+        controls.append(self._get_detail_field("Signed", sig, Icons.DRAW))
+        controls.append(
+            self._get_detail_field("Duration", f"{start}  →  {end}", Icons.DATE_RANGE)
+        )
+        controls.append(self._get_section_divider())
+
+        # Actions
+        controls.append(
+            self._get_action_bar(
+                views.TPrimaryButton(
+                    label="Edit",
+                    on_click=lambda e: self._switch_to_edit(),
+                    icon=Icons.EDIT_OUTLINED,
+                ),
+                TextButton(
+                    content=Text("Delete", color=colors.danger, size=fonts.BODY_2_SIZE),
+                    on_click=lambda e: self._on_delete_cb(entity)
+                    if self._on_delete_cb
+                    else None,
+                ),
+            )
+        )
+        return controls
+
+    def build_compact_detail(self, entity: Contract) -> list:
+        c = entity
+        _status = c.get_status(default="")
+        _status_color = {
+            "Active": colors.status_active,
+            "Upcoming": colors.status_upcoming,
+            "Completed": colors.status_completed,
+        }.get(_status, colors.text_muted)
+
+        unit_str = c.unit.value if c.unit else ""
+        vat_str = (
+            f"{float(c.VAT_rate)*100:.0f}%" if c.VAT_rate is not None else "\u2014"
+        )
+        vol_str = f"{c.volume} {unit_str}" if c.volume is not None else "\u2014"
+        upw_str = (
+            f"{c.units_per_workday} {unit_str}" if c.units_per_workday else "\u2014"
+        )
+        top_str = f"{c.term_of_payment} days" if c.term_of_payment else "\u2014"
+        sig = c.signature_date.strftime("%d %b %Y") if c.signature_date else "\u2014"
+        start = c.start_date.strftime("%d %b %Y") if c.start_date else "\u2014"
+        end = c.end_date.strftime("%d %b %Y") if c.end_date else "\u2014"
+
+        top_row = []
+        if _status:
+            top_row.append(
+                Container(
+                    border_radius=dimens.RADIUS_PILL,
+                    bgcolor=_status_color,
+                    padding=Padding.symmetric(
+                        horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
+                    ),
+                    content=Text(
+                        _status,
+                        size=fonts.CAPTION_SIZE,
+                        color=colors.text_inverse,
+                        weight=fonts.BOLD_FONT,
+                    ),
+                )
+            )
+
+        return [
+            Row(spacing=dimens.SPACE_SM, controls=top_row)
+            if top_row
+            else views.Spacer(xs_space=True),
+            ResponsiveRow(
+                controls=[
+                    self._compact_field("VAT", vat_str),
+                    self._compact_field("Volume", vol_str),
+                    self._compact_field("Units/Workday", upw_str),
+                    self._compact_field("Payment Term", top_str),
+                ],
+            ),
+            ResponsiveRow(
+                controls=[
+                    self._compact_field("Signed", sig),
+                    self._compact_field(
+                        "Duration", f"{start}  \u2192  {end}", col={"xs": 6}
+                    ),
+                ],
+            ),
+            self._get_action_bar(
+                views.TPrimaryButton(
+                    label="Edit",
+                    on_click=lambda e: self._switch_to_edit(),
+                    icon=Icons.EDIT_OUTLINED,
+                ),
+                TextButton(
+                    content=Text("Delete", color=colors.danger, size=fonts.BODY_2_SIZE),
+                    on_click=lambda e: self._on_delete_cb(entity)
+                    if self._on_delete_cb
+                    else None,
+                ),
+            ),
+        ]
+
+    # -- Edit view ------------------------------------------------------------
+
+    def build_edit_content(self, entity: Optional[Contract]) -> list:
+        self._load_data()
+        is_new = entity is None
+
+        self._title_field = views.TTextField(
+            label="Title",
+            hint="Short description",
+            initial_value=entity.title if entity else "",
+        )
+        self._rate_field = views.TTextField(
+            label="Rate",
+            hint="Rate",
+            initial_value=str(entity.rate) if entity and entity.rate else "",
+            keyboard_type=utils.KEYBOARD_NUMBER,
+        )
+
+        # Currency dropdown
+        preferred_currency = None
+        if self._client_storage:
+            r = self.intent.get_preferred_currency_intent(self._client_storage)
+            if r.was_intent_successful:
+                preferred_currency = r.data
+        cur_value = entity.currency if entity else preferred_currency
+        self._currency_field = views.TDropDown(
+            label="Currency",
+            items=self._currencies,
+        )
+        if cur_value:
+            self._currency_field.update_value(cur_value)
+
+        self._vat_field = views.TTextField(
+            label="VAT Rate",
+            hint=f"Default: {CONTRACT_DEFAULT_VAT_RATE}",
+            initial_value=str(entity.VAT_rate)
+            if entity and entity.VAT_rate is not None
+            else "",
+            keyboard_type=utils.KEYBOARD_NUMBER,
+        )
+        self._unit_pw_field = views.TTextField(
+            label="Units / workday",
+            hint="e.g. 8",
+            initial_value=str(entity.units_per_workday)
+            if entity and entity.units_per_workday
+            else "",
+            keyboard_type=utils.KEYBOARD_NUMBER,
+        )
+        self._volume_field = views.TTextField(
+            label="Volume",
+            hint="Total units",
+            initial_value=str(entity.volume)
+            if entity and entity.volume is not None
+            else "",
+            keyboard_type=utils.KEYBOARD_NUMBER,
+        )
+        self._top_field = views.TTextField(
+            label="Payment term",
+            hint="Days",
+            initial_value=str(entity.term_of_payment)
+            if entity and entity.term_of_payment
+            else "",
+            keyboard_type=utils.KEYBOARD_NUMBER,
+        )
+
+        # Time unit
+        self._time_unit_field = views.TDropDown(
+            label="Time unit",
+            items=[str(t) for t in TimeUnit],
+        )
+        if entity and entity.unit:
+            self._time_unit_field.update_value(entity.unit.name)
+
+        # Billing cycle
+        self._billing_field = views.TDropDown(
+            label="Billing cycle",
+            items=[str(c) for c in Cycle],
+        )
+        if entity and entity.billing_cycle:
+            self._billing_field.update_value(entity.billing_cycle.name)
+
+        # Client
+        self._client = entity.client if entity else None
+        self._clients_field = views.TDropDown(
+            label="Client",
+            on_change=self._on_client_selected,
+            items=self._client_options(),
+        )
+        if self._client and self._client.id in self._clients_map:
+            self._clients_field.update_value(self._client_item(self._client.id))
+
+        # Dates
+        self._sig_date_field = views.DateSelector(label="Signed on")
+        self._start_date_field = views.DateSelector(label="Valid from")
+        self._end_date_field = views.DateSelector(label="Valid until")
+        if entity:
+            if entity.signature_date:
+                self._sig_date_field.set_date(entity.signature_date)
+            if entity.start_date:
+                self._start_date_field.set_date(entity.start_date)
+            if entity.end_date:
+                self._end_date_field.set_date(entity.end_date)
+
+        save_label = "Create Contract" if is_new else "Save Changes"
+
+        # -- Compact multi-column layout --
+        self._title_field.col = {"xs": 12, "sm": 6}
+        self._clients_field.col = {"xs": 12, "sm": 6}
+        self._rate_field.col = {"xs": 6, "sm": 3}
+        self._currency_field.col = {"xs": 6, "sm": 3}
+        self._time_unit_field.col = {"xs": 6, "sm": 3}
+        self._billing_field.col = {"xs": 6, "sm": 3}
+        self._vat_field.col = {"xs": 6, "sm": 3}
+        self._unit_pw_field.col = {"xs": 6, "sm": 3}
+        self._volume_field.col = {"xs": 6, "sm": 3}
+        self._top_field.col = {"xs": 6, "sm": 3}
+        self._sig_date_field.col = {"xs": 12, "sm": 4}
+        self._start_date_field.col = {"xs": 6, "sm": 4}
+        self._end_date_field.col = {"xs": 6, "sm": 4}
+
+        return [
+            ResponsiveRow(
+                controls=[self._title_field, self._clients_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[
+                    self._rate_field,
+                    self._currency_field,
+                    self._time_unit_field,
+                    self._billing_field,
+                ],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[
+                    self._vat_field,
+                    self._unit_pw_field,
+                    self._volume_field,
+                    self._top_field,
+                ],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[
+                    self._sig_date_field,
+                    self._start_date_field,
+                    self._end_date_field,
+                ],
+                spacing=dimens.SPACE_SM,
+            ),
+            self._edit_action_bar(
+                save_label,
+                on_save=lambda e: self._validate_and_save(),
+                on_cancel=lambda e: self.close(),
+            ),
+        ]
+
+    def _on_client_selected(self, e):
+        sel = e.control.value
+        cid = int(sel.split(".")[0])
+        if cid in self._clients_map:
+            self._client = self._clients_map[cid]
+
+    def _validate_and_save(self):
+        title = self._title_field.value
+        if not title:
+            self._title_field.error = "Title is required"
+            self.update()
+            return
+        currency = self._currency_field.value
+        if not currency:
+            self._currency_field.update_error_txt("Required")
+            self.update()
+            return
+        rate = self._rate_field.value
+        if not rate:
+            self._rate_field.error = "Rate is required"
+            self.update()
+            return
+        time_unit_str = self._time_unit_field.value
         try:
             time_unit = TimeUnit[time_unit_str]
-        except KeyError:
-            time_unit = None
-
-        billing_cycle_str = self.billing_cycle_ui_field.value
-        try:
-            billing_cycle = Cycle[billing_cycle_str]
-        except KeyError:
-            billing_cycle = None
-
-        # check for missing fields
-        if not title:
-            self.title_ui_field.error = "Contract title is required"
-            self.update_self()
-            return  # error occurred, stop here
-
-        if not currency:
-            self.currency_ui_field.update_error_txt("Please specify the currency")
-            self.update_self()
+        except (KeyError, TypeError):
+            self._time_unit_field.update_error_txt("Required")
+            self.update()
             return
-
-        if not rate:
-            self.rate_ui_field.error = "Rate of enumeration is required"
-            self.update_self()
-            return
-
-        if not time_unit:
-            self.time_unit_field.update_error_txt("Unit of time tracked is required")
-            self.update_self()
-            return
-
+        unit_pw = self._unit_pw_field.value
         if not unit_pw:
-            self.unit_PW_ui_field.error = "Units per workday is required"
-            self.update_self()
+            self._unit_pw_field.error = "Required"
+            self.update()
             return
-
-        if self.client is None:
-            self.clients_ui_field.update_error_txt("Please select a client")
-            self.update_self()
-            return  # error occurred, stop here
-
-        if not billing_cycle:
-            self.billing_cycle_ui_field.update_error_txt("Billing cycle is required")
-            self.update_self()
+        if not self._client:
+            self._clients_field.update_error_txt("Required")
+            self.update()
             return
+        billing_str = self._billing_field.value
+        try:
+            billing_cycle = Cycle[billing_str]
+        except (KeyError, TypeError):
+            self._billing_field.update_error_txt("Required")
+            self.update()
+            return
+        sig_date = self._sig_date_field.get_date()
+        start_date = self._start_date_field.get_date()
+        end_date = self._end_date_field.get_date()
+        if not sig_date or not start_date or not end_date:
+            return
+        if end_date < start_date:
+            return
+        vat_rate = self._vat_field.value or CONTRACT_DEFAULT_VAT_RATE
 
-        signatureDate = self.signature_date_ui_field.get_date()
-        if signatureDate is None:
-            self.show_snack("Please specify the signature date", True)
-            return  # error occurred, stop here
-
-        startDate = self.start_date_ui_field.get_date()
-        if startDate is None:
-            self.show_snack("Please specify the start date", True)
-            return  # error occurred, stop here
-
-        endDate = self.end_date_ui_field.get_date()
-        if endDate is None:
-            self.show_snack("Please specify the end date", True)
-            return  # error occurred, stop here
-
-        if endDate < startDate:
-            self.show_snack(
-                "The end date of the contract cannot be before the start date", True
-            )
-            return  # error occurred, stop here
-
-        vat_rate = self.vat_rate_ui_field.value
-        if not vat_rate:
-            vat_rate = CONTRACT_DEFAULT_VAT_RATE
-
-        self.toggle_progress(is_on_going_action=True)
-
-        contract = self.old_contract_if_editing or Contract()
+        contract = self._entity or Contract()
         contract.title = title
-        contract.signature_date = signatureDate
-        contract.start_date = startDate
-        contract.end_date = endDate
-        contract.client = self.client
+        contract.signature_date = sig_date
+        contract.start_date = start_date
+        contract.end_date = end_date
+        contract.client = self._client
         contract.rate = rate
         contract.currency = currency
         contract.VAT_rate = vat_rate
         contract.unit = time_unit
         contract.units_per_workday = unit_pw
-        contract.volume = volume
-        contract.term_of_payment = term_of_payment
+        contract.volume = self._volume_field.value or None
+        contract.term_of_payment = self._top_field.value or None
         contract.billing_cycle = billing_cycle
 
-        result: IntentResult = self.intent.save_contract(contract)
-        success_msg = (
-            "Changes saved"
-            if self.contract_id_if_editing
-            else "New contract created successfully"
-        )
-        msg = success_msg if result.was_intent_successful else result.error_msg
-        isError = not result.was_intent_successful
-        self.toggle_progress(is_on_going_action=False)
-        self.show_snack(msg, isError)
-        if not isError:
-            # re route back
-            self.navigate_back()
-
-    def build(self):
-        """Build the UI"""
-        self.title_ui_field = views.TTextField(
-            label="Title",
-            hint="Short description of the contract.",
-            on_focus=self.clear_ui_field_errors,
-        )
-        self.rate_ui_field = views.TTextField(
-            label="Rate",
-            hint="Rate of remuneration",
-            on_focus=self.clear_ui_field_errors,
-            keyboard_type=utils.KEYBOARD_NUMBER,
-        )
-        self.currency_ui_field = views.TDropDown(
-            label="Currency",
-            hint="Payment currency",
-            items=self.available_currencies,
-        )
-        self.vat_rate_ui_field = views.TTextField(
-            label="VAT rate",
-            hint=f"VAT rate applied to the contractual rate. default is {CONTRACT_DEFAULT_VAT_RATE}",
-            on_focus=self.clear_ui_field_errors,
-            keyboard_type=utils.KEYBOARD_NUMBER,
-        )
-        self.unit_PW_ui_field = views.TTextField(
-            label="Units per workday",
-            hint="How many units (e.g. hours) constitute a whole work day?",
-            on_focus=self.clear_ui_field_errors,
-            keyboard_type=utils.KEYBOARD_NUMBER,
-        )
-        self.volume_ui_field = views.TTextField(
-            label="Volume (optional)",
-            hint="Number of time units agreed on",
-            on_focus=self.clear_ui_field_errors,
-            keyboard_type=utils.KEYBOARD_NUMBER,
-        )
-        self.term_of_payment_ui_field = views.TTextField(
-            label="Term of payment (optional)",
-            hint="How many days after receipt of invoice this invoice is due.",
-            on_focus=self.clear_ui_field_errors,
-            keyboard_type=utils.KEYBOARD_NUMBER,
-        )
-        self.clients_ui_field = views.TDropDown(
-            label="Client",
-            on_change=self.on_client_selected,
-            items=self.get_clients_names_as_list(),
-        )
-        self.time_unit_field = views.TDropDown(
-            label="Unit of time tracked.",
-            items=[str(t) for t in TimeUnit],
-        )
-        self.billing_cycle_ui_field = views.TDropDown(
-            label="Billing Cycle",
-            items=[str(c) for c in Cycle],
-        )
-        self.signature_date_ui_field = views.DateSelector(label="Signed on")
-        self.start_date_ui_field = views.DateSelector(label="Valid from")
-        self.end_date_ui_field = views.DateSelector(label="Valid until")
-        self.submit_btn = views.TPrimaryButton(
-            label="Create Contract", on_click=self.on_save
-        )
-        self.form_title_ui_field = views.THeading(
-            title="New Contract",
-        )
-        self.content = views.TFullScreenFormContainer(
-            form_controls=[
-                Row(
-                    controls=[
-                        views.TBackButton(on_click=self.navigate_back),
-                        self.form_title_ui_field,
-                    ]
-                ),
-                self.loading_indicator,
-                views.Spacer(md_space=True),
-                self.title_ui_field,
-                views.Spacer(sm_space=True),
-                self.currency_ui_field,
-                self.rate_ui_field,
-                self.term_of_payment_ui_field,
-                self.time_unit_field,
-                self.unit_PW_ui_field,
-                self.vat_rate_ui_field,
-                self.volume_ui_field,
-                views.Spacer(sm_space=True),
-                Row(
-                    alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                    vertical_alignment=utils.CENTER_ALIGNMENT,
-                    spacing=dimens.SPACE_STD,
-                    controls=[
-                        self.clients_ui_field,
-                        IconButton(
-                            icon=Icons.ADD_CIRCLE_OUTLINE,
-                            on_click=self.on_add_client_clicked,
-                            icon_size=dimens.ICON_SIZE,
-                        ),
-                    ],
-                ),
-                views.Spacer(sm_space=True),
-                self.billing_cycle_ui_field,
-                views.Spacer(sm_space=True),
-                self.signature_date_ui_field,
-                views.Spacer(sm_space=True),
-                self.start_date_ui_field,
-                views.Spacer(md_space=True),
-                self.end_date_ui_field,
-                views.Spacer(md_space=True),
-                self.submit_btn,
-            ],
-        )
-
-    def will_unmount(self):
-        """Called when the view is about to be unmounted."""
-        self.mounted = True
-        if self.new_client_pop_up:
-            self.new_client_pop_up.dimiss_open_dialogs()
+        if self._on_save_cb:
+            self._on_save_cb(contract)
 
 
 class ContractsListView(views.CrudListView):
@@ -575,20 +606,58 @@ class ContractsListView(views.CrudListView):
         self.intent = ContractsIntent()
         super().__init__(params)
 
-    def make_card(self, contract):
-        return ContractCard(
-            contract=contract,
-            on_click_view=lambda cid: self.navigate_to_route(
-                res_utils.CONTRACT_DETAILS_SCREEN_ROUTE, cid
-            ),
-            on_click_edit=lambda cid: self.navigate_to_route(
-                res_utils.CONTRACT_EDITOR_SCREEN_ROUTE, cid
-            ),
-            on_click_delete=self._on_delete_by_id,
+    def get_side_panel(self):
+        return ContractSidePanel(
+            on_close=self._on_panel_closed,
+            on_save=self._on_contract_saved,
+            on_delete=self.on_delete_clicked,
+            intent=self.intent,
+            client_storage=self.client_storage,
+            on_edit_requested=self._on_inline_edit_requested,
         )
 
+    def _on_contract_saved(self, contract):
+        result = self.intent.save_contract(contract)
+        if result.was_intent_successful:
+            self.show_snack("Contract saved!")
+            self._side_panel.close()
+            self.reload_all_data()
+        else:
+            self.show_snack(result.error_msg, is_error=True)
+
+    def get_column_headers(self):
+        return [
+            ("Contract", None),
+            ("Client", 180),
+            ("Rate", 160),
+            ("Billing", 120),
+        ]
+
+    def make_card(self, contract):
+        is_selected = self._selected_entity_id == contract.id
+        return ContractRow(
+            contract=contract,
+            on_click=lambda cid: self._open_detail(cid),
+            on_click_edit=lambda cid: self._open_editor(cid),
+            on_click_delete=self._on_delete_by_id,
+            is_selected=is_selected,
+        )
+
+    def _open_detail(self, contract_id):
+        if contract_id in self.items_to_display:
+            self.open_detail_panel(self.items_to_display[contract_id])
+
+    def _open_editor(self, contract_id):
+        if contract_id in self.items_to_display:
+            self.open_edit_panel(self.items_to_display[contract_id])
+
+    def parent_intent_listener(self, intent: str, data=None):
+        if intent == res_utils.RELOAD_INTENT:
+            self.reload_all_data()
+        elif intent == res_utils.CONTRACT_EDITOR_SCREEN_ROUTE:
+            self.open_edit_panel(None)
+
     def _on_delete_by_id(self, contract_id):
-        """Wrap delete_clicked to pass entity object from ID."""
         if contract_id in self.items_to_display:
             self.on_delete_clicked(self.items_to_display[contract_id])
 

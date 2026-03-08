@@ -6,6 +6,7 @@ from enum import Enum
 from flet import (
     ButtonStyle,
     Card,
+    ClipBehavior,
     Column,
     Container,
     ElevatedButton,
@@ -20,11 +21,13 @@ from flet import (
     Control,
     Alignment,
     Border,
+    BorderSide,
     Icons,
     Padding,
+    MainAxisAlignment,
+    CrossAxisAlignment,
 )
 
-from ..clients.view import ClientViewPopUp
 from ..core import utils, views
 from ..core.abstractions import TView, TViewParams
 from ..core.intent_result import IntentResult
@@ -40,332 +43,431 @@ def _project_initials(title: str) -> str:
     return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
 
 
-class ProjectCard(Container):
-    """Flat, bordered card for a project — VS Code panel style."""
+class ProjectRow(Container):
+    """Single-line list row for a project — macOS native table style."""
 
     def __init__(
-        self, project, on_view_details_clicked, on_delete_clicked, on_edit_clicked
+        self, project, on_click, on_delete_clicked, on_edit_clicked, is_selected=False
     ):
         self.project: Project = project
-        self.on_view_details_clicked = on_view_details_clicked
-        self.on_delete_clicked = on_delete_clicked
-        self.on_edit_clicked = on_edit_clicked
 
-        _contract_title = "Unknown contract"
-        if project.contract:
-            _contract_title = project.contract.title
-        _client_title = "Unknown client"
-        if project.client:
-            _client_title = project.client.name
+        _contract_title = project.contract.title if project.contract else "—"
+        _client_title = project.client.name if project.client else "—"
 
-        initials = _project_initials(project.title)
-        avatar = Container(
-            width=36,
-            height=36,
-            bgcolor=colors.accent_muted,
-            border_radius=dimens.RADIUS_LG,
-            alignment=Alignment.CENTER,
-            content=Text(
-                initials,
-                size=fonts.BODY_1_SIZE,
-                color=colors.accent,
-                weight=fonts.BOLD_FONT,
-            ),
+        _status = project.get_status()
+        _dot_color = {
+            "Active": colors.status_active,
+            "Upcoming": colors.status_upcoming,
+            "Completed": colors.status_completed,
+        }.get(_status, colors.text_muted)
+
+        status_dot = Container(
+            width=8,
+            height=8,
+            bgcolor=_dot_color,
+            border_radius=dimens.RADIUS_PILL,
         )
-
-        header = Row(
-            controls=[
-                avatar,
-                Column(
-                    spacing=0,
-                    controls=[
-                        views.TBodyText(
-                            utils.truncate_str(project.title, 30),
-                            weight=fonts.BOLD_FONT,
-                        ),
-                        views.TBodyText(
-                            project.tag or "",
-                            color=colors.text_secondary,
-                            size=fonts.BODY_2_SIZE,
-                        ),
-                    ],
-                ),
-            ],
-            spacing=dimens.SPACE_SM,
-            expand=True,
-            vertical_alignment=utils.CENTER_ALIGNMENT,
-        )
-
-        context_menu = views.TContextMenu(
-            on_click_view=lambda e: self.on_view_details_clicked(project.id),
-            on_click_delete=lambda e: self.on_delete_clicked(project.id),
-            on_click_edit=lambda e: self.on_edit_clicked(project.id),
-        )
-
-        # Info rows
-        def _info_row(label, value):
-            return Column(
-                spacing=2,
-                controls=[
-                    views.TBodyText(
-                        label, color=colors.text_muted, size=fonts.OVERLINE_SIZE
-                    ),
-                    views.TBodyText(value, size=fonts.BODY_2_SIZE),
-                ],
-            )
 
         start_str = (
             project.start_date.strftime("%d/%m/%Y") if project.start_date else ""
         )
-        end_str = project.end_date.strftime("%d/%m/%Y") if project.end_date else "-"
+        end_str = project.end_date.strftime("%d/%m/%Y") if project.end_date else ""
+        date_str = f"{start_str} → {end_str}" if start_str else "—"
 
-        body_items = [
-            _info_row("Client", _client_title),
-            _info_row("Contract", _contract_title),
-            Row(
-                spacing=dimens.SPACE_MD,
-                controls=[
-                    _info_row("Start", start_str),
-                    _info_row("End", end_str),
-                ],
-            ),
-        ]
+        _bg = colors.accent_muted if is_selected else colors.bg
 
         super().__init__(
-            expand=True,
-            bgcolor=colors.bg_surface,
-            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
-            border_radius=dimens.RADIUS_LG,
-            padding=Padding.all(dimens.SPACE_MD),
+            bgcolor=_bg,
+            border=Border(bottom=BorderSide(1, colors.border)),
+            padding=Padding.symmetric(
+                horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_SM
+            ),
+            on_click=lambda e: on_click(project.id),
             on_hover=self._on_hover,
-            on_click=lambda e: self.on_view_details_clicked(project.id),
-            content=Column(
-                spacing=dimens.SPACE_SM,
+            clip_behavior=ClipBehavior.HARD_EDGE,
+            content=Row(
+                spacing=dimens.SPACE_MD,
+                vertical_alignment=utils.CENTER_ALIGNMENT,
                 controls=[
-                    Row(
-                        controls=[header, context_menu],
-                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                        vertical_alignment=utils.START_ALIGNMENT,
+                    Container(
+                        expand=True,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Row(
+                            spacing=dimens.SPACE_XS,
+                            vertical_alignment=utils.CENTER_ALIGNMENT,
+                            controls=[
+                                status_dot,
+                                Text(
+                                    project.title or "",
+                                    size=fonts.BODY_1_SIZE,
+                                    color=colors.text_primary,
+                                    weight=fonts.BOLD_FONT if is_selected else None,
+                                    overflow="ellipsis",
+                                    max_lines=1,
+                                    expand=True,
+                                ),
+                            ],
+                        ),
                     ),
-                    Container(height=1, bgcolor=colors.border_subtle),
-                    *body_items,
+                    Container(
+                        width=200,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            _client_title,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_secondary,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
+                    Container(
+                        width=200,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            _contract_title,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_secondary,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
+                    Container(
+                        width=180,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            date_str,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_muted,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
                 ],
             ),
         )
+        self._is_selected = is_selected
 
     def _on_hover(self, e):
-        self.bgcolor = (
-            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
-        )
+        if self._is_selected:
+            return
+        self.bgcolor = colors.bg_surface_hovered if e.data == "true" else colors.bg
         self.update()
 
 
-class ViewProjectScreen(views.EntityDetailScreen):
-    """View project screen"""
+# ── Side panel ────────────────────────────────────────────────
 
-    entity_name = "project"
-    edit_route = res_utils.PROJECT_EDITOR_SCREEN_ROUTE
 
-    def __init__(self, params: TViewParams, project_id: str):
-        super().__init__(params, project_id, ProjectsIntent())
+class ProjectSidePanel(views.EntitySidePanel):
+    """Right-side panel for viewing and editing projects."""
 
-    def display_entity_data(self):
-        p = self.entity
-        has_contract = p.contract is not None
-        has_client = has_contract and p.contract.client is not None
-
-        self.project_title_control.value = p.title
-        self.client_control.value = (
-            p.contract.client.name if has_client else "Client not specified"
+    def __init__(
+        self,
+        on_close,
+        on_save,
+        on_delete,
+        intent: ProjectsIntent,
+        on_edit_requested=None,
+    ):
+        self.intent = intent
+        self._contracts_map: dict = {}
+        self._contract: Optional[Contract] = None
+        self._start_date = None
+        self._end_date = None
+        super().__init__(
+            on_close=on_close,
+            on_save=on_save,
+            on_delete=on_delete,
+            on_edit_requested=on_edit_requested,
         )
-        self.contract_control.value = (
-            p.contract.title if has_contract else "Contract not specified"
-        )
-        self.update_field_rows(p)
+
+    def _load_contracts(self):
+        self._contracts_map = self.intent.get_all_contracts_as_map()
+
+    def _make_dropdown_item(self, cid, title):
+        return f"{cid}. {title}"
+
+    def _get_contract_options(self):
+        return [
+            self._make_dropdown_item(cid, c.title)
+            for cid, c in self._contracts_map.items()
+        ]
+
+    # -- Detail view ----------------------------------------------------------
+
+    def build_detail_content(self, entity: Project) -> list:
+        p = entity
         _status = p.get_status(default="")
+        _status_color = {
+            "Active": colors.status_active,
+            "Upcoming": colors.status_upcoming,
+            "Completed": colors.status_completed,
+        }.get(_status, colors.text_muted)
+
+        controls = []
+
+        # Status badge
         if _status:
-            self.project_status_control.value = f"Status {_status}"
-            self.project_status_control.visible = True
-        else:
-            self.project_status_control.visible = False
-        self.project_tagline_control.value = str(p.tag) if p.tag else ""
-        self.toggle_complete_status_btn.icon = (
-            Icons.RADIO_BUTTON_CHECKED_OUTLINED
-            if p.is_completed
-            else Icons.RADIO_BUTTON_UNCHECKED_OUTLINED
-        )
-        self.toggle_complete_status_btn.tooltip = (
-            "Mark as incomplete" if p.is_completed else "Mark as complete"
-        )
-
-    def on_view_client_clicked(self, e):
-        """opens the client view pop up when the client button is clicked"""
-        if not self.entity or not self.entity.client:
-            return
-        if self.popup_handler:
-            self.popup_handler.close_dialog()
-        self.popup_handler = ClientViewPopUp(
-            dialog_controller=self.dialog_controller, client=self.entity.client
-        )
-        self.popup_handler.open_dialog()
-
-    def on_view_contract_clicked(self, e):
-        """redirects to the contract view screen when the contract button is clicked"""
-        if not self.entity or not self.entity.contract:
-            return
-        self.navigate_to_route(
-            res_utils.CONTRACT_DETAILS_SCREEN_ROUTE, self.entity.contract.id
-        )
-
-    def build(self):
-        """Called when page is built"""
-        self.edit_project_btn = IconButton(
-            icon=Icons.EDIT_OUTLINED,
-            tooltip="Edit project",
-            on_click=self.on_edit_clicked,
-            icon_size=dimens.ICON_SIZE,
-        )
-
-        self.toggle_complete_status_btn = IconButton(
-            icon=Icons.RADIO_BUTTON_UNCHECKED_OUTLINED,
-            icon_color=colors.accent,
-            tooltip="Mark as complete",
-            icon_size=dimens.ICON_SIZE,
-            on_click=self.on_toggle_complete_status,
-        )
-        self.delete_project_btn = IconButton(
-            icon=Icons.DELETE_OUTLINE_ROUNDED,
-            icon_color=colors.danger,
-            tooltip="Delete project",
-            icon_size=dimens.ICON_SIZE,
-            on_click=self.on_delete_clicked,
-        )
-
-        self.project_title_control = views.THeading()
-        self.client_control = views.TSubHeading(color=colors.text_secondary)
-        self.contract_control = views.TSubHeading(color=colors.text_secondary)
-
-        self.project_status_control = views.TSubHeading(
-            size=fonts.BUTTON_SIZE, color=colors.accent
-        )
-        self.project_tagline_control = views.TSubHeading(
-            size=fonts.BUTTON_SIZE, color=colors.accent
-        )
-
-        field_rows = self.build_field_rows(
-            [
-                ("Description", "description"),
-                ("Start Date", "start_date"),
-                ("End Date", "end_date"),
-            ]
-        )
-
-        self.content = Row(
-            [
+            controls.append(
                 Container(
-                    padding=Padding.all(dimens.SPACE_STD),
-                    width=int(dimens.MIN_WINDOW_WIDTH * 0.3),
-                    content=Column(
-                        controls=[
-                            IconButton(
-                                icon=Icons.KEYBOARD_ARROW_LEFT,
-                                on_click=self.navigate_back,
-                                icon_size=dimens.ICON_SIZE,
-                            ),
-                            TextButton(
-                                "Client",
-                                tooltip="View project's client",
-                                on_click=self.on_view_client_clicked,
-                            ),
-                            TextButton(
-                                "Contract",
-                                tooltip="View project's contract",
-                                on_click=self.on_view_contract_clicked,
-                            ),
-                        ]
+                    border_radius=dimens.RADIUS_PILL,
+                    bgcolor=_status_color,
+                    padding=Padding.symmetric(
+                        horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
                     ),
-                ),
-                Container(
-                    expand=True,
-                    padding=Padding.all(dimens.SPACE_MD),
-                    content=Column(
-                        controls=[
-                            self.loading_indicator,
-                            Row(
-                                controls=[
-                                    Icon(
-                                        Icons.WORK_ROUNDED,
-                                        size=dimens.ICON_SIZE,
-                                    ),
-                                    Column(
-                                        expand=True,
-                                        spacing=0,
-                                        run_spacing=0,
-                                        controls=[
-                                            Row(
-                                                vertical_alignment=utils.CENTER_ALIGNMENT,
-                                                alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                                                controls=[
-                                                    views.THeading(
-                                                        "Project",
-                                                        size=fonts.HEADLINE_4_SIZE,
-                                                        color=colors.accent,
-                                                    ),
-                                                    Row(
-                                                        vertical_alignment=utils.CENTER_ALIGNMENT,
-                                                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                                                        spacing=dimens.SPACE_STD,
-                                                        run_spacing=dimens.SPACE_STD,
-                                                        controls=[
-                                                            self.edit_project_btn,
-                                                            self.toggle_complete_status_btn,
-                                                            self.delete_project_btn,
-                                                        ],
-                                                    ),
-                                                ],
-                                            ),
-                                            self.project_title_control,
-                                            self.client_control,
-                                            self.contract_control,
-                                        ],
-                                    ),
-                                ],
-                            ),
-                            views.Spacer(md_space=True),
-                            *field_rows,
-                            views.Spacer(md_space=True),
-                            Row(
-                                spacing=dimens.SPACE_STD,
-                                run_spacing=dimens.SPACE_STD,
-                                alignment=utils.START_ALIGNMENT,
-                                vertical_alignment=utils.CENTER_ALIGNMENT,
-                                controls=[
-                                    Card(
-                                        Container(
-                                            self.project_status_control,
-                                            padding=Padding.all(dimens.SPACE_SM),
-                                        ),
-                                        elevation=2,
-                                    ),
-                                    Card(
-                                        Container(
-                                            self.project_tagline_control,
-                                            padding=Padding.all(dimens.SPACE_SM),
-                                        ),
-                                        elevation=2,
-                                    ),
-                                ],
-                            ),
-                        ],
+                    content=Text(
+                        _status,
+                        size=fonts.CAPTION_SIZE,
+                        color=colors.text_inverse,
+                        weight=fonts.BOLD_FONT,
                     ),
-                ),
-            ],
-            spacing=dimens.SPACE_XS,
-            run_spacing=dimens.SPACE_MD,
-            alignment=utils.START_ALIGNMENT,
-            vertical_alignment=utils.START_ALIGNMENT,
-            expand=True,
+                )
+            )
+
+        # Tag
+        if p.tag:
+            controls.append(
+                Text(
+                    p.tag,
+                    size=fonts.BODY_2_SIZE,
+                    color=colors.accent,
+                    weight=fonts.BOLD_FONT,
+                )
+            )
+
+        controls.append(self._get_section_divider())
+
+        # Info fields
+        client_name = p.client.name if p.client else "Not specified"
+        contract_title = p.contract.title if p.contract else "Not specified"
+        controls.append(
+            self._get_detail_field("Client", client_name, Icons.PERSON_OUTLINE)
         )
+        controls.append(
+            self._get_detail_field(
+                "Contract", contract_title, Icons.DESCRIPTION_OUTLINED
+            )
+        )
+        controls.append(self._get_detail_field("Description", p.description or ""))
+        start = p.start_date.strftime("%d %b %Y") if p.start_date else "—"
+        end = p.end_date.strftime("%d %b %Y") if p.end_date else "—"
+        controls.append(
+            self._get_detail_field("Duration", f"{start}  →  {end}", Icons.DATE_RANGE)
+        )
+
+        controls.append(self._get_section_divider())
+
+        # Action buttons
+        controls.append(
+            self._get_action_bar(
+                views.TPrimaryButton(
+                    label="Edit",
+                    on_click=lambda e: self._switch_to_edit(),
+                    icon=Icons.EDIT_OUTLINED,
+                ),
+                TextButton(
+                    content=Text(
+                        "Delete",
+                        color=colors.danger,
+                        size=fonts.BODY_2_SIZE,
+                    ),
+                    on_click=lambda e: self._on_delete_cb(entity)
+                    if self._on_delete_cb
+                    else None,
+                ),
+            )
+        )
+        return controls
+
+    def build_compact_detail(self, entity: Project) -> list:
+        p = entity
+        _status = p.get_status(default="")
+        _status_color = {
+            "Active": colors.status_active,
+            "Upcoming": colors.status_upcoming,
+            "Completed": colors.status_completed,
+        }.get(_status, colors.text_muted)
+
+        top_row = []
+        if _status:
+            top_row.append(
+                Container(
+                    border_radius=dimens.RADIUS_PILL,
+                    bgcolor=_status_color,
+                    padding=Padding.symmetric(
+                        horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
+                    ),
+                    content=Text(
+                        _status,
+                        size=fonts.CAPTION_SIZE,
+                        color=colors.text_inverse,
+                        weight=fonts.BOLD_FONT,
+                    ),
+                )
+            )
+        if p.tag:
+            top_row.append(
+                Text(
+                    p.tag,
+                    size=fonts.BODY_2_SIZE,
+                    color=colors.accent,
+                    weight=fonts.BOLD_FONT,
+                )
+            )
+
+        detail_fields = []
+        if p.description:
+            detail_fields.append(
+                self._compact_field("Description", p.description, col={"xs": 12}),
+            )
+
+        controls = []
+        if top_row:
+            controls.append(Row(spacing=dimens.SPACE_SM, controls=top_row))
+        if detail_fields:
+            controls.append(ResponsiveRow(controls=detail_fields))
+        controls.append(
+            self._get_action_bar(
+                views.TPrimaryButton(
+                    label="Edit",
+                    on_click=lambda e: self._switch_to_edit(),
+                    icon=Icons.EDIT_OUTLINED,
+                ),
+                TextButton(
+                    content=Text("Delete", color=colors.danger, size=fonts.BODY_2_SIZE),
+                    on_click=lambda e: self._on_delete_cb(entity)
+                    if self._on_delete_cb
+                    else None,
+                ),
+            ),
+        )
+        return controls
+
+    # -- Edit view ------------------------------------------------------------
+
+    def build_edit_content(self, entity: Optional[Project]) -> list:
+        self._load_contracts()
+        is_new = entity is None
+
+        self._title_field = views.TTextField(
+            label="Title",
+            hint="A short, unique title",
+            initial_value=entity.title if entity else "",
+        )
+        self._description_field = views.TMultilineField(
+            label="Description",
+            hint="A longer description",
+            minLines=2,
+            maxLines=3,
+        )
+        if entity and entity.description:
+            self._description_field.value = entity.description
+        self._tag_field = views.TTextField(
+            label="Tag",
+            hint="#my-project",
+            initial_value=entity.tag if entity else "",
+        )
+
+        # Contract dropdown
+        self._contract = entity.contract if entity else None
+        contract_value = None
+        if self._contract:
+            contract_value = self._make_dropdown_item(
+                self._contract.id, self._contract.title
+            )
+        self._contracts_field = views.TDropDown(
+            label="Contract",
+            on_change=self._on_contract_selected,
+            items=self._get_contract_options(),
+        )
+        if contract_value:
+            self._contracts_field.update_value(contract_value)
+
+        # Dates
+        self._start_date = entity.start_date if entity else None
+        self._end_date = entity.end_date if entity else None
+        self._start_date_field = views.DateSelector(label="Start Date")
+        self._end_date_field = views.DateSelector(label="End Date")
+        if self._start_date:
+            self._start_date_field.set_date(self._start_date)
+        if self._end_date:
+            self._end_date_field.set_date(self._end_date)
+
+        save_label = "Create Project" if is_new else "Save Changes"
+
+        # -- Compact multi-column layout --
+        self._title_field.col = {"xs": 12, "sm": 8}
+        self._tag_field.col = {"xs": 12, "sm": 4}
+        self._contracts_field.col = {"xs": 12, "sm": 6}
+        self._start_date_field.col = {"xs": 6, "sm": 3}
+        self._end_date_field.col = {"xs": 6, "sm": 3}
+        self._description_field.col = {"xs": 12}
+
+        return [
+            ResponsiveRow(
+                controls=[self._title_field, self._tag_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[
+                    self._contracts_field,
+                    self._start_date_field,
+                    self._end_date_field,
+                ],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[self._description_field],
+            ),
+            self._edit_action_bar(
+                save_label,
+                on_save=lambda e: self._on_save_clicked(),
+                on_cancel=lambda e: self.close(),
+            ),
+        ]
+
+    def _on_contract_selected(self, e):
+        sel = e.control.value
+        cid_str = sel.split(".")[0]
+        cid = int(cid_str)
+        if cid in self._contracts_map:
+            self._contract = self._contracts_map[cid]
+
+    def _on_save_clicked(self):
+        """Validate and save."""
+        if not self._title_field.value:
+            self._title_field.error = "Title is required"
+            self.update()
+            return
+        if not self._description_field.value:
+            self._description_field.error = "Description is required"
+            self.update()
+            return
+
+        start = self._start_date_field.get_date()
+        end = self._end_date_field.get_date()
+        if not start or not end:
+            return
+        if start > end:
+            return
+        if not self._contract:
+            self._contracts_field.update_error_txt("Contract is required")
+            self.update()
+            return
+        if not self._tag_field.value:
+            self._tag_field.error = "Tag is required"
+            self.update()
+            return
+
+        project = self._entity or Project()
+        project.title = self._title_field.value
+        project.description = self._description_field.value
+        project.start_date = start
+        project.end_date = end
+        project.tag = self._tag_field.value
+        project.contract = self._contract
+
+        if self._on_save_cb:
+            self._on_save_cb(project)
 
 
 class ProjectsListView(views.CrudListView):
@@ -388,17 +490,57 @@ class ProjectsListView(views.CrudListView):
         self.intent = ProjectsIntent()
         super().__init__(params)
 
-    def make_card(self, project):
-        return ProjectCard(
-            project=project,
-            on_view_details_clicked=lambda pid: self.navigate_to_route(
-                res_utils.PROJECT_DETAILS_SCREEN_ROUTE, pid
-            ),
-            on_delete_clicked=self._on_delete_by_id,
-            on_edit_clicked=lambda pid: self.navigate_to_route(
-                res_utils.PROJECT_EDITOR_SCREEN_ROUTE, pid
-            ),
+    def get_side_panel(self):
+        return ProjectSidePanel(
+            on_close=self._on_panel_closed,
+            on_save=self._on_project_saved,
+            on_delete=self.on_delete_clicked,
+            intent=self.intent,
+            on_edit_requested=self._on_inline_edit_requested,
         )
+
+    def _on_project_saved(self, project):
+        """Save project via intent, close panel, refresh list."""
+        result = self.intent.save_project(project)
+        if result.was_intent_successful:
+            self.show_snack("Project saved!")
+            self._side_panel.close()
+            self.reload_all_data()
+        else:
+            self.show_snack(result.error_msg, is_error=True)
+
+    def get_column_headers(self):
+        return [
+            ("Project", None),
+            ("Client", 200),
+            ("Contract", 200),
+            ("Dates", 180),
+        ]
+
+    def make_card(self, project):
+        is_selected = self._selected_entity_id == project.id
+        return ProjectRow(
+            project=project,
+            on_click=lambda pid: self._open_detail(pid),
+            on_delete_clicked=self._on_delete_by_id,
+            on_edit_clicked=lambda pid: self._open_editor(pid),
+            is_selected=is_selected,
+        )
+
+    def _open_detail(self, project_id):
+        if project_id in self.items_to_display:
+            self.open_detail_panel(self.items_to_display[project_id])
+
+    def _open_editor(self, project_id):
+        if project_id in self.items_to_display:
+            self.open_edit_panel(self.items_to_display[project_id])
+
+    def parent_intent_listener(self, intent: str, data=None):
+        if intent == res_utils.RELOAD_INTENT:
+            self.reload_all_data()
+        elif intent == res_utils.PROJECT_EDITOR_SCREEN_ROUTE:
+            # "+ New" button opens editor panel for new project
+            self.open_edit_panel(None)
 
     def _on_delete_by_id(self, project_id):
         if project_id in self.items_to_display:

@@ -3,16 +3,22 @@ from typing import Callable, Mapping, Optional
 from flet import (
     AlertDialog,
     Card,
+    ClipBehavior,
     Column,
     Container,
     Icon,
+    Icons,
     ListTile,
+    MainAxisAlignment,
+    CrossAxisAlignment,
     ResponsiveRow,
     Row,
     Text,
+    TextButton,
     Control,
     Alignment,
     Border,
+    BorderSide,
     Padding,
 )
 
@@ -30,91 +36,86 @@ def _initials(name: str) -> str:
     return "".join(p[0].upper() for p in parts[:2]) if parts else "?"
 
 
-class ClientCard(Container):
-    """Flat bordered card for a client entity."""
+class ClientRow(Container):
+    """Single-line list row for a client — macOS native table style."""
 
     def __init__(
         self,
         client: Client,
-        on_edit: Optional[Callable] = None,
-        on_delete: Optional[Callable] = None,
+        on_click=None,
+        on_edit=None,
+        on_delete=None,
+        is_selected=False,
     ):
         self.client = client
-        self.on_edit_clicked = on_edit
-        self.on_delete_clicked = on_delete
 
-        initials = _initials(client.name)
-        avatar = Container(
-            width=36,
-            height=36,
-            bgcolor=colors.accent_muted,
-            border_radius=dimens.RADIUS_LG,
-            alignment=Alignment.CENTER,
-            content=Text(
-                initials,
-                size=fonts.BODY_1_SIZE,
-                color=colors.accent,
-                weight=fonts.BOLD_FONT,
-            ),
+        contact_name = (
+            client.invoicing_contact.name if client.invoicing_contact else "—"
+        )
+        company = (
+            client.invoicing_contact.company
+            if client.invoicing_contact and client.invoicing_contact.company
+            else "—"
         )
 
-        editable = on_edit or on_delete
-        trailing = (
-            views.TContextMenu(
-                on_click_delete=lambda e: self.on_delete_clicked(client),
-                on_click_edit=lambda e: self.on_edit_clicked(client),
-            )
-            if editable
-            else views.Spacer(sm_space=True)
-        )
-
-        if client.invoicing_contact:
-            contact_info = client.invoicing_contact.print_address()
-        else:
-            contact_info = "Not specified"
+        _bg = colors.accent_muted if is_selected else colors.bg
 
         super().__init__(
-            expand=True,
-            bgcolor=colors.bg_surface,
-            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
-            border_radius=dimens.RADIUS_LG,
-            padding=Padding.all(dimens.SPACE_MD),
+            bgcolor=_bg,
+            border=Border(bottom=BorderSide(1, colors.border)),
+            padding=Padding.symmetric(
+                horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_SM
+            ),
+            on_click=lambda e: on_click(client) if on_click else None,
             on_hover=self._on_hover,
-            content=Column(
-                spacing=dimens.SPACE_SM,
+            clip_behavior=ClipBehavior.HARD_EDGE,
+            content=Row(
+                spacing=dimens.SPACE_MD,
+                vertical_alignment=utils.CENTER_ALIGNMENT,
                 controls=[
-                    Row(
-                        controls=[
-                            Row(
-                                controls=[
-                                    avatar,
-                                    views.TBodyText(
-                                        client.name, weight=fonts.BOLD_FONT
-                                    ),
-                                ],
-                                spacing=dimens.SPACE_SM,
-                                vertical_alignment=utils.CENTER_ALIGNMENT,
-                            ),
-                            trailing,
-                        ],
-                        alignment=utils.SPACE_BETWEEN_ALIGNMENT,
-                        vertical_alignment=utils.CENTER_ALIGNMENT,
+                    Container(
+                        expand=True,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            client.name or "",
+                            size=fonts.BODY_1_SIZE,
+                            color=colors.text_primary,
+                            weight=fonts.BOLD_FONT if is_selected else None,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
                     ),
-                    Container(height=1, bgcolor=colors.border_subtle),
-                    views.TBodyText(
-                        "Invoicing Contact",
-                        color=colors.text_muted,
-                        size=fonts.OVERLINE_SIZE,
+                    Container(
+                        width=200,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            contact_name,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_secondary,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
                     ),
-                    views.TBodyText(contact_info, size=fonts.BODY_2_SIZE),
+                    Container(
+                        width=200,
+                        clip_behavior=ClipBehavior.HARD_EDGE,
+                        content=Text(
+                            company,
+                            size=fonts.BODY_2_SIZE,
+                            color=colors.text_muted,
+                            overflow="ellipsis",
+                            max_lines=1,
+                        ),
+                    ),
                 ],
             ),
         )
+        self._is_selected = is_selected
 
     def _on_hover(self, e):
-        self.bgcolor = (
-            colors.bg_surface_hovered if e.data == "true" else colors.bg_surface
-        )
+        if self._is_selected:
+            return
+        self.bgcolor = colors.bg_surface_hovered if e.data == "true" else colors.bg
         self.update()
 
 
@@ -131,7 +132,7 @@ class ClientViewPopUp(DialogHandler, Column):
             content=Container(
                 content=Column(
                     scroll=utils.AUTO_SCROLL,
-                    controls=[ClientCard(client=client)],
+                    controls=[ClientRow(client=client)],
                 ),
                 width=480,
             ),
@@ -414,6 +415,319 @@ class ClientEditorPopUp(DialogHandler, Column):
         self.controls = [self.dialog]
 
 
+# ── Side panel ────────────────────────────────────────────────
+
+
+class ClientSidePanel(views.EntitySidePanel):
+    """Right-side panel for viewing and editing clients."""
+
+    def __init__(
+        self,
+        on_close,
+        on_save,
+        on_delete,
+        intent: ClientsIntent,
+        on_edit_requested=None,
+    ):
+        self.intent = intent
+        self._contacts_map: dict = {}
+        self._invoicing_contact: Optional[Contact] = None
+        self._address: Optional[Address] = None
+        super().__init__(
+            on_close=on_close,
+            on_save=on_save,
+            on_delete=on_delete,
+            on_edit_requested=on_edit_requested,
+        )
+
+    def _load_contacts(self):
+        self._contacts_map = self.intent.get_all_contacts_as_map()
+
+    def _contact_item(self, cid):
+        return f"{cid}. {self._contacts_map[cid].name}"
+
+    def _contact_options(self):
+        return [self._contact_item(cid) for cid in self._contacts_map]
+
+    # -- Detail view ----------------------------------------------------------
+
+    def build_detail_content(self, entity: Client) -> list:
+        c = entity
+        contact = c.invoicing_contact
+        controls = []
+
+        # Client name as heading is already handled by panel title
+
+        if contact:
+            name = (
+                f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "—"
+            )
+            controls.append(
+                self._get_detail_field("Contact Name", name, Icons.PERSON_OUTLINE)
+            )
+            if contact.company:
+                controls.append(
+                    self._get_detail_field("Company", contact.company, Icons.BUSINESS)
+                )
+            if contact.email:
+                controls.append(
+                    self._get_detail_field("Email", contact.email, Icons.EMAIL_OUTLINED)
+                )
+            controls.append(self._get_section_divider())
+
+            addr = contact.address
+            if addr and not addr.is_empty:
+                street = f"{addr.street or ''} {addr.number or ''}".strip()
+                city_line = f"{addr.postal_code or ''} {addr.city or ''}".strip()
+                country = addr.country or ""
+                addr_str = "\n".join(filter(None, [street, city_line, country]))
+                controls.append(
+                    self._get_detail_field(
+                        "Address", addr_str, Icons.LOCATION_ON_OUTLINED
+                    )
+                )
+            else:
+                controls.append(
+                    self._get_detail_field(
+                        "Address", "Not specified", Icons.LOCATION_ON_OUTLINED
+                    )
+                )
+        else:
+            controls.append(self._get_detail_field("Contact", "Not specified"))
+
+        controls.append(self._get_section_divider())
+
+        # Actions
+        controls.append(
+            self._get_action_bar(
+                views.TPrimaryButton(
+                    label="Edit",
+                    on_click=lambda e: self._switch_to_edit(),
+                    icon=Icons.EDIT_OUTLINED,
+                ),
+                TextButton(
+                    content=Text("Delete", color=colors.danger, size=fonts.BODY_2_SIZE),
+                    on_click=lambda e: self._on_delete_cb(entity)
+                    if self._on_delete_cb
+                    else None,
+                ),
+            )
+        )
+        return controls
+
+    def build_compact_detail(self, entity: Client) -> list:
+        contact = entity.invoicing_contact
+        email = "\u2014"
+        addr_str = "\u2014"
+        if contact:
+            email = contact.email or "\u2014"
+            addr = contact.address
+            if addr and not addr.is_empty:
+                street = f"{addr.street or ''} {addr.number or ''}".strip()
+                city_line = f"{addr.postal_code or ''} {addr.city or ''}".strip()
+                country = addr.country or ""
+                addr_str = ", ".join(filter(None, [street, city_line, country]))
+
+        return [
+            ResponsiveRow(
+                controls=[
+                    self._compact_field("Email", email),
+                    self._compact_field("Address", addr_str, col={"xs": 6}),
+                ],
+            ),
+            self._get_action_bar(
+                views.TPrimaryButton(
+                    label="Edit",
+                    on_click=lambda e: self._switch_to_edit(),
+                    icon=Icons.EDIT_OUTLINED,
+                ),
+                TextButton(
+                    content=Text("Delete", color=colors.danger, size=fonts.BODY_2_SIZE),
+                    on_click=lambda e: self._on_delete_cb(entity)
+                    if self._on_delete_cb
+                    else None,
+                ),
+            ),
+        ]
+
+    # -- Edit view ------------------------------------------------------------
+
+    def build_edit_content(self, entity: Optional[Client]) -> list:
+        self._load_contacts()
+        is_new = entity is None
+
+        client = entity or Client()
+        self._invoicing_contact = (
+            client.invoicing_contact if client.invoicing_contact else Contact()
+        )
+        self._address = (
+            self._invoicing_contact.address
+            if self._invoicing_contact.address
+            else Address()
+        )
+        if not self._invoicing_contact.address:
+            self._invoicing_contact.address = self._address
+
+        self._client_name_field = views.TTextField(
+            label="Client Name",
+            hint="Client's name",
+            initial_value=client.name or "",
+        )
+
+        # Contact selector
+        self._contacts_field = views.TDropDown(
+            label="Existing contact",
+            on_change=self._on_contact_selected,
+            items=self._contact_options(),
+        )
+        if (
+            self._invoicing_contact.id
+            and self._invoicing_contact.id in self._contacts_map
+        ):
+            self._contacts_field.update_value(
+                self._contact_item(self._invoicing_contact.id)
+            )
+
+        self._fname_field = views.TTextField(
+            label="First Name",
+            initial_value=self._invoicing_contact.first_name or "",
+        )
+        self._lname_field = views.TTextField(
+            label="Last Name",
+            initial_value=self._invoicing_contact.last_name or "",
+        )
+        self._company_field = views.TTextField(
+            label="Company",
+            initial_value=self._invoicing_contact.company or "",
+        )
+        self._email_field = views.TTextField(
+            label="Email",
+            initial_value=self._invoicing_contact.email or "",
+        )
+        self._street_field = views.TTextField(
+            label="Street",
+            initial_value=self._address.street or "",
+        )
+        self._street_num_field = views.TTextField(
+            label="No.",
+            initial_value=self._address.number or "",
+        )
+        self._postal_field = views.TTextField(
+            label="Postal Code",
+            initial_value=self._address.postal_code or "",
+        )
+        self._city_field = views.TTextField(
+            label="City",
+            initial_value=self._address.city or "",
+        )
+        self._country_field = views.TTextField(
+            label="Country",
+            initial_value=self._address.country or "",
+        )
+
+        save_label = "Create Client" if is_new else "Save Changes"
+
+        # -- Compact multi-column layout --
+        self._client_name_field.col = {"xs": 12, "sm": 6}
+        self._contacts_field.col = {"xs": 12, "sm": 6}
+        self._fname_field.col = {"xs": 6, "sm": 4}
+        self._lname_field.col = {"xs": 6, "sm": 4}
+        self._company_field.col = {"xs": 12, "sm": 4}
+        self._email_field.col = {"xs": 12, "sm": 6}
+        self._street_field.col = {"xs": 8, "sm": 5}
+        self._street_num_field.col = {"xs": 4, "sm": 1}
+        self._postal_field.col = {"xs": 4, "sm": 2}
+        self._city_field.col = {"xs": 4, "sm": 2}
+        self._country_field.col = {"xs": 4, "sm": 2}
+
+        return [
+            ResponsiveRow(
+                controls=[self._client_name_field, self._contacts_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[self._fname_field, self._lname_field, self._company_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[
+                    self._email_field,
+                    self._street_field,
+                    self._street_num_field,
+                    self._postal_field,
+                    self._city_field,
+                    self._country_field,
+                ],
+                spacing=dimens.SPACE_SM,
+            ),
+            self._edit_action_bar(
+                save_label,
+                on_save=lambda e: self._validate_and_save(),
+                on_cancel=lambda e: self.close(),
+            ),
+        ]
+
+    def _on_contact_selected(self, e):
+        sel = e.control.value
+        cid = int(sel.split(".")[0])
+        if cid in self._contacts_map:
+            self._invoicing_contact = self._contacts_map[cid]
+            self._address = self._invoicing_contact.address or Address()
+            # Fill in the fields
+            self._fname_field.value = self._invoicing_contact.first_name or ""
+            self._lname_field.value = self._invoicing_contact.last_name or ""
+            self._company_field.value = self._invoicing_contact.company or ""
+            self._email_field.value = self._invoicing_contact.email or ""
+            self._street_field.value = self._address.street or ""
+            self._street_num_field.value = self._address.number or ""
+            self._postal_field.value = self._address.postal_code or ""
+            self._city_field.value = self._address.city or ""
+            self._country_field.value = self._address.country or ""
+            self.update()
+
+    def _validate_and_save(self):
+        client_name = (self._client_name_field.value or "").strip()
+        if not client_name:
+            self._client_name_field.error = "Client name is required"
+            self.update()
+            return
+
+        fname = (self._fname_field.value or "").strip()
+        lname = (self._lname_field.value or "").strip()
+        if not fname or not lname:
+            if not fname:
+                self._fname_field.error = "Required"
+            if not lname:
+                self._lname_field.error = "Required"
+            self.update()
+            return
+
+        # Update address
+        self._address.street = (self._street_field.value or "").strip()
+        self._address.number = (self._street_num_field.value or "").strip()
+        self._address.postal_code = (self._postal_field.value or "").strip()
+        self._address.city = (self._city_field.value or "").strip()
+        self._address.country = (self._country_field.value or "").strip()
+
+        if self._address.is_empty:
+            return  # need at least some address
+
+        # Update contact
+        self._invoicing_contact.first_name = fname
+        self._invoicing_contact.last_name = lname
+        self._invoicing_contact.company = (self._company_field.value or "").strip()
+        self._invoicing_contact.email = (self._email_field.value or "").strip()
+        self._invoicing_contact.address = self._address
+
+        # Update client
+        client = self._entity or Client()
+        client.name = client_name
+        client.invoicing_contact = self._invoicing_contact
+
+        if self._on_save_cb:
+            self._on_save_cb(client)
+
+
 class ClientsListView(views.CrudListView):
     """View for displaying a list of clients"""
 
@@ -429,59 +743,55 @@ class ClientsListView(views.CrudListView):
     def __init__(self, params: TViewParams):
         self.intent = ClientsIntent()
         super().__init__(params=params)
-        self.contacts = {}
-        self.editor = None
+
+    def get_side_panel(self):
+        return ClientSidePanel(
+            on_close=self._on_panel_closed,
+            on_save=self._on_save_client,
+            on_delete=self.on_delete_clicked,
+            intent=self.intent,
+            on_edit_requested=self._on_inline_edit_requested,
+        )
+
+    def get_column_headers(self):
+        return [
+            ("Client", None),
+            ("Contact", 200),
+            ("Company", 200),
+        ]
 
     def make_card(self, client):
-        return ClientCard(
+        is_selected = self._selected_entity_id == (
+            client.id if hasattr(client, "id") else None
+        )
+        return ClientRow(
             client=client,
-            on_edit=self.on_edit_client_clicked,
+            on_click=lambda c: self.open_detail_panel(c),
+            on_edit=lambda c: self.open_edit_panel(c),
             on_delete=lambda c: self.on_delete_clicked(c),
+            is_selected=is_selected,
         )
 
     def get_entity_description(self, client):
         return client.name
 
     def load_extra_data(self):
-        self.contacts = self.intent.get_all_contacts_as_map()
+        pass  # contacts loaded by panel on demand
+
+    def parent_intent_listener(self, intent: str, data=None):
+        if intent == res_utils.RELOAD_INTENT:
+            self.reload_all_data()
+        elif intent == res_utils.ADD_CLIENT_INTENT:
+            self.open_edit_panel(None)
 
     def open_add_editor(self, data=None):
-        if self.editor:
-            self.editor.close_dialog()
-        self.editor = ClientEditorPopUp(
-            self.dialog_controller,
-            on_submit=self._on_save_client,
-            contacts_map=self.contacts,
-            on_error=lambda error: self.show_snack(error, is_error=True),
-        )
-        self.editor.open_dialog()
-
-    def on_edit_client_clicked(self, client: Client):
-        if self.editor:
-            self.editor.close_dialog()
-        self.editor = ClientEditorPopUp(
-            self.dialog_controller,
-            on_submit=self._on_save_client,
-            contacts_map=self.contacts,
-            client=client,
-            on_error=lambda error: self.show_snack(error, is_error=True),
-        )
-        self.editor.open_dialog()
+        self.open_edit_panel(None)
 
     def _on_save_client(self, client_to_save: Client):
-        self.loading_indicator.visible = True
-        self.update_self()
         result = self.intent.save_client(client_to_save)
-        is_error = not result.was_intent_successful
-        if not is_error:
-            self.items_to_display[result.data.id] = result.data
-            self.refresh_list()
-        msg = result.error_msg if is_error else "Client saved!"
-        self.show_snack(msg, is_error)
-        self.loading_indicator.visible = False
-        self.update_self()
-
-    def will_unmount(self):
-        super().will_unmount()
-        if self.editor:
-            self.editor.dimiss_open_dialogs()
+        if result.was_intent_successful:
+            self.show_snack("Client saved!")
+            self._side_panel.close()
+            self.reload_all_data()
+        else:
+            self.show_snack(result.error_msg, is_error=True)
