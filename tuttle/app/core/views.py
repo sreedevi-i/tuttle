@@ -575,6 +575,7 @@ class DateSelector(Container):
         self._picker.value = datetime.datetime.combine(date, datetime.time())
         self._date_text.value = date.strftime(self._DATE_FMT)
         self._date_text.color = colors.text_primary
+        self.update()
 
     def get_date(self) -> Optional[datetime.date]:
         return self._selected_date
