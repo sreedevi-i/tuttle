@@ -583,6 +583,26 @@ class DateSelector(Container):
     def get_date(self) -> Optional[datetime.date]:
         return self._selected_date
 
+    def set_error(self, has_error: bool, message: str = "Required"):
+        """Show or clear an error message beneath the date selector."""
+        if not hasattr(self, "_error_text"):
+            self._error_text = Text(
+                value="",
+                size=fonts.BODY_2_SIZE,
+                color=colors.danger,
+                visible=False,
+            )
+        self._error_text.value = message if has_error else ""
+        self._error_text.visible = has_error
+        # Ensure the error text is part of the content column
+        if self.content and isinstance(self.content, Column):
+            if self._error_text not in self.content.controls:
+                self.content.controls.append(self._error_text)
+        try:
+            self.update()
+        except RuntimeError:
+            pass
+
 
 class ConfirmDisplayPopUp(DialogHandler):
     """Confirmation dialog with proceed / cancel actions."""

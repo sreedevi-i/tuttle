@@ -410,27 +410,33 @@ class ContactSidePanel(views.EntitySidePanel):
 
         save_label = "Create Contact" if is_new else "Save Changes"
 
-        # -- Compact multi-column layout --
-        self._fname_field.col = {"xs": 6, "sm": 4}
-        self._lname_field.col = {"xs": 6, "sm": 4}
-        self._company_field.col = {"xs": 12, "sm": 4}
+        # -- Multi-column layout --
+        self._fname_field.col = {"xs": 6, "sm": 6}
+        self._lname_field.col = {"xs": 6, "sm": 6}
+        self._company_field.col = {"xs": 12, "sm": 6}
         self._email_field.col = {"xs": 12, "sm": 6}
-        self._street_field.col = {"xs": 8, "sm": 5}
-        self._street_num_field.col = {"xs": 4, "sm": 1}
-        self._postal_field.col = {"xs": 4, "sm": 2}
-        self._city_field.col = {"xs": 4, "sm": 2}
-        self._country_field.col = {"xs": 4, "sm": 2}
+        self._street_field.col = {"xs": 8, "sm": 8}
+        self._street_num_field.col = {"xs": 4, "sm": 4}
+        self._postal_field.col = {"xs": 4, "sm": 4}
+        self._city_field.col = {"xs": 8, "sm": 4}
+        self._country_field.col = {"xs": 12, "sm": 4}
 
         return [
             ResponsiveRow(
-                controls=[self._fname_field, self._lname_field, self._company_field],
+                controls=[self._fname_field, self._lname_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[self._company_field, self._email_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            views.SectionLabel("Address"),
+            ResponsiveRow(
+                controls=[self._street_field, self._street_num_field],
                 spacing=dimens.SPACE_SM,
             ),
             ResponsiveRow(
                 controls=[
-                    self._email_field,
-                    self._street_field,
-                    self._street_num_field,
                     self._postal_field,
                     self._city_field,
                     self._country_field,

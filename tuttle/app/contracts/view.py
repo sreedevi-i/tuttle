@@ -459,17 +459,17 @@ class ContractSidePanel(views.EntitySidePanel):
 
         save_label = "Create Contract" if is_new else "Save Changes"
 
-        # -- Compact multi-column layout --
+        # -- Multi-column layout --
         self._title_field.col = {"xs": 12, "sm": 6}
         self._clients_field.col = {"xs": 12, "sm": 6}
-        self._rate_field.col = {"xs": 6, "sm": 3}
-        self._currency_field.col = {"xs": 6, "sm": 3}
-        self._time_unit_field.col = {"xs": 6, "sm": 3}
-        self._billing_field.col = {"xs": 6, "sm": 3}
-        self._vat_field.col = {"xs": 6, "sm": 3}
-        self._unit_pw_field.col = {"xs": 6, "sm": 3}
-        self._volume_field.col = {"xs": 6, "sm": 3}
-        self._top_field.col = {"xs": 6, "sm": 3}
+        self._rate_field.col = {"xs": 6, "sm": 4}
+        self._currency_field.col = {"xs": 6, "sm": 4}
+        self._time_unit_field.col = {"xs": 6, "sm": 4}
+        self._billing_field.col = {"xs": 6, "sm": 6}
+        self._vat_field.col = {"xs": 6, "sm": 6}
+        self._unit_pw_field.col = {"xs": 6, "sm": 6}
+        self._volume_field.col = {"xs": 6, "sm": 6}
+        self._top_field.col = {"xs": 6, "sm": 6}
         self._sig_date_field.col = {"xs": 12, "sm": 4}
         self._start_date_field.col = {"xs": 6, "sm": 4}
         self._end_date_field.col = {"xs": 6, "sm": 4}
@@ -479,24 +479,34 @@ class ContractSidePanel(views.EntitySidePanel):
                 controls=[self._title_field, self._clients_field],
                 spacing=dimens.SPACE_SM,
             ),
+            views.SectionLabel("Pricing"),
             ResponsiveRow(
                 controls=[
                     self._rate_field,
                     self._currency_field,
                     self._time_unit_field,
-                    self._billing_field,
                 ],
                 spacing=dimens.SPACE_SM,
             ),
             ResponsiveRow(
                 controls=[
+                    self._billing_field,
                     self._vat_field,
-                    self._unit_pw_field,
-                    self._volume_field,
-                    self._top_field,
                 ],
                 spacing=dimens.SPACE_SM,
             ),
+            ResponsiveRow(
+                controls=[
+                    self._unit_pw_field,
+                    self._volume_field,
+                ],
+                spacing=dimens.SPACE_SM,
+            ),
+            ResponsiveRow(
+                controls=[self._top_field],
+                spacing=dimens.SPACE_SM,
+            ),
+            views.SectionLabel("Dates"),
             ResponsiveRow(
                 controls=[
                     self._sig_date_field,
@@ -561,8 +571,16 @@ class ContractSidePanel(views.EntitySidePanel):
         start_date = self._start_date_field.get_date()
         end_date = self._end_date_field.get_date()
         if not sig_date or not start_date or not end_date:
+            self._sig_date_field.set_error(not sig_date)
+            self._start_date_field.set_error(not start_date)
+            self._end_date_field.set_error(not end_date)
+            self.update()
             return
         if end_date < start_date:
+            self._end_date_field.set_error(
+                True, "'Valid until' must be after 'Valid from'"
+            )
+            self.update()
             return
         vat_rate = self._vat_field.value or CONTRACT_DEFAULT_VAT_RATE
 
