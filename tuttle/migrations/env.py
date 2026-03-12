@@ -28,6 +28,7 @@ from tuttle.model import (  # noqa: F401
     Invoice,
     InvoiceItem,
     TimelineItem,
+    FinancialGoal,
 )
 
 

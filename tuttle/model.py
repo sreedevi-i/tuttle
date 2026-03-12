@@ -722,3 +722,23 @@ class TimelineItem(SQLModel, table=True):
         )
     )
     content: str
+
+
+class FinancialGoal(SQLModel, table=True):
+    """A financial target the freelancer wants to reach."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(
+        description="Short description of the goal, e.g. 'Yearly revenue'."
+    )
+    target_amount: Decimal = Field(
+        description="Target amount in the user's currency.",
+        sa_column=sqlalchemy.Column(sqlalchemy.Numeric(12, 2), nullable=False),
+    )
+    target_date: datetime.date = Field(
+        description="Date by which the goal should be reached.",
+    )
+    is_reached: bool = Field(
+        default=False,
+        description="Whether the goal has been reached.",
+    )

@@ -35,6 +35,7 @@ from ..contracts.view import ContractsListView
 from ..core import utils, views
 from ..core.abstractions import DialogHandler, TView, TViewParams
 from ..core.status_bar import StatusBarManager
+from ..dashboard.view import DashboardView
 from ..invoicing.view import InvoicingListView
 from ..projects.view import ProjectsListView
 from ..res import colors, dimens, fonts, res_utils, theme
@@ -196,6 +197,24 @@ class SecondaryMenuHandler:
         ]
 
 
+class InsightsMenuHandler:
+    """Manages home's insights-menu items (dashboard, KPIs)."""
+
+    def __init__(self, params: TViewParams):
+        super().__init__()
+        self.menu_title = "Insights"
+        self.dashboard_view = DashboardView(params)
+        self.items = [
+            views.NavigationMenuItem(
+                index=0,
+                label="Dashboard",
+                icon=utils.TuttleComponentIcons.dashboard_icon,
+                selected_icon=utils.TuttleComponentIcons.dashboard_selected_icon,
+                destination=self.dashboard_view,
+            ),
+        ]
+
+
 class HomeScreen(TView, Container):
     """Main app shell — sidebar + toolbar + content area + status bar."""
 
@@ -203,21 +222,28 @@ class HomeScreen(TView, Container):
         super().__init__(params)
         self.keep_back_stack = False
         self.page_scroll_type = None
+        self.insights_menu_handler = InsightsMenuHandler(params)
         self.main_menu_handler = MainMenuItemsHandler(params)
         self.secondary_menu_handler = SecondaryMenuHandler(params)
         self.preferences_intent = PreferencesIntent(
             client_storage=params.client_storage
         )
 
-        # Build flat list of all items for the sidebar
-        self._all_items: list[views.NavigationMenuItem] = list(
-            self.main_menu_handler.items
-        ) + list(self.secondary_menu_handler.items)
+        # Build flat list of all items for the sidebar — Dashboard first
+        self._all_items: list[views.NavigationMenuItem] = (
+            list(self.insights_menu_handler.items)
+            + list(self.main_menu_handler.items)
+            + list(self.secondary_menu_handler.items)
+        )
         self._selected_flat_index = 0
 
         # Create sidebar panel
         self.sidebar_panel = views.SidebarPanel(
             sections=[
+                (
+                    self.insights_menu_handler.menu_title,
+                    self.insights_menu_handler.items,
+                ),
                 (self.main_menu_handler.menu_title, self.main_menu_handler.items),
                 (
                     self.secondary_menu_handler.menu_title,
@@ -419,6 +445,8 @@ class HomeScreen(TView, Container):
                     self.status_bar_manager.update_warnings()
             elif view_label == "Time Tracking":
                 count_text = "Time Tracking"
+            elif view_label == "Dashboard":
+                count_text = "Dashboard"
         except Exception:
             pass
 

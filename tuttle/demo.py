@@ -23,6 +23,7 @@ from tuttle.model import (
     Contact,
     Contract,
     Cycle,
+    FinancialGoal,
     Invoice,
     InvoiceItem,
     Timesheet,
@@ -443,3 +444,22 @@ def install_demo_data(
         for project in projects:
             session.add(project)
             session.commit()
+
+    logger.info("Adding financial goals...")
+    with Session(db_engine) as session:
+        today = datetime.date.today()
+        goals = [
+            FinancialGoal(
+                title="Yearly Revenue Target",
+                target_amount=Decimal("80000.00"),
+                target_date=today.replace(month=12, day=31),
+            ),
+            FinancialGoal(
+                title="Emergency Fund",
+                target_amount=Decimal("15000.00"),
+                target_date=today.replace(year=today.year + 1, month=6, day=30),
+            ),
+        ]
+        for goal in goals:
+            session.add(goal)
+        session.commit()

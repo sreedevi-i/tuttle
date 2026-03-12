@@ -1,0 +1,158 @@
+"""Key Performance Indicators for freelance business analysis."""
+
+import datetime
+from decimal import Decimal
+from typing import List, Optional, NamedTuple
+
+from .model import Contract, Invoice, Project
+
+
+class KPISummary(NamedTuple):
+    """Snapshot of key business metrics."""
+
+    total_revenue: Decimal
+    total_revenue_ytd: Decimal
+    outstanding_amount: Decimal
+    overdue_amount: Decimal
+    effective_hourly_rate: Optional[Decimal]
+    utilization_rate: Optional[float]
+    active_projects: int
+    active_contracts: int
+    unpaid_invoices: int
+    overdue_invoices: int
+
+
+def compute_kpis(
+    invoices: List[Invoice],
+    contracts: List[Contract],
+    projects: List[Project],
+) -> KPISummary:
+    """Compute business KPIs from current data."""
+    today = datetime.date.today()
+    year_start = today.replace(month=1, day=1)
+
+    # Revenue metrics
+    total_revenue = Decimal(0)
+    total_revenue_ytd = Decimal(0)
+    outstanding_amount = Decimal(0)
+    overdue_amount = Decimal(0)
+    unpaid_invoices = 0
+    overdue_invoices = 0
+    total_hours = Decimal(0)
+    paid_revenue = Decimal(0)
+
+    for inv in invoices:
+        if inv.cancelled:
+            continue
+        inv_total = inv.total
+
+        if inv.paid:
+            total_revenue += inv_total
+            if inv.date >= year_start:
+                total_revenue_ytd += inv_total
+            # Accumulate hours for effective rate calculation
+            for ts in inv.timesheets:
+                for item in ts.items:
+                    hours = item.duration.total_seconds() / 3600
+                    total_hours += Decimal(str(hours))
+            paid_revenue += inv_total
+        else:
+            outstanding_amount += inv_total
+            unpaid_invoices += 1
+            if inv.due_date and inv.due_date < today:
+                overdue_amount += inv_total
+                overdue_invoices += 1
+
+    # Effective hourly rate: paid revenue / total tracked hours
+    effective_hourly_rate = None
+    if total_hours > 0:
+        effective_hourly_rate = paid_revenue / total_hours
+
+    # Active contracts / projects
+    active_contracts = sum(1 for c in contracts if c.is_active())
+    active_projects = sum(1 for p in projects if p.is_active())
+
+    # Utilization rate: tracked hours / available hours (based on workdays)
+    utilization_rate = None
+    if active_contracts:
+        # Available hours since year start
+        days_elapsed = (today - year_start).days or 1
+        workdays_elapsed = int(days_elapsed * 5 / 7)
+        # Sum contracted hours per workday across active contracts
+        available_hours_per_day = sum(
+            c.units_per_workday for c in contracts if c.is_active()
+        )
+        available_hours = Decimal(str(workdays_elapsed * available_hours_per_day))
+        if available_hours > 0:
+            utilization_rate = float(total_hours / available_hours)
+
+    return KPISummary(
+        total_revenue=total_revenue,
+        total_revenue_ytd=total_revenue_ytd,
+        outstanding_amount=outstanding_amount,
+        overdue_amount=overdue_amount,
+        effective_hourly_rate=effective_hourly_rate,
+        utilization_rate=utilization_rate,
+        active_projects=active_projects,
+        active_contracts=active_contracts,
+        unpaid_invoices=unpaid_invoices,
+        overdue_invoices=overdue_invoices,
+    )
+
+
+def monthly_revenue_breakdown(
+    invoices: List[Invoice],
+    n_months: int = 12,
+) -> list:
+    """Revenue breakdown by month for the last n_months.
+
+    Returns a list of dicts with keys: month, revenue, invoice_count.
+    """
+    today = datetime.date.today()
+    start = (today - datetime.timedelta(days=30 * n_months)).replace(day=1)
+
+    months = {}
+    current = start
+    while current <= today:
+        key = current.strftime("%Y-%m")
+        months[key] = {"month": key, "revenue": Decimal(0), "invoice_count": 0}
+        current = (current + datetime.timedelta(days=32)).replace(day=1)
+
+    for inv in invoices:
+        if inv.cancelled:
+            continue
+        key = inv.date.strftime("%Y-%m")
+        if key in months:
+            months[key]["revenue"] += inv.total
+            months[key]["invoice_count"] += 1
+
+    return sorted(months.values(), key=lambda x: x["month"])
+
+
+def project_budget_status(
+    projects: List[Project],
+) -> list:
+    """Budget utilization for each project with timesheets.
+
+    Returns a list of dicts with keys: project, hours_tracked, hours_budget, progress.
+    """
+    results = []
+    for project in projects:
+        if not project.contract or not project.contract.volume:
+            continue
+        hours_tracked = Decimal(0)
+        for ts in project.timesheets:
+            for item in ts.items:
+                hours_tracked += Decimal(str(item.duration.total_seconds() / 3600))
+        hours_budget = Decimal(str(project.contract.volume))
+        progress = float(hours_tracked / hours_budget) if hours_budget > 0 else 0.0
+
+        results.append(
+            {
+                "project": project.title,
+                "hours_tracked": float(hours_tracked),
+                "hours_budget": float(hours_budget),
+                "progress": min(progress, 1.0),
+            }
+        )
+    return results
