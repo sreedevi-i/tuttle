@@ -250,6 +250,9 @@ class DashboardView(TView, Column):
         self._kpi_row = ResponsiveRow(
             spacing=dimens.SPACE_SM, run_spacing=dimens.SPACE_SM
         )
+        self._tax_row = ResponsiveRow(
+            spacing=dimens.SPACE_SM, run_spacing=dimens.SPACE_SM
+        )
         self._revenue_section = Column(spacing=0)
         self._budget_section = Column(spacing=0)
         self._goals_section = Column(spacing=0)
@@ -268,6 +271,7 @@ class DashboardView(TView, Column):
                         ),
                         views.Spacer(sm_space=True),
                         self._kpi_row,
+                        self._tax_row,
                         self._revenue_section,
                         self._budget_section,
                         self._goals_section,
@@ -357,6 +361,30 @@ class DashboardView(TView, Column):
             ),
         ]
         self._kpi_row.controls.extend(cards)
+
+        # Tax reserve cards
+        tax_cards = [
+            _KPICard(
+                "VAT Reserve",
+                _fmt_currency(kpis.vat_reserve),
+                Icons.ACCOUNT_BALANCE,
+                colors.warning if kpis.vat_reserve > 0 else colors.text_primary,
+            ),
+            _KPICard(
+                "Est. Income Tax",
+                _fmt_currency(kpis.income_tax_reserve),
+                Icons.CALCULATE_OUTLINED,
+                colors.warning if kpis.income_tax_reserve > 0 else colors.text_primary,
+            ),
+            _KPICard(
+                "Spendable Income",
+                _fmt_currency(kpis.spendable_income),
+                Icons.SAVINGS_OUTLINED,
+                colors.success if kpis.spendable_income > 0 else colors.danger,
+            ),
+        ]
+        self._tax_row.controls.clear()
+        self._tax_row.controls.extend(tax_cards)
 
     # ── Revenue chart ─────────────────────────────────────────
 

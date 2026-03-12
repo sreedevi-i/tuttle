@@ -4,7 +4,8 @@ import datetime
 from decimal import Decimal
 from typing import List, Optional, NamedTuple
 
-from .model import Contract, Invoice, Project
+from .model import Contract, Invoice, Project, User
+from .tax_reserves import compute_spendable_income
 
 
 class KPISummary(NamedTuple):
@@ -20,12 +21,17 @@ class KPISummary(NamedTuple):
     active_contracts: int
     unpaid_invoices: int
     overdue_invoices: int
+    # Tax reserves
+    vat_reserve: Decimal
+    income_tax_reserve: Decimal
+    spendable_income: Decimal
 
 
 def compute_kpis(
     invoices: List[Invoice],
     contracts: List[Contract],
     projects: List[Project],
+    country: str = "Germany",
 ) -> KPISummary:
     """Compute business KPIs from current data."""
     today = datetime.date.today()
@@ -86,6 +92,17 @@ def compute_kpis(
         if available_hours > 0:
             utilization_rate = float(total_hours / available_hours)
 
+    # Tax reserves
+    try:
+        spending = compute_spendable_income(invoices, country)
+        vat_reserve = spending.vat_reserve
+        income_tax_reserve = spending.income_tax_reserve
+        spendable_income = spending.spendable
+    except NotImplementedError:
+        vat_reserve = Decimal(0)
+        income_tax_reserve = Decimal(0)
+        spendable_income = Decimal(0)
+
     return KPISummary(
         total_revenue=total_revenue,
         total_revenue_ytd=total_revenue_ytd,
@@ -97,6 +114,9 @@ def compute_kpis(
         active_contracts=active_contracts,
         unpaid_invoices=unpaid_invoices,
         overdue_invoices=overdue_invoices,
+        vat_reserve=vat_reserve,
+        income_tax_reserve=income_tax_reserve,
+        spendable_income=spendable_income,
     )
 
 

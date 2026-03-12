@@ -139,6 +139,8 @@ class TuttleComponentIcons(Enum):
     timetracking_selected_icon = Icons.TIMER_ROUNDED
     invoicing_icon = Icons.RECEIPT_OUTLINED
     invoicing_selected_icon = Icons.RECEIPT_ROUNDED
+    tax_icon = Icons.CALCULATE_OUTLINED
+    tax_selected_icon = Icons.CALCULATE_ROUNDED
     datatable_icon = Icons.TABLE_CHART
     datatable_selected_icon = Icons.TABLE_CHART_ROUNDED
     profile_icon = Icons.PERSON_OUTLINE
