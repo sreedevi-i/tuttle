@@ -448,6 +448,10 @@ class TDropDown(Column):
     def update_value(self, new_value: str):
         self.drop_down.value = new_value
         self.drop_down.error_text = None
+        try:
+            self.update()
+        except RuntimeError:
+            pass  # control not yet mounted
 
     @property
     def value(self):
