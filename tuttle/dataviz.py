@@ -1,9 +1,14 @@
 """Data visualization."""
 
+import datetime
+from decimal import Decimal
+from typing import List, Optional
+
 import altair
 
 # from pandera.typing import DataFrame
 from pandas import DataFrame
+import pandas
 
 from .dev import deprecated
 
@@ -77,3 +82,105 @@ def plot_eval_time_planning(
     else:
         raise ValueError(f"unknown mode {by}")
     return plot
+
+
+def plot_revenue_curve(
+    revenue_data: DataFrame,
+    goals: Optional[List[dict]] = None,
+) -> altair.LayerChart:
+    """Plot historical + forecast revenue curve with optional goal markers.
+
+    Args:
+        revenue_data: DataFrame with columns: month, revenue, is_forecast, cumulative_revenue.
+        goals: Optional list of dicts with keys: title, target_amount, target_date.
+
+    Returns:
+        An Altair LayerChart.
+    """
+    revenue_data = revenue_data.copy()
+    revenue_data["month"] = pandas.to_datetime(revenue_data["month"])
+    revenue_data["type"] = revenue_data["is_forecast"].map(
+        {True: "Forecast", False: "Actual"}
+    )
+
+    # Monthly revenue bars
+    bars = (
+        altair.Chart(revenue_data)
+        .mark_bar(opacity=0.7)
+        .encode(
+            x=altair.X("yearmonth(month):O", axis=altair.Axis(title="Month")),
+            y=altair.Y("revenue:Q", axis=altair.Axis(title="Revenue (€)")),
+            color=altair.Color(
+                "type:N",
+                scale=altair.Scale(
+                    domain=["Actual", "Forecast"],
+                    range=["#0A84FF", "#8E8E93"],
+                ),
+                legend=altair.Legend(title="Type"),
+            ),
+        )
+        .properties(width=600, height=300)
+    )
+
+    # Cumulative revenue line
+    line = (
+        altair.Chart(revenue_data)
+        .mark_line(strokeWidth=2, color="#30D158")
+        .encode(
+            x="yearmonth(month):O",
+            y=altair.Y("cumulative_revenue:Q", axis=altair.Axis(title="")),
+        )
+    )
+
+    layer = bars + line
+
+    # Goal markers
+    if goals:
+        goal_df = DataFrame(goals)
+        goal_df["target_date"] = pandas.to_datetime(goal_df["target_date"])
+        goal_rules = (
+            altair.Chart(goal_df)
+            .mark_rule(strokeDash=[4, 4], color="#FFD60A", strokeWidth=2)
+            .encode(
+                y="target_amount:Q",
+            )
+        )
+        goal_labels = (
+            altair.Chart(goal_df)
+            .mark_text(align="left", dx=5, dy=-5, color="#FFD60A", fontSize=11)
+            .encode(
+                y="target_amount:Q",
+                text="title:N",
+            )
+        )
+        layer = layer + goal_rules + goal_labels
+
+    return layer
+
+
+def plot_monthly_revenue_bars(
+    monthly_data: list,
+) -> altair.Chart:
+    """Simple monthly revenue bar chart for the KPI overview.
+
+    Args:
+        monthly_data: List of dicts with keys: month, revenue.
+    """
+    df = DataFrame(monthly_data)
+    df["revenue"] = df["revenue"].astype(float)
+
+    chart = (
+        altair.Chart(df)
+        .mark_bar(color="#0A84FF")
+        .encode(
+            x=altair.X("month:O", axis=altair.Axis(title="Month", labelAngle=-45)),
+            y=altair.Y("revenue:Q", axis=altair.Axis(title="Revenue (€)")),
+        )
+        .properties(width=600, height=250)
+    )
+    return chart
+
+
+def chart_to_html(chart: altair.TopLevelMixin) -> str:
+    """Render an Altair chart to a self-contained HTML string for embedding."""
+    return chart.to_html()

@@ -23,6 +23,7 @@ from tuttle.model import (
     Contact,
     Contract,
     Cycle,
+    FinancialGoal,
     Invoice,
     InvoiceItem,
     Timesheet,
@@ -212,6 +213,10 @@ def create_fake_invoice(
     project: Optional[Project] = None,
     user: Optional[User] = None,
     render: bool = True,
+    invoice_date: Optional[date] = None,
+    paid: Optional[bool] = None,
+    sent: Optional[bool] = None,
+    cancelled: bool = False,
 ) -> Invoice:
     """
     Create a fake invoice object with random values.
@@ -219,6 +224,10 @@ def create_fake_invoice(
     Args:
     project (Project): The project associated with the invoice.
     fake (faker.Faker): An instance of the Faker class to generate random values.
+    invoice_date: The date for the invoice. Defaults to today.
+    paid: Whether the invoice is paid. Random if None.
+    sent: Whether the invoice was sent. Random if None.
+    cancelled: Whether the invoice is cancelled.
 
     Returns:
     Invoice: A fake invoice object.
@@ -229,15 +238,14 @@ def create_fake_invoice(
     if user is None:
         user = create_fake_user(fake)
 
-    invoice_number = (
-        f"{datetime.date.today().strftime('%Y-%m-%d')}-{next(invoice_number_counter)}"
-    )
+    inv_date = invoice_date or datetime.date.today()
+    invoice_number = f"{inv_date.strftime('%Y-%m-%d')}-{next(invoice_number_counter)}"
     invoice = Invoice(
         number=invoice_number,
-        date=datetime.date.today(),
-        sent=fake.pybool(),
-        paid=fake.pybool(),
-        cancelled=fake.pybool(),
+        date=inv_date,
+        sent=sent if sent is not None else fake.pybool(),
+        paid=paid if paid is not None else fake.pybool(),
+        cancelled=cancelled,
         contract=project.contract,
         project=project,
         rendered=fake.pybool(),
@@ -330,6 +338,37 @@ def create_fake_data(
     ]
 
     return projects, invoices
+
+
+def create_historical_invoices(
+    fake: faker.Faker,
+    projects: List[Project],
+    user: User,
+    n_months: int = 11,
+) -> List[Invoice]:
+    """Create invoices spread across the past n_months for dashboard history."""
+    today = datetime.date.today()
+    invoices = []
+    for months_ago in range(n_months, 0, -1):
+        # First day of that month
+        inv_date = (today - timedelta(days=30 * months_ago)).replace(day=15)
+        # Pick 1-2 random projects to invoice each month
+        month_projects = random.sample(
+            projects, k=min(random.randint(1, 2), len(projects))
+        )
+        for project in month_projects:
+            inv = create_fake_invoice(
+                fake,
+                project=project,
+                user=user,
+                render=False,
+                invoice_date=inv_date,
+                paid=True,
+                sent=True,
+                cancelled=False,
+            )
+            invoices.append(inv)
+    return invoices
 
 
 def create_demo_user() -> User:
@@ -436,10 +475,40 @@ def install_demo_data(
     with Session(db_engine) as session:
         for invoice in invoices:
             session.add(invoice)
-            session.commit()
+        session.commit()
 
-    logger.info("Adding fake projects...")
-    with Session(db_engine) as session:
+        # add historical invoices in the same session so relationships resolve
+        logger.info("Adding historical invoices...")
+        locales = ["de_DE", "en_US", "en_GB", "fr_FR"]
+        fake = faker.Faker(locale=locales)
+        historical_invoices = create_historical_invoices(
+            fake, projects, user, n_months=11
+        )
+        for invoice in historical_invoices:
+            session.add(invoice)
+        session.commit()
+
+        # add projects in the same session
+        logger.info("Adding fake projects...")
         for project in projects:
-            session.add(project)
-            session.commit()
+            session.merge(project)
+        session.commit()
+
+    logger.info("Adding financial goals...")
+    with Session(db_engine) as session:
+        today = datetime.date.today()
+        goals = [
+            FinancialGoal(
+                title="Yearly Revenue Target",
+                target_amount=Decimal("80000.00"),
+                target_date=today.replace(month=12, day=31),
+            ),
+            FinancialGoal(
+                title="Emergency Fund",
+                target_amount=Decimal("15000.00"),
+                target_date=today.replace(year=today.year + 1, month=6, day=30),
+            ),
+        ]
+        for goal in goals:
+            session.add(goal)
+        session.commit()

@@ -35,6 +35,7 @@ from ..contracts.view import ContractsListView
 from ..core import utils, views
 from ..core.abstractions import DialogHandler, TView, TViewParams
 from ..core.status_bar import StatusBarManager
+from ..dashboard.view import DashboardView
 from ..invoicing.view import InvoicingListView
 from ..projects.view import ProjectsListView
 from ..res import colors, dimens, fonts, res_utils, theme
@@ -49,7 +50,26 @@ def get_toolbar(
     on_view_settings_clicked: Callable,
 ):
     """Slim toolbar — actions only, no redundant title."""
-    return Container(
+    new_btn = TextButton(
+        content=Row(
+            controls=[
+                Icon(
+                    Icons.ADD,
+                    size=dimens.SM_ICON_SIZE,
+                    color=colors.accent,
+                ),
+                Text(
+                    "New",
+                    size=fonts.BODY_1_SIZE,
+                    color=colors.accent,
+                    weight=fonts.BOLD_FONT,
+                ),
+            ],
+            spacing=dimens.SPACE_XXS,
+        ),
+        on_click=on_click_new_btn,
+    )
+    toolbar = Container(
         alignment=Alignment.CENTER,
         height=dimens.TOOLBAR_HEIGHT,
         bgcolor=colors.bg,
@@ -61,25 +81,7 @@ def get_toolbar(
                 Row(
                     spacing=dimens.SPACE_XXS,
                     controls=[
-                        TextButton(
-                            content=Row(
-                                controls=[
-                                    Icon(
-                                        Icons.ADD,
-                                        size=dimens.SM_ICON_SIZE,
-                                        color=colors.accent,
-                                    ),
-                                    Text(
-                                        "New",
-                                        size=fonts.BODY_1_SIZE,
-                                        color=colors.accent,
-                                        weight=fonts.BOLD_FONT,
-                                    ),
-                                ],
-                                spacing=dimens.SPACE_XXS,
-                            ),
-                            on_click=on_click_new_btn,
-                        ),
+                        new_btn,
                         IconButton(
                             icon=Icons.SETTINGS_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
@@ -120,6 +122,7 @@ def get_toolbar(
             ],
         ),
     )
+    return toolbar, new_btn
 
 
 class MainMenuItemsHandler:
@@ -196,6 +199,24 @@ class SecondaryMenuHandler:
         ]
 
 
+class InsightsMenuHandler:
+    """Manages home's insights-menu items (dashboard, KPIs)."""
+
+    def __init__(self, params: TViewParams):
+        super().__init__()
+        self.menu_title = "Insights"
+        self.dashboard_view = DashboardView(params)
+        self.items = [
+            views.NavigationMenuItem(
+                index=0,
+                label="Dashboard",
+                icon=utils.TuttleComponentIcons.dashboard_icon,
+                selected_icon=utils.TuttleComponentIcons.dashboard_selected_icon,
+                destination=self.dashboard_view,
+            ),
+        ]
+
+
 class HomeScreen(TView, Container):
     """Main app shell — sidebar + toolbar + content area + status bar."""
 
@@ -203,21 +224,28 @@ class HomeScreen(TView, Container):
         super().__init__(params)
         self.keep_back_stack = False
         self.page_scroll_type = None
+        self.insights_menu_handler = InsightsMenuHandler(params)
         self.main_menu_handler = MainMenuItemsHandler(params)
         self.secondary_menu_handler = SecondaryMenuHandler(params)
         self.preferences_intent = PreferencesIntent(
             client_storage=params.client_storage
         )
 
-        # Build flat list of all items for the sidebar
-        self._all_items: list[views.NavigationMenuItem] = list(
-            self.main_menu_handler.items
-        ) + list(self.secondary_menu_handler.items)
+        # Build flat list of all items for the sidebar — Dashboard first
+        self._all_items: list[views.NavigationMenuItem] = (
+            list(self.insights_menu_handler.items)
+            + list(self.main_menu_handler.items)
+            + list(self.secondary_menu_handler.items)
+        )
         self._selected_flat_index = 0
 
         # Create sidebar panel
         self.sidebar_panel = views.SidebarPanel(
             sections=[
+                (
+                    self.insights_menu_handler.menu_title,
+                    self.insights_menu_handler.items,
+                ),
                 (self.main_menu_handler.menu_title, self.main_menu_handler.items),
                 (
                     self.secondary_menu_handler.menu_title,
@@ -238,19 +266,26 @@ class HomeScreen(TView, Container):
         )
 
         # Toolbar (slim, no title — view heading is the title)
-        self.toolbar = get_toolbar(
+        self.toolbar, self._new_btn = get_toolbar(
             on_click_new_btn=self.on_click_add_new,
             on_click_profile_btn=self.on_click_profile,
             on_view_settings_clicked=self.on_view_settings_clicked,
         )
+        self._update_new_btn_visibility()
 
     def _on_sidebar_item_selected(self, item: views.NavigationMenuItem):
         """Called when the user clicks a sidebar nav item."""
         self._selected_flat_index = self._all_items.index(item)
         self.destination_view = item.destination
         self.destination_content_container.content = self.destination_view
+        self._update_new_btn_visibility()
         self._update_status_bar_for_view(item.label)
         self.update_self()
+
+    def _update_new_btn_visibility(self):
+        """Show the '+ New' button only for views that support it."""
+        item = self._all_items[self._selected_flat_index]
+        self._new_btn.visible = bool(item.on_new_intent or item.on_new_screen_route)
 
     # ── Action buttons ────────────────────────────────────────
     def on_click_add_new(self, e):
@@ -419,6 +454,8 @@ class HomeScreen(TView, Container):
                     self.status_bar_manager.update_warnings()
             elif view_label == "Time Tracking":
                 count_text = "Time Tracking"
+            elif view_label == "Dashboard":
+                count_text = "Dashboard"
         except Exception:
             pass
 
