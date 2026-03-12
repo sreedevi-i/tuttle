@@ -21,6 +21,7 @@ from flet import (
     ResponsiveRow,
     Row,
     Text,
+    TextButton,
     Control,
     ScrollMode,
     MainAxisAlignment,
@@ -33,6 +34,7 @@ from ..contacts.view import ContactsListView
 from ..contracts.view import ContractsListView
 from ..core import utils, views
 from ..core.abstractions import DialogHandler, TView, TViewParams
+from ..core.status_bar import StatusBarManager
 from ..invoicing.view import InvoicingListView
 from ..projects.view import ProjectsListView
 from ..res import colors, dimens, fonts, res_utils, theme
@@ -42,60 +44,53 @@ from ..preferences.intent import PreferencesIntent
 
 
 def get_toolbar(
-    title: str,
     on_click_new_btn: Callable,
     on_click_profile_btn: Callable,
     on_view_settings_clicked: Callable,
 ):
-    """Compact toolbar — title on the left, actions on the right."""
+    """Slim toolbar — actions only, no redundant title."""
     return Container(
         alignment=Alignment.CENTER,
         height=dimens.TOOLBAR_HEIGHT,
-        bgcolor=colors.bg_toolbar,
-        padding=Padding.symmetric(horizontal=dimens.SPACE_MD),
-        border=Border.only(
-            bottom=BorderSide(width=1, color=colors.border_subtle),
-        ),
+        bgcolor=colors.bg,
+        padding=Padding.symmetric(horizontal=dimens.SPACE_LG),
         content=Row(
-            alignment=utils.SPACE_BETWEEN_ALIGNMENT,
+            alignment=MainAxisAlignment.END,
             vertical_alignment=CrossAxisAlignment.CENTER,
             controls=[
                 Row(
+                    spacing=dimens.SPACE_XXS,
                     controls=[
-                        views.THeading(title, size=fonts.HEADLINE_4_SIZE),
-                    ],
-                    vertical_alignment=CrossAxisAlignment.CENTER,
-                ),
-                Row(
-                    spacing=dimens.SPACE_XS,
-                    controls=[
-                        ElevatedButton(
-                            content="New",
-                            icon=Icons.ADD,
-                            icon_color=colors.accent,
-                            color=colors.accent,
-                            bgcolor=colors.bg_surface,
-                            height=dimens.CLICKABLE_STD_HEIGHT,
-                            on_click=on_click_new_btn,
-                            style=views.ButtonStyle(
-                                shape=views.RoundedRectangleBorder(
-                                    radius=dimens.RADIUS_MD
-                                ),
-                                side=BorderSide(width=1, color=colors.border),
-                                elevation=0,
+                        TextButton(
+                            content=Row(
+                                controls=[
+                                    Icon(
+                                        Icons.ADD,
+                                        size=dimens.SM_ICON_SIZE,
+                                        color=colors.accent,
+                                    ),
+                                    Text(
+                                        "New",
+                                        size=fonts.BODY_1_SIZE,
+                                        color=colors.accent,
+                                        weight=fonts.BOLD_FONT,
+                                    ),
+                                ],
+                                spacing=dimens.SPACE_XXS,
                             ),
+                            on_click=on_click_new_btn,
                         ),
                         IconButton(
                             icon=Icons.SETTINGS_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
-                            icon_color=colors.text_secondary,
+                            icon_color=colors.text_muted,
                             on_click=on_view_settings_clicked,
                             tooltip="Preferences",
                         ),
                         IconButton(
                             icon=Icons.PERSON_OUTLINE_OUTLINED,
                             icon_size=dimens.ICON_SIZE,
-                            icon_color=colors.text_secondary,
+                            icon_color=colors.text_muted,
                             tooltip="Profile",
                             on_click=on_click_profile_btn,
                         ),
@@ -144,7 +139,7 @@ class MainMenuItemsHandler:
                 icon=utils.TuttleComponentIcons.project_icon,
                 selected_icon=utils.TuttleComponentIcons.project_selected_icon,
                 destination=self.projects_view,
-                on_new_screen_route=res_utils.PROJECT_EDITOR_SCREEN_ROUTE,
+                on_new_intent=res_utils.PROJECT_EDITOR_SCREEN_ROUTE,
             ),
             views.NavigationMenuItem(
                 index=1,
@@ -152,7 +147,7 @@ class MainMenuItemsHandler:
                 icon=utils.TuttleComponentIcons.contract_icon,
                 selected_icon=utils.TuttleComponentIcons.contract_selected_icon,
                 destination=self.contracts_view,
-                on_new_screen_route=res_utils.CONTRACT_EDITOR_SCREEN_ROUTE,
+                on_new_intent=res_utils.CONTRACT_EDITOR_SCREEN_ROUTE,
             ),
             views.NavigationMenuItem(
                 index=2,
@@ -236,10 +231,14 @@ class HomeScreen(TView, Container):
         self.destination_view = self._all_items[0].destination
         self.dialog: Optional[DialogHandler] = None
 
-        # Toolbar (title updates on nav change)
-        self._toolbar_title = self._all_items[0].label
+        # Status bar manager
+        self.status_bar_manager = StatusBarManager(
+            on_click_overdue=lambda e: self._jump_to_invoicing(),
+            on_click_outstanding=lambda e: self._jump_to_invoicing(),
+        )
+
+        # Toolbar (slim, no title — view heading is the title)
         self.toolbar = get_toolbar(
-            title=self._toolbar_title,
             on_click_new_btn=self.on_click_add_new,
             on_click_profile_btn=self.on_click_profile,
             on_view_settings_clicked=self.on_view_settings_clicked,
@@ -250,15 +249,7 @@ class HomeScreen(TView, Container):
         self._selected_flat_index = self._all_items.index(item)
         self.destination_view = item.destination
         self.destination_content_container.content = self.destination_view
-        # Update toolbar title
-        self._toolbar_title = item.label
-        self.toolbar = get_toolbar(
-            title=self._toolbar_title,
-            on_click_new_btn=self.on_click_add_new,
-            on_click_profile_btn=self.on_click_profile,
-            on_view_settings_clicked=self.on_view_settings_clicked,
-        )
-        self.main_body.controls = [self.toolbar, self.destination_content_container]
+        self._update_status_bar_for_view(item.label)
         self.update_self()
 
     # ── Action buttons ────────────────────────────────────────
@@ -319,9 +310,6 @@ class HomeScreen(TView, Container):
                 spacing=0,
                 expand=True,
             ),
-            border=Border.only(
-                right=BorderSide(width=1, color=colors.border_subtle),
-            ),
         )
 
         # Main body
@@ -360,6 +348,98 @@ class HomeScreen(TView, Container):
 
     def did_mount(self):
         self.mounted = True
+        first_label = self._all_items[0].label if self._all_items else ""
+        self._update_status_bar_for_view(first_label)
+
+    def _update_status_bar_for_view(self, view_label: str):
+        """Update the status bar to reflect the active view's context."""
+        count_text = view_label
+        summary = ""
+
+        try:
+            if view_label == "Projects":
+                view = self.main_menu_handler.projects_view
+                n = len(getattr(view, "items_to_display", {}))
+                if n > 0:
+                    count_text = f"{n} Project{'s' if n != 1 else ''}"
+                    active = sum(
+                        1 for p in view.items_to_display.values() if p.is_active()
+                    )
+                    completed = sum(
+                        1 for p in view.items_to_display.values() if p.is_completed
+                    )
+                    parts = []
+                    if active:
+                        parts.append(f"{active} Active")
+                    if completed:
+                        parts.append(f"{completed} Completed")
+                    summary = " \u00b7 ".join(parts)
+            elif view_label == "Contracts":
+                view = self.main_menu_handler.contracts_view
+                n = len(getattr(view, "items_to_display", {}))
+                if n > 0:
+                    count_text = f"{n} Contract{'s' if n != 1 else ''}"
+            elif view_label == "Clients":
+                view = self.main_menu_handler.clients_view
+                n = len(getattr(view, "items_to_display", {}))
+                if n > 0:
+                    count_text = f"{n} Client{'s' if n != 1 else ''}"
+            elif view_label == "Contacts":
+                view = self.main_menu_handler.contacts_view
+                n = len(getattr(view, "items_to_display", {}))
+                if n > 0:
+                    count_text = f"{n} Contact{'s' if n != 1 else ''}"
+            elif view_label == "Invoicing":
+                view = self.secondary_menu_handler.invoicing_view
+                invoices = getattr(view, "all_invoices", {})
+                n = len(invoices)
+                if n > 0:
+                    count_text = f"{n} Invoice{'s' if n != 1 else ''}"
+                    overdue = sum(
+                        1
+                        for inv in invoices.values()
+                        if not inv.paid
+                        and not inv.cancelled
+                        and inv.due_date
+                        and inv.due_date < __import__("datetime").date.today()
+                    )
+                    unpaid = sum(
+                        1
+                        for inv in invoices.values()
+                        if not inv.paid and not inv.cancelled
+                    )
+                    parts = []
+                    if unpaid:
+                        parts.append(f"{unpaid} Unpaid")
+                    summary = " \u00b7 ".join(parts)
+                    self.status_bar_manager.update_warnings(
+                        overdue_count=overdue,
+                    )
+                else:
+                    self.status_bar_manager.update_warnings()
+            elif view_label == "Time Tracking":
+                count_text = "Time Tracking"
+        except Exception:
+            pass
+
+        self.status_bar_manager.update_for_view(
+            entity_count_text=count_text,
+            summary_text=summary,
+        )
+        self.status_bar_manager.try_update()
+
+    def _jump_to_invoicing(self):
+        """Jump to the invoicing view from status bar."""
+        # Find invoicing in the items list
+        for i, item in enumerate(self._all_items):
+            if item.label == "Invoicing":
+                self._on_sidebar_item_selected(item)
+                self.sidebar_panel._handle_click(
+                    self.sidebar_panel._flat_items.index(item)
+                    if item in self.sidebar_panel._flat_items
+                    else i
+                )
+                break
 
     def on_resume_after_back_pressed(self):
         self.pass_intent_to_destination(res_utils.RELOAD_INTENT)

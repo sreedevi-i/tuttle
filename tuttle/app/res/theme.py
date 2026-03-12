@@ -34,5 +34,5 @@ APP_THEME = Theme(
     ),
     use_material3=True,
     font_family=DEFAULT_FONT,
-    visual_density=VisualDensity.COMPACT,
+    visual_density=VisualDensity.STANDARD,
 )
