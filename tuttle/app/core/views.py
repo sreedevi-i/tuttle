@@ -14,6 +14,7 @@ from flet import (
     Card,
     CrossAxisAlignment,
     DatePicker,
+    Divider,
     FontWeight,
     IconButton,
     Container,
@@ -780,20 +781,12 @@ class NavigationMenuItem:
 
 
 class SectionLabel(Container):
-    """Uppercase muted section header — macOS sidebar style."""
+    """Thin horizontal divider between sidebar section groups."""
 
     def __init__(self, title: str):
         super().__init__(
-            padding=Padding.only(
-                left=dimens.SPACE_STD, top=dimens.SPACE_LG, bottom=dimens.SPACE_XXS
-            ),
-            content=Text(
-                title.upper(),
-                size=fonts.CAPTION_SIZE,
-                color=colors.text_muted,
-                weight=fonts.BOLD_FONT,
-                style=TextStyle(letter_spacing=1.2),
-            ),
+            padding=Padding.symmetric(horizontal=dimens.SPACE_SM, vertical=6),
+            content=Divider(height=1, thickness=1, color=colors.border),
         )
 
 
@@ -827,11 +820,9 @@ class SidebarNavItem(Container):
         super().__init__(
             bgcolor=bg,
             border=left_indicator,
-            border_radius=dimens.RADIUS_LG,
-            padding=Padding.symmetric(
-                horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS
-            ),
-            margin=Margin.symmetric(horizontal=dimens.SPACE_XXS, vertical=2),
+            border_radius=dimens.RADIUS_MD,
+            padding=Padding.symmetric(horizontal=dimens.SPACE_XS, vertical=6),
+            margin=Margin.symmetric(horizontal=dimens.SPACE_XXS, vertical=1),
             on_click=on_click,
             on_hover=self._on_hover,
             content=Row(
@@ -885,8 +876,9 @@ class SidebarPanel(Column):
     def _build_controls(self):
         controls = []
         flat_idx = 0
-        for section_title, items in self._sections:
-            controls.append(SectionLabel(section_title))
+        for section_idx, (section_title, items) in enumerate(self._sections):
+            if section_idx > 0:
+                controls.append(SectionLabel(section_title))
             for item in items:
                 is_selected = flat_idx == self._selected_index
                 nav = SidebarNavItem(

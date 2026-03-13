@@ -510,7 +510,7 @@ class InvoicingListView(TView, Column):
                 icon_color=colors.text_secondary,
                 icon_size=dimens.ICON_SIZE,
                 on_click=lambda e: self.parent_intent_listener(
-                    res_utils.CREATE_INVOICE_INTENT
+                    res_utils.CREATE_INVOICE_INTENT, None
                 ),
             ),
         ]

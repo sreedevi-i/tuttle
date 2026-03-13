@@ -56,6 +56,7 @@ class _KPICard(Container):
     ):
         super().__init__(
             bgcolor=colors.bg_surface,
+            border=Border.all(dimens.CARD_BORDER_WIDTH, colors.border),
             border_radius=dimens.RADIUS_LG,
             padding=Padding.all(dimens.SPACE_STD),
             col={"xs": 12, "sm": 6, "md": 4, "lg": 3},

@@ -46,7 +46,7 @@ CLICKABLE_STD_HEIGHT = 34
 # ── Cards ────────────────────────────────────────────────────
 CARD_MAX_EXTENT = 420
 CARD_SPACING = 18
-CARD_BORDER_WIDTH = 0  # borderless cards — rely on bg contrast
+CARD_BORDER_WIDTH = 1  # subtle border for depth (Cursor-style)
 
 # ── Status bar items ─────────────────────────────────────────
 STATUSBAR_ITEM_PADDING_H = 10

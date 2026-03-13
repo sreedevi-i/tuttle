@@ -335,7 +335,10 @@ class HomeScreen(TView, Container):
         self.side_bar = Container(
             width=dimens.SIDEBAR_WIDTH,
             bgcolor=colors.bg_sidebar,
-            padding=Padding.only(top=dimens.SPACE_LG),
+            border=Border(right=BorderSide(1, colors.border)),
+            padding=Padding.only(
+                top=dimens.SPACE_MD, left=dimens.SPACE_XXS, right=dimens.SPACE_XXS
+            ),
             content=Column(
                 controls=[self.sidebar_panel],
                 alignment=MainAxisAlignment.START,
