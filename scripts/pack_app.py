@@ -26,6 +26,8 @@ def get_icon_path():
 added_files = [
     ("templates", "./templates"),
     ("tuttle_tests/data", "./tuttle_tests/data"),
+    ("tuttle/migrations", "./tuttle/migrations"),
+    ("tuttle/tax_data", "./tuttle/tax_data"),
 ]
 
 # options to be passed to flet pack
