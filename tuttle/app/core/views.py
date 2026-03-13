@@ -907,6 +907,13 @@ class SidebarPanel(Column):
         if self._on_item_selected:
             self._on_item_selected(self._flat_items[index])
 
+    def deselect(self):
+        """Clear all selections (used when showing settings/profile)."""
+        self._selected_index = -1
+        self._nav_controls.clear()
+        self._build_controls()
+        self.update()
+
     @property
     def selected_item(self) -> NavigationMenuItem:
         return self._flat_items[self._selected_index]

@@ -38,7 +38,9 @@ from ..projects.view import ProjectsListView
 from ..res import colors, dimens, fonts, res_utils, theme
 from ..timetracking.view import TimeTrackingView
 
+from ..auth.view import ProfileContent
 from ..preferences.intent import PreferencesIntent
+from ..preferences.view import PreferencesContent
 
 
 class MainMenuItemsHandler:
@@ -144,7 +146,12 @@ class InsightsMenuHandler:
 class HomeScreen(TView, Container):
     """Main app shell — sidebar + toolbar + content area + status bar."""
 
-    def __init__(self, params: TViewParams):
+    def __init__(
+        self,
+        params: TViewParams,
+        on_theme_changed_callback: Callable = None,
+        on_reset_app_callback: Callable = None,
+    ):
         super().__init__(params)
         self.keep_back_stack = False
         self.page_scroll_type = None
@@ -154,6 +161,14 @@ class HomeScreen(TView, Container):
         self.preferences_intent = PreferencesIntent(
             client_storage=params.client_storage
         )
+
+        # Inline settings / profile views
+        self._preferences_view = PreferencesContent(
+            params=params,
+            on_theme_changed_callback=on_theme_changed_callback or (lambda _: None),
+            on_reset_app_callback=on_reset_app_callback or (lambda: None),
+        )
+        self._profile_view = ProfileContent(params=params)
 
         # Build flat list of all items for the sidebar — Dashboard first
         self._all_items: list[views.NavigationMenuItem] = (
@@ -249,10 +264,16 @@ class HomeScreen(TView, Container):
         self.show_snack("not implemented", True)
 
     def on_view_settings_clicked(self, e):
-        self.navigate_to_route(res_utils.PREFERENCES_SCREEN_ROUTE)
+        self._destination_wrapper.content = self._preferences_view
+        self._new_btn.visible = False
+        self.sidebar_panel.deselect()
+        self.update_self()
 
     def on_click_profile(self, e):
-        self.navigate_to_route(res_utils.PROFILE_SCREEN_ROUTE)
+        self._destination_wrapper.content = self._profile_view
+        self._new_btn.visible = False
+        self.sidebar_panel.deselect()
+        self.update_self()
 
     # ── Build ─────────────────────────────────────────────────
     def build(self):

@@ -339,6 +339,8 @@ class TuttleRoutes:
         elif routePath.match(HOME_SCREEN_ROUTE):
             screen = HomeScreen(
                 params=self.tuttle_view_params,
+                on_theme_changed_callback=self.on_theme_changed,
+                on_reset_app_callback=self.on_reset_and_quit,
             )
         elif routePath.match(PROFILE_SCREEN_ROUTE):
             screen = ProfileScreen(
