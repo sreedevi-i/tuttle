@@ -58,9 +58,9 @@ class ContactRow(Container):
 
         super().__init__(
             bgcolor=_bg,
-            border=Border(bottom=BorderSide(1, colors.border)),
+            border=Border(bottom=BorderSide(1, colors.border_subtle)),
             padding=Padding.symmetric(
-                horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_SM
+                horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_STD
             ),
             on_click=lambda e: on_click(contact),
             on_hover=self._on_hover,

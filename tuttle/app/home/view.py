@@ -299,10 +299,10 @@ class HomeScreen(TView, Container):
         )
         self.destination_content_container = Container(
             padding=Padding.only(
-                left=dimens.SPACE_MD,
-                right=dimens.SPACE_MD,
+                left=dimens.SPACE_LG,
+                right=dimens.SPACE_LG,
                 bottom=dimens.SPACE_MD,
-                top=dimens.SPACE_XS,
+                top=dimens.SPACE_SM,
             ),
             content=Column(
                 controls=[self._destination_wrapper],

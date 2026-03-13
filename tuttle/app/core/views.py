@@ -785,7 +785,7 @@ class SectionLabel(Container):
     def __init__(self, title: str):
         super().__init__(
             padding=Padding.only(
-                left=dimens.SPACE_STD, top=dimens.SPACE_MD, bottom=dimens.SPACE_XXS
+                left=dimens.SPACE_STD, top=dimens.SPACE_LG, bottom=dimens.SPACE_XXS
             ),
             content=Text(
                 title.upper(),
@@ -800,8 +800,7 @@ class SectionLabel(Container):
 class SidebarNavItem(Container):
     """A single sidebar navigation item — macOS-native feel."""
 
-    # Semi-transparent white tint for selected state (native macOS style)
-    _SELECTED_BG = "#14FFFFFF"  # ~8% white
+    _SELECTED_BG = "#1AFFFFFF"  # ~10% white
     _HOVER_BG = "#0AFFFFFF"  # ~4% white
 
     def __init__(
@@ -818,17 +817,21 @@ class SidebarNavItem(Container):
         self._on_click = on_click
 
         bg = self._SELECTED_BG if selected else None
+        left_indicator = (
+            Border(left=BorderSide(width=2, color=colors.accent)) if selected else None
+        )
         icon_color = colors.text_inverse if selected else colors.text_muted
         text_color = colors.text_primary if selected else colors.text_secondary
         current_icon = selected_icon if selected else icon
 
         super().__init__(
             bgcolor=bg,
+            border=left_indicator,
             border_radius=dimens.RADIUS_LG,
             padding=Padding.symmetric(
                 horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XS
             ),
-            margin=Margin.symmetric(horizontal=dimens.SPACE_XXS, vertical=1),
+            margin=Margin.symmetric(horizontal=dimens.SPACE_XXS, vertical=2),
             on_click=on_click,
             on_hover=self._on_hover,
             content=Row(
@@ -1429,7 +1432,7 @@ class CrudListView(TView, Column):
             controls=[
                 THeading(
                     f"My {self.entity_name_plural.title()}",
-                    size=fonts.HEADLINE_3_SIZE,
+                    size=fonts.HEADLINE_2_SIZE,
                 ),
             ],
         )
@@ -1747,9 +1750,9 @@ class CrudListView(TView, Column):
         if col_headers:
             self._header_row_container = Container(
                 padding=Padding.symmetric(
-                    horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_XS
+                    horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_SM
                 ),
-                border=Border(bottom=BorderSide(1, colors.border)),
+                border=Border(bottom=BorderSide(1, colors.border_subtle)),
             )
             self._rebuild_header_row()
             controls.append(self._header_row_container)

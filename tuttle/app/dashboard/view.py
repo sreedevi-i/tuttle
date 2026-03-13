@@ -57,7 +57,7 @@ class _KPICard(Container):
         super().__init__(
             bgcolor=colors.bg_surface,
             border_radius=dimens.RADIUS_LG,
-            padding=Padding.all(dimens.SPACE_SM),
+            padding=Padding.all(dimens.SPACE_STD),
             col={"xs": 12, "sm": 6, "md": 4, "lg": 3},
             content=Column(
                 spacing=dimens.SPACE_XS,
@@ -223,7 +223,7 @@ class DashboardView(TView, Column):
                 content=Column(
                     spacing=dimens.SPACE_XS,
                     controls=[
-                        views.THeading("Dashboard", size=fonts.HEADLINE_3_SIZE),
+                        views.THeading("Dashboard", size=fonts.HEADLINE_2_SIZE),
                         Row(
                             alignment=MainAxisAlignment.CENTER,
                             controls=[self._spinner],

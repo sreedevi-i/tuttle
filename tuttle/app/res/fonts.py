@@ -20,7 +20,7 @@ APP_FONTS = {
 # ── Font sizes ───────────────────────────────────────────────
 HEADLINE_0_SIZE = 30  # hero / splash titles
 HEADLING_1_SIZE = 26  # page titles
-HEADLINE_2_SIZE = 20  # section titles
+HEADLINE_2_SIZE = 22  # page titles
 HEADLINE_3_SIZE = 17  # sub-section titles
 HEADLINE_4_SIZE = 14  # card titles, toolbar headings
 BODY_1_SIZE = 13  # primary body text

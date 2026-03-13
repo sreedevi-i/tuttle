@@ -468,7 +468,7 @@ class TimeTrackingView(TView, Column):
                     col={"xs": 12},
                     controls=[
                         views.THeading(
-                            title="Time Tracking", size=fonts.HEADLINE_3_SIZE
+                            title="Time Tracking", size=fonts.HEADLINE_2_SIZE
                         ),
                         self.loading_indicator,
                         self.ongoing_action_hint,

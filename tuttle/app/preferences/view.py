@@ -464,7 +464,7 @@ class PreferencesContent(TView, Column):
         self.expand = True
         self.spacing = dimens.SPACE_SM
         self.controls = [
-            views.THeading("Preferences", size=fonts.HEADLINE_3_SIZE),
+            views.THeading("Preferences", size=fonts.HEADLINE_2_SIZE),
             self.loading_indicator,
             Container(
                 border=Border(bottom=BorderSide(1, colors.border)),

@@ -963,7 +963,7 @@ class InvoicingListView(TView, Column):
 
         self.title_control = Row(
             controls=[
-                views.THeading(title="Invoicing", size=fonts.HEADLINE_3_SIZE),
+                views.THeading(title="Invoicing", size=fonts.HEADLINE_2_SIZE),
             ],
         )
 
