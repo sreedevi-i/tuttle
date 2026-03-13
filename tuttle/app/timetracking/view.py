@@ -7,6 +7,8 @@ from flet import (
     AlertDialog,
     Column,
     Container,
+    IconButton,
+    Icons,
     ResponsiveRow,
     Text,
     Control,
@@ -170,6 +172,19 @@ class TimeTrackingView(TView, Column):
         self.preferred_cloud_provider = ""
         self.pop_up_handler = None
         object.__setattr__(self, "dataframe_to_display", None)
+
+    def get_toolbar_items(self):
+        return [
+            IconButton(
+                icon=Icons.MORE_TIME,
+                tooltip="New Time Track",
+                icon_color=colors.text_secondary,
+                icon_size=dimens.ICON_SIZE,
+                on_click=lambda e: self.parent_intent_listener(
+                    res_utils.NEW_TIME_TRACK_INTENT
+                ),
+            ),
+        ]
 
     def close_pop_up_if_open(self):
         if self.pop_up_handler:

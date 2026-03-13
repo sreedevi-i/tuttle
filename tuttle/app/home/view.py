@@ -5,19 +5,18 @@ from dataclasses import dataclass
 
 from flet import (
     Border,
+    BorderRadius,
     BorderSide,
     Column,
     Container,
-    ElevatedButton,
     Icon,
     Icons,
     Margin,
-    NavigationRailDestination,
     Padding,
     ResponsiveRow,
     Row,
     Text,
-    TextButton,
+    TextField,
     Control,
     ScrollMode,
     MainAxisAlignment,
@@ -212,45 +211,60 @@ class HomeScreen(TView, Container):
             ),
         )
 
-        # "+ New" button (shown only for views that support creating entities)
-        self._new_btn = TextButton(
-            content=Row(
-                controls=[
-                    Icon(Icons.ADD, size=dimens.SM_ICON_SIZE, color=colors.accent),
-                    Text(
-                        "New",
-                        size=fonts.BODY_1_SIZE,
-                        color=colors.accent,
-                        weight=fonts.BOLD_FONT,
-                    ),
-                ],
-                spacing=dimens.SPACE_XXS,
-            ),
-            on_click=self.on_click_add_new,
+        # Toolbar — view-specific items on the left, search on the right
+        self._toolbar_items_row = Row(
+            spacing=dimens.SPACE_XXS,
+            vertical_alignment=CrossAxisAlignment.CENTER,
+            controls=[],
         )
-        self._update_new_btn_visibility()
+        self._search_field = TextField(
+            hint_text="Search\u2026",
+            prefix_icon=Icons.SEARCH,
+            width=200,
+            height=30,
+            text_size=fonts.BODY_2_SIZE,
+            content_padding=Padding.symmetric(horizontal=dimens.SPACE_XS, vertical=0),
+            border_radius=BorderRadius.all(dimens.RADIUS_LG),
+            bgcolor=colors.bg_surface,
+            border_color="transparent",
+            focused_border_color=colors.accent,
+            on_change=self._on_search_changed,
+        )
+        self._update_toolbar_items()
 
     def _on_sidebar_item_selected(self, item: views.NavigationMenuItem):
         """Called when the user clicks a sidebar nav item."""
         self._selected_flat_index = self._all_items.index(item)
         self.destination_view = item.destination
         self._destination_wrapper.content = self.destination_view
-        self._update_new_btn_visibility()
+        self._update_toolbar_items()
+        self._clear_search()
         self._update_status_bar_for_view(item.label)
         self.update_self()
 
-    def _update_new_btn_visibility(self):
-        """Show the '+ New' button only for views that support it."""
-        item = self._all_items[self._selected_flat_index]
-        self._new_btn.visible = bool(item.on_new_intent or item.on_new_screen_route)
+    def _update_toolbar_items(self):
+        """Refresh the toolbar's left-side controls from the active view."""
+        view = self._all_items[self._selected_flat_index].destination
+        if isinstance(view, TView):
+            self._toolbar_items_row.controls = view.get_toolbar_items()
+        else:
+            self._toolbar_items_row.controls = []
 
-    # ── Action buttons ────────────────────────────────────────
-    def on_click_add_new(self, e):
-        item = self._all_items[self._selected_flat_index]
-        if item.on_new_intent:
-            self.pass_intent_to_destination(item.on_new_intent)
-        elif item.on_new_screen_route:
-            self.navigate_to_route(item.on_new_screen_route)
+    def _on_search_changed(self, e):
+        """Forward search query to the active destination view."""
+        query = e.control.value or ""
+        if self.destination_view and hasattr(
+            self.destination_view, "on_search_changed"
+        ):
+            self.destination_view.on_search_changed(query)
+
+    def _clear_search(self):
+        """Reset the search field and notify the previous view."""
+        self._search_field.value = ""
+        if self.destination_view and hasattr(
+            self.destination_view, "on_search_changed"
+        ):
+            self.destination_view.on_search_changed("")
 
     def on_resume_after_back_pressed(self):
         if self.destination_view and isinstance(self.destination_view, TView):
@@ -265,13 +279,15 @@ class HomeScreen(TView, Container):
 
     def on_view_settings_clicked(self, e):
         self._destination_wrapper.content = self._preferences_view
-        self._new_btn.visible = False
+        self._toolbar_items_row.controls = []
+        self._clear_search()
         self.sidebar_panel.deselect()
         self.update_self()
 
     def on_click_profile(self, e):
         self._destination_wrapper.content = self._profile_view
-        self._new_btn.visible = False
+        self._toolbar_items_row.controls = []
+        self._clear_search()
         self.sidebar_panel.deselect()
         self.update_self()
 
@@ -289,22 +305,33 @@ class HomeScreen(TView, Container):
                 top=dimens.SPACE_XS,
             ),
             content=Column(
-                controls=[
-                    Row(
-                        controls=[self._new_btn],
-                        alignment=MainAxisAlignment.END,
-                    ),
-                    self._destination_wrapper,
-                ],
+                controls=[self._destination_wrapper],
                 spacing=0,
             ),
             expand=True,
         )
 
+        # Toolbar — sits at the top of the content area, right of sidebar
+        self.toolbar_row = Container(
+            height=dimens.TOOLBAR_HEIGHT,
+            bgcolor=colors.bg_toolbar,
+            border=Border(bottom=BorderSide(1, colors.border)),
+            padding=Padding.symmetric(horizontal=dimens.SPACE_MD, vertical=0),
+            content=Row(
+                controls=[
+                    self._toolbar_items_row,
+                    Container(expand=True),
+                    self._search_field,
+                ],
+                spacing=dimens.SPACE_SM,
+                vertical_alignment=CrossAxisAlignment.CENTER,
+            ),
+        )
+
         # Status bar — interactive bar built by StatusBarManager
         self.status_bar = self.status_bar_manager.build()
 
-        # Sidebar
+        # Sidebar — extends full height from top to status bar
         self.side_bar = Container(
             width=dimens.SIDEBAR_WIDTH,
             bgcolor=colors.bg_sidebar,
@@ -317,13 +344,14 @@ class HomeScreen(TView, Container):
             ),
         )
 
-        # Main body
+        # Main body — toolbar at top, then scrollable content
         self.main_body = Column(
             expand=True,
             alignment=MainAxisAlignment.START,
-            horizontal_alignment=CrossAxisAlignment.START,
+            horizontal_alignment=CrossAxisAlignment.STRETCH,
             spacing=0,
             controls=[
+                self.toolbar_row,
                 self.destination_content_container,
             ],
         )

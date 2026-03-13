@@ -15,7 +15,7 @@ bg_statusbar_warning = "#3A3A3C"  # status bar with warnings (items use warning 
 bg_statusbar_danger = (
     "#3A3A3C"  # status bar with overdue items (items use danger color)
 )
-bg_toolbar = "#1C1C1E"  # toolbar merges into background
+bg_toolbar = "#2C2C2E"  # toolbar matches sidebar for cohesive chrome
 bg_input = "#3A3A3C"  # text field fill
 
 # ── Text ─────────────────────────────────────────────────────

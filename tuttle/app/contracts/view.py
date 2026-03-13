@@ -623,6 +623,17 @@ class ContractsListView(views.CrudListView):
         self.intent = ContractsIntent()
         super().__init__(params)
 
+    def get_toolbar_items(self):
+        return [
+            IconButton(
+                icon=Icons.NOTE_ADD_OUTLINED,
+                tooltip="New Contract",
+                icon_color=colors.text_secondary,
+                icon_size=dimens.ICON_SIZE,
+                on_click=lambda e: self.open_edit_panel(None),
+            ),
+        ]
+
     def get_side_panel(self):
         return ContractSidePanel(
             on_close=self._on_panel_closed,
@@ -644,11 +655,15 @@ class ContractsListView(views.CrudListView):
 
     def get_column_headers(self):
         return [
-            ("Contract", None),
-            ("Client", 180),
-            ("Rate", 160),
-            ("Billing", 120),
+            ("Contract", None, 0),
+            ("Client", 180, 3),
+            ("Rate", 160, None),
+            ("Billing", 120, None),
         ]
+
+    def get_search_text(self, contract):
+        client_name = contract.client.name if contract.client else ""
+        return " ".join(filter(None, [contract.title, client_name]))
 
     def make_card(self, contract):
         is_selected = self._selected_entity_id == contract.id

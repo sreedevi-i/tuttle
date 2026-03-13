@@ -1397,11 +1397,17 @@ class CrudListView(TView, Column):
         """
         return []
 
-    def get_column_headers(self) -> Optional[list[tuple[str, Optional[int]]]]:
-        """Return column headers as (label, width_or_None_for_expand).
+    def get_column_headers(self) -> Optional[list]:
+        """Return column headers as tuples of (label, width, sort_field_index?).
 
-        Override in subclasses. Example:
-            [("Title", None), ("Client", 200), ("Dates", 180)]
+        Override in subclasses. Each tuple is either:
+            (label, width_or_None)                  -- not sortable
+            (label, width_or_None, sort_field_idx)  -- sortable via get_sortable_fields()[idx]
+
+        sort_field_idx can be None to mark a column as not sortable.
+
+        Example:
+            [("Title", None, 0), ("Client", 200), ("Dates", 180, 1)]
         """
         return None
 
@@ -1417,40 +1423,6 @@ class CrudListView(TView, Column):
             show=False,
         )
 
-        sortable = self.get_sortable_fields()
-        sort_control = None
-        if sortable:
-            self._sort_dropdown = Dropdown(
-                value="0",
-                options=[
-                    DropdownOption(key=str(i), text=label)
-                    for i, (label, _) in enumerate(sortable)
-                ],
-                on_select=self._on_sort_field_changed,
-                width=180,
-                text_size=fonts.BODY_2_SIZE,
-                content_padding=Padding.symmetric(
-                    horizontal=dimens.SPACE_SM, vertical=dimens.SPACE_XXS
-                ),
-                dense=True,
-            )
-            self._sort_dir_btn = IconButton(
-                icon=Icons.ARROW_UPWARD,
-                icon_size=dimens.ICON_SIZE,
-                icon_color=colors.text_secondary,
-                tooltip="Ascending",
-                on_click=self._on_sort_dir_toggled,
-            )
-            sort_control = Row(
-                spacing=0,
-                vertical_alignment=CrossAxisAlignment.CENTER,
-                controls=[
-                    Icon(Icons.SORT, size=dimens.ICON_SIZE, color=colors.text_muted),
-                    self._sort_dropdown,
-                    self._sort_dir_btn,
-                ],
-            )
-
         heading_row = Row(
             alignment=MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=CrossAxisAlignment.CENTER,
@@ -1459,8 +1431,7 @@ class CrudListView(TView, Column):
                     f"My {self.entity_name_plural.title()}",
                     size=fonts.HEADLINE_3_SIZE,
                 ),
-            ]
-            + ([sort_control] if sort_control else []),
+            ],
         )
 
         self.title_control = ResponsiveRow(
@@ -1484,6 +1455,8 @@ class CrudListView(TView, Column):
         self._inline_expansion = None  # cached expansion Container
         self.items_to_display = {}
         self.popup_handler = None
+        self._header_row_container: Optional[Container] = None
+        self._search_query: str = ""
 
     # -- Subclass hooks --------------------------------------------------------
 
@@ -1494,6 +1467,17 @@ class CrudListView(TView, Column):
     def get_entity_description(self, entity) -> str:
         """Return a human-readable description for delete confirmation."""
         return str(entity)
+
+    def get_search_text(self, entity) -> str:
+        """Return a searchable string for the entity.
+        Override in subclasses to enable toolbar search filtering."""
+        return ""
+
+    def on_search_changed(self, query: str):
+        """Called by the toolbar when the search field value changes."""
+        self._search_query = query.strip().lower()
+        self.refresh_list()
+        self.update_self()
 
     def get_filters_view(self) -> Optional[Control]:
         """Override to return a filter bar control."""
@@ -1511,21 +1495,58 @@ class CrudListView(TView, Column):
         """Override for inline save handling (contacts, clients)."""
         pass
 
-    def _on_sort_field_changed(self, e):
-        self._sort_field_index = int(e.control.value)
+    def _on_header_clicked(self, sort_field_index: int):
+        """Handle a click on a sortable column header."""
+        if self._sort_field_index == sort_field_index:
+            self._sort_ascending = not self._sort_ascending
+        else:
+            self._sort_field_index = sort_field_index
+            self._sort_ascending = True
+        self._rebuild_header_row()
         self.refresh_list()
         self.update_self()
 
-    def _on_sort_dir_toggled(self, e):
-        self._sort_ascending = not self._sort_ascending
-        self._sort_dir_btn.icon = (
-            Icons.ARROW_UPWARD if self._sort_ascending else Icons.ARROW_DOWNWARD
+    def _parse_column_header(self, entry):
+        """Unpack a column-header tuple into (label, width, sort_field_index)."""
+        if len(entry) >= 3:
+            return entry[0], entry[1], entry[2]
+        return entry[0], entry[1], None
+
+    def _rebuild_header_row(self):
+        """Rebuild the column header row to reflect the current sort state."""
+        col_headers = self.get_column_headers()
+        if not col_headers or not self._header_row_container:
+            return
+        header_cells = []
+        for entry in col_headers:
+            label, width, sort_idx = self._parse_column_header(entry)
+            is_active = sort_idx is not None and sort_idx == self._sort_field_index
+            arrow = ""
+            if is_active:
+                arrow = " \u25B2" if self._sort_ascending else " \u25BC"
+            cell_text = Text(
+                label.upper() + arrow,
+                size=fonts.CAPTION_SIZE,
+                color=colors.text_primary if is_active else colors.text_muted,
+                weight=FontWeight.W_600,
+            )
+            if sort_idx is not None:
+                cell_content = Container(
+                    content=cell_text,
+                    on_click=lambda e, idx=sort_idx: self._on_header_clicked(idx),
+                    on_hover=lambda e: None,
+                )
+            else:
+                cell_content = cell_text
+            if width:
+                header_cells.append(Container(width=width, content=cell_content))
+            else:
+                header_cells.append(Container(expand=True, content=cell_content))
+        self._header_row_container.content = Row(
+            controls=header_cells,
+            spacing=dimens.SPACE_MD,
+            vertical_alignment=CrossAxisAlignment.CENTER,
         )
-        self._sort_dir_btn.tooltip = (
-            "Ascending" if self._sort_ascending else "Descending"
-        )
-        self.refresh_list()
-        self.update_self()
 
     # -- Lifecycle methods (generic) -------------------------------------------
 
@@ -1533,6 +1554,14 @@ class CrudListView(TView, Column):
         """Clears and rebuilds the items container from items_to_display."""
         self.items_container.controls.clear()
         entities = list(self.items_to_display.values())
+
+        if self._search_query:
+            entities = [
+                e
+                for e in entities
+                if self._search_query in self.get_search_text(e).lower()
+            ]
+
         sortable = self.get_sortable_fields()
         if sortable and 0 <= self._sort_field_index < len(sortable):
             _, key_func = sortable[self._sort_field_index]
@@ -1713,33 +1742,17 @@ class CrudListView(TView, Column):
         if filters:
             controls.append(filters)
 
-        # Column header row
+        # Column header row (sortable)
         col_headers = self.get_column_headers()
         if col_headers:
-            header_cells = []
-            for label, width in col_headers:
-                cell = Text(
-                    label.upper(),
-                    size=fonts.CAPTION_SIZE,
-                    color=colors.text_muted,
-                    weight=FontWeight.W_600,
-                )
-                if width:
-                    header_cells.append(Container(width=width, content=cell))
-                else:
-                    header_cells.append(Container(expand=True, content=cell))
-            header_row = Container(
+            self._header_row_container = Container(
                 padding=Padding.symmetric(
                     horizontal=dimens.SPACE_MD, vertical=dimens.SPACE_XS
                 ),
                 border=Border(bottom=BorderSide(1, colors.border)),
-                content=Row(
-                    controls=header_cells,
-                    spacing=dimens.SPACE_MD,
-                    vertical_alignment=CrossAxisAlignment.CENTER,
-                ),
             )
-            controls.append(header_row)
+            self._rebuild_header_row()
+            controls.append(self._header_row_container)
 
         list_container = Container(expand=True, content=self.items_container)
         controls.append(list_container)

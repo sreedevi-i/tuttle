@@ -502,6 +502,19 @@ class InvoicingListView(TView, Column):
         object.__setattr__(self, "user", None)
         self.active_filter: str = self._FILTER_ALL
 
+    def get_toolbar_items(self):
+        return [
+            IconButton(
+                icon=Icons.RECEIPT_LONG,
+                tooltip="Create Invoice",
+                icon_color=colors.text_secondary,
+                icon_size=dimens.ICON_SIZE,
+                on_click=lambda e: self.parent_intent_listener(
+                    res_utils.CREATE_INVOICE_INTENT
+                ),
+            ),
+        ]
+
     def load_user_data(
         self,
     ):

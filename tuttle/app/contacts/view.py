@@ -7,6 +7,7 @@ from flet import (
     Column,
     Container,
     Icon,
+    IconButton,
     Icons,
     ListTile,
     MainAxisAlignment,
@@ -500,6 +501,17 @@ class ContactsListView(views.CrudListView):
         self.intent = ContactsIntent()
         super().__init__(params)
 
+    def get_toolbar_items(self):
+        return [
+            IconButton(
+                icon=Icons.PERSON_ADD_ALT_1,
+                tooltip="Add Contact",
+                icon_color=colors.text_secondary,
+                icon_size=dimens.ICON_SIZE,
+                on_click=lambda e: self.open_edit_panel(None),
+            ),
+        ]
+
     def get_side_panel(self):
         return ContactSidePanel(
             on_close=self._on_panel_closed,
@@ -511,10 +523,18 @@ class ContactsListView(views.CrudListView):
 
     def get_column_headers(self):
         return [
-            ("Name", None),
-            ("Company", 200),
-            ("Email", 220),
+            ("Name", None, 0),
+            ("Company", 200, 2),
+            ("Email", 220, None),
         ]
+
+    def get_search_text(self, contact):
+        return " ".join(
+            filter(
+                None,
+                [contact.first_name, contact.last_name, contact.company, contact.email],
+            )
+        )
 
     def make_card(self, contact):
         is_selected = self._selected_entity_id == (

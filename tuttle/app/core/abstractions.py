@@ -123,6 +123,11 @@ class TView(ABC):
         self.client_storage = params.client_storage
         self.mounted = False
 
+    def get_toolbar_items(self) -> list:
+        """Return toolbar controls for this view (icon buttons, dropdowns, etc.).
+        Override in subclasses. The shell renders these on the left side of the toolbar."""
+        return []
+
     def parent_intent_listener(self, intent: str, data: any):
         """listens for an intent from parent view"""
         return

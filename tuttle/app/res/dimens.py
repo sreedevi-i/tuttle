@@ -23,6 +23,7 @@ SIDEBAR_WIDTH = 224  # slightly narrower for denser shell
 SIDEBAR_COLLAPSED_WIDTH = 48
 ACTIVITY_BAR_WIDTH = 48
 TITLEBAR_HEIGHT = 38
+TOOLBAR_HEIGHT = 40
 
 # ── Radii ────────────────────────────────────────────────────
 RADIUS_SM = 4

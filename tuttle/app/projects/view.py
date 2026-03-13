@@ -491,6 +491,17 @@ class ProjectsListView(views.CrudListView):
         self.intent = ProjectsIntent()
         super().__init__(params)
 
+    def get_toolbar_items(self):
+        return [
+            IconButton(
+                icon=Icons.ADD_BOX_OUTLINED,
+                tooltip="New Project",
+                icon_color=colors.text_secondary,
+                icon_size=dimens.ICON_SIZE,
+                on_click=lambda e: self.open_edit_panel(None),
+            ),
+        ]
+
     def get_side_panel(self):
         return ProjectSidePanel(
             on_close=self._on_panel_closed,
@@ -512,11 +523,16 @@ class ProjectsListView(views.CrudListView):
 
     def get_column_headers(self):
         return [
-            ("Project", None),
-            ("Client", 200),
-            ("Contract", 200),
-            ("Dates", 180),
+            ("Project", None, 0),
+            ("Client", 200, None),
+            ("Contract", 200, None),
+            ("Dates", 180, 1),
         ]
+
+    def get_search_text(self, project):
+        client_name = project.client.name if project.client else ""
+        contract_title = project.contract.title if project.contract else ""
+        return " ".join(filter(None, [project.title, client_name, contract_title]))
 
     def make_card(self, project):
         is_selected = self._selected_entity_id == project.id
