@@ -24,18 +24,9 @@ from flet import (
 
 from ..core.abstractions import TView, TViewParams
 from ..core import views
+from ..core.utils import fmt_currency
 from ..res import colors, dimens, fonts, res_utils
 from .intent import DashboardIntent
-
-
-def _fmt_currency(value, symbol="€") -> str:
-    """Format a Decimal or float as a currency string."""
-    if value is None:
-        return "—"
-    v = float(value)
-    if abs(v) >= 1000:
-        return f"{symbol}{v:,.0f}"
-    return f"{symbol}{v:,.2f}"
 
 
 def _fmt_pct(value) -> str:
@@ -107,7 +98,7 @@ class _VerticalBar(Column):
         bar_height = max(ratio * _BAR_CHART_HEIGHT, 2) if ratio > 0 else 0
         empty_height = _BAR_CHART_HEIGHT - bar_height
         bar_color = colors.accent if not is_forecast else colors.accent_muted
-        value_text = _fmt_currency(value) if value > 0 else ""
+        value_text = fmt_currency(value) if value > 0 else ""
 
         super().__init__(
             expand=True,
@@ -308,28 +299,29 @@ class DashboardView(TView, Column):
             return
 
         kpis = result.data
+        tc = kpis.tax_currency
         cards = [
             _KPICard(
                 "Revenue (YTD)",
-                _fmt_currency(kpis.total_revenue_ytd),
+                fmt_currency(kpis.total_revenue_ytd, tc),
                 Icons.TRENDING_UP,
                 colors.success if kpis.total_revenue_ytd > 0 else colors.text_primary,
             ),
             _KPICard(
                 "Outstanding",
-                _fmt_currency(kpis.outstanding_amount),
+                fmt_currency(kpis.outstanding_amount, tc),
                 Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
                 colors.warning if kpis.outstanding_amount > 0 else colors.text_primary,
             ),
             _KPICard(
                 "Overdue",
-                _fmt_currency(kpis.overdue_amount),
+                fmt_currency(kpis.overdue_amount, tc),
                 Icons.WARNING_AMBER_ROUNDED,
                 colors.danger if kpis.overdue_amount > 0 else colors.text_primary,
             ),
             _KPICard(
                 "Eff. Hourly Rate",
-                _fmt_currency(kpis.effective_hourly_rate, "€")
+                fmt_currency(kpis.effective_hourly_rate, tc)
                 if kpis.effective_hourly_rate
                 else "—",
                 Icons.SPEED,
@@ -362,23 +354,22 @@ class DashboardView(TView, Column):
         ]
         self._kpi_row.controls.extend(cards)
 
-        # Tax reserve cards
         tax_cards = [
             _KPICard(
                 "VAT Reserve",
-                _fmt_currency(kpis.vat_reserve),
+                fmt_currency(kpis.vat_reserve, tc),
                 Icons.ACCOUNT_BALANCE,
                 colors.warning if kpis.vat_reserve > 0 else colors.text_primary,
             ),
             _KPICard(
                 "Est. Income Tax",
-                _fmt_currency(kpis.income_tax_reserve),
+                fmt_currency(kpis.income_tax_reserve, tc),
                 Icons.CALCULATE_OUTLINED,
                 colors.warning if kpis.income_tax_reserve > 0 else colors.text_primary,
             ),
             _KPICard(
                 "Spendable Income",
-                _fmt_currency(kpis.spendable_income),
+                fmt_currency(kpis.spendable_income, tc),
                 Icons.SAVINGS_OUTLINED,
                 colors.success if kpis.spendable_income > 0 else colors.danger,
             ),
@@ -494,11 +485,12 @@ class DashboardView(TView, Column):
         if not goals:
             return
 
-        # For each goal, show progress toward target based on YTD revenue
         kpi_result = self.intent.get_kpis()
         ytd_revenue = Decimal(0)
+        tc = "EUR"
         if kpi_result.was_intent_successful and kpi_result.data:
             ytd_revenue = kpi_result.data.total_revenue_ytd
+            tc = kpi_result.data.tax_currency
 
         goal_rows = []
         for goal in goals:
@@ -514,7 +506,7 @@ class DashboardView(TView, Column):
             status_text = (
                 "Reached!"
                 if goal.is_reached
-                else f"{_fmt_currency(ytd_revenue)} / {_fmt_currency(goal.target_amount)}"
+                else f"{fmt_currency(ytd_revenue, tc)} / {fmt_currency(goal.target_amount, tc)}"
             )
 
             goal_rows.append(
@@ -545,7 +537,7 @@ class DashboardView(TView, Column):
                                 alignment=MainAxisAlignment.SPACE_BETWEEN,
                                 controls=[
                                     Text(
-                                        f"Target: {_fmt_currency(goal.target_amount)} by {goal.target_date.strftime('%b %Y')}",
+                                        f"Target: {fmt_currency(goal.target_amount, tc)} by {goal.target_date.strftime('%b %Y')}",
                                         size=fonts.CAPTION_SIZE,
                                         color=colors.text_muted,
                                     ),

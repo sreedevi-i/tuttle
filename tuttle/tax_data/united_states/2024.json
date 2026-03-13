@@ -4,6 +4,7 @@
     "year": 2024,
     "formula_type": "marginal_brackets",
     "source": "IRS Revenue Procedure 2023-34 — 2024 federal income tax brackets (single filer)",
+    "currency": "USD",
 
     "income_tax": {
         "basic_allowance": 14600,

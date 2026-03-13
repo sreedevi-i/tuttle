@@ -37,6 +37,7 @@ class TaxParams:
         self.year: int = data["year"]
         self.formula_type: str = data["formula_type"]
         self.source: str = data.get("source", "")
+        self.currency: str = data["currency"]
 
         it = data["income_tax"]
         self.basic_allowance = it["basic_allowance"]
@@ -139,6 +140,11 @@ class TaxSystem:
     @property
     def year(self) -> int:
         return self.params.year
+
+    @property
+    def currency(self) -> str:
+        """ISO 4217 currency code for this tax system (e.g. "EUR", "USD")."""
+        return self.params.currency
 
     @property
     def bracket_info(self) -> list[dict]:

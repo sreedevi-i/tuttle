@@ -4,6 +4,7 @@
     "year": 2024,
     "formula_type": "marginal_brackets",
     "source": "Receita Federal — IRPF 2024 (tabela mensal × 12)",
+    "currency": "BRL",
 
     "income_tax": {
         "basic_allowance": 0,

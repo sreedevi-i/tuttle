@@ -4,6 +4,7 @@
     "year": 2026,
     "formula_type": "marginal_brackets",
     "source": "Skatteverket 2026 — projected, same parameters as 2025",
+    "currency": "SEK",
 
     "income_tax": {
         "basic_allowance": 0,

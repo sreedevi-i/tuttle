@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Optional, NamedTuple
 
 from .model import Contract, Invoice, Project, User
+from .tax import get_tax_system
 from .tax_reserves import compute_spendable_income
 
 
@@ -25,6 +26,7 @@ class KPISummary(NamedTuple):
     vat_reserve: Decimal
     income_tax_reserve: Decimal
     spendable_income: Decimal
+    tax_currency: str = "EUR"
 
 
 def compute_kpis(
@@ -92,9 +94,16 @@ def compute_kpis(
         if available_hours > 0:
             utilization_rate = float(total_hours / available_hours)
 
-    # Tax reserves
+    # Tax reserves — resolve currency from the tax system
+    tax_currency = "EUR"
     try:
-        spending = compute_spendable_income(invoices, country)
+        tax_system = get_tax_system(country)
+        tax_currency = tax_system.currency
+    except NotImplementedError:
+        pass
+
+    try:
+        spending = compute_spendable_income(invoices, country, currency=tax_currency)
         vat_reserve = spending.vat_reserve
         income_tax_reserve = spending.income_tax_reserve
         spendable_income = spending.spendable
@@ -117,6 +126,7 @@ def compute_kpis(
         vat_reserve=vat_reserve,
         income_tax_reserve=income_tax_reserve,
         spendable_income=spendable_income,
+        tax_currency=tax_currency,
     )
 
 

@@ -4,6 +4,7 @@
     "year": 2025,
     "formula_type": "marginal_brackets",
     "source": "Receita Federal — IRPF 2025 (tabela mensal × 12, updated brackets)",
+    "currency": "BRL",
 
     "income_tax": {
         "basic_allowance": 0,

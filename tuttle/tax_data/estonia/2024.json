@@ -4,6 +4,7 @@
     "year": 2024,
     "formula_type": "flat_rate",
     "source": "Tulumaksuseadus (Income Tax Act) 2024",
+    "currency": "EUR",
 
     "income_tax": {
         "basic_allowance": 7848,

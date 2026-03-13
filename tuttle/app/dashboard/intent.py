@@ -4,7 +4,7 @@
 from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
 
-from ...model import Contract, Invoice, Project, FinancialGoal
+from ...model import Contract, Invoice, Project, FinancialGoal, User
 from ...kpi import compute_kpis, monthly_revenue_breakdown, project_budget_status
 from ...forecasting import revenue_curve
 
@@ -15,13 +15,24 @@ class DashboardIntent(SQLModelDataSourceMixin, Intent):
     def __init__(self):
         SQLModelDataSourceMixin.__init__(self)
 
+    def _get_country(self) -> str:
+        """Determine the user's operating country for tax purposes."""
+        try:
+            users = self.query(User)
+            if users and users[0].operating_country:
+                return users[0].operating_country
+        except Exception:
+            pass
+        return "Germany"
+
     def get_kpis(self) -> IntentResult:
         """Compute KPI summary from all invoices, contracts, projects."""
         try:
             invoices = self.query(Invoice)
             contracts = self.query(Contract)
             projects = self.query(Project)
-            kpis = compute_kpis(invoices, contracts, projects)
+            country = self._get_country()
+            kpis = compute_kpis(invoices, contracts, projects, country=country)
             return IntentResult(was_intent_successful=True, data=kpis)
         except Exception as e:
             return IntentResult(

@@ -4,6 +4,7 @@
     "year": 2025,
     "formula_type": "marginal_brackets",
     "source": "Skatteverket 2025 — kommunalskatt 32.37% avg + statlig inkomstskatt",
+    "currency": "SEK",
 
     "income_tax": {
         "basic_allowance": 0,

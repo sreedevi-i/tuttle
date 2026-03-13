@@ -4,6 +4,7 @@
     "year": 2024,
     "formula_type": "german_progressive",
     "source": "§32a EStG 2024",
+    "currency": "EUR",
 
     "income_tax": {
         "basic_allowance": 11604,

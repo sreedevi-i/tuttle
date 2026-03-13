@@ -4,6 +4,7 @@
     "year": 2025,
     "formula_type": "marginal_brackets",
     "source": "IRS Revenue Procedure 2024-40 — 2025 federal income tax brackets (single filer)",
+    "currency": "USD",
 
     "income_tax": {
         "basic_allowance": 15000,

@@ -4,6 +4,7 @@
     "year": 2024,
     "formula_type": "marginal_brackets",
     "source": "Skatteverket 2024 — kommunalskatt 32.28% avg + statlig inkomstskatt",
+    "currency": "SEK",
 
     "income_tax": {
         "basic_allowance": 0,

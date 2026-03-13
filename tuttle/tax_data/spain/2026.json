@@ -4,6 +4,7 @@
     "year": 2026,
     "formula_type": "marginal_brackets",
     "source": "IRPF 2026 — Ley del IRPF (state + general autonomous community rates)",
+    "currency": "EUR",
 
     "income_tax": {
         "basic_allowance": 5550,

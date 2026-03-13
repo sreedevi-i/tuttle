@@ -5,11 +5,14 @@ VAT payments and estimated income tax, yielding the actual spendable income.
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
 from .model import Invoice
 from .tax import get_tax_system
+
+logger = logging.getLogger(__name__)
 
 
 class VATReserve(NamedTuple):
@@ -41,20 +44,42 @@ class SpendableIncome(NamedTuple):
     spendable: Decimal  # net_revenue - income_tax_reserve
 
 
+def _invoice_currency(inv: Invoice) -> Optional[str]:
+    """Return the ISO 4217 currency code for an invoice, or None."""
+    if inv.contract and inv.contract.currency:
+        return inv.contract.currency
+    return None
+
+
 def compute_vat_reserves(
     invoices: List[Invoice],
     period_start: datetime.date,
     period_end: datetime.date,
+    currency: Optional[str] = None,
 ) -> VATReserve:
-    """Sum VAT collected on non-cancelled invoices in the given period."""
+    """Sum VAT collected on non-cancelled invoices in the given period.
+
+    If *currency* is given, only invoices denominated in that currency are
+    included; others are silently skipped (a debug log is emitted).
+    """
     vat_total = Decimal(0)
     count = 0
+    skipped = 0
     for inv in invoices:
         if inv.cancelled:
             continue
         if period_start <= inv.date <= period_end:
+            if currency and _invoice_currency(inv) not in (currency, None):
+                skipped += 1
+                continue
             vat_total += inv.VAT_total
             count += 1
+    if skipped:
+        logger.debug(
+            "compute_vat_reserves: skipped %d invoice(s) with currency != %s",
+            skipped,
+            currency,
+        )
     return VATReserve(
         vat_collected=vat_total,
         invoice_count=count,
@@ -126,27 +151,49 @@ def compute_spendable_income(
     invoices: List[Invoice],
     country: str,
     deductions: Decimal = Decimal(0),
+    currency: Optional[str] = None,
 ) -> SpendableIncome:
     """Compute spendable income: what's left after VAT and income tax reserves.
 
     This answers the freelancer's core question: "How much of this money is mine?"
+
+    If *currency* is given (the tax system's native currency), only invoices
+    denominated in that currency are counted.  If not given, the currency is
+    resolved automatically from the tax system for *country*.
     """
     today = datetime.date.today()
     year_start = today.replace(month=1, day=1)
 
+    if currency is None:
+        try:
+            tax_system = get_tax_system(country, date=today)
+            currency = tax_system.currency
+        except NotImplementedError:
+            pass
+
     gross_ytd = Decimal(0)
     vat_ytd = Decimal(0)
+    skipped = 0
 
     for inv in invoices:
         if inv.cancelled:
             continue
         if inv.date >= year_start:
+            if currency and _invoice_currency(inv) not in (currency, None):
+                skipped += 1
+                continue
             gross_ytd += inv.total
             vat_ytd += inv.VAT_total
 
+    if skipped:
+        logger.debug(
+            "compute_spendable_income: skipped %d invoice(s) with currency != %s",
+            skipped,
+            currency,
+        )
+
     net_ytd = gross_ytd - vat_ytd
 
-    # Income tax reserve
     tax_reserve = compute_income_tax_reserve(net_ytd, country, deductions)
 
     spendable = net_ytd - tax_reserve.ytd_reserve
@@ -163,6 +210,7 @@ def compute_spendable_income(
 def quarterly_vat_breakdown(
     invoices: List[Invoice],
     year: Optional[int] = None,
+    currency: Optional[str] = None,
 ) -> list:
     """VAT breakdown by quarter for the given year.
 
@@ -183,7 +231,9 @@ def quarterly_vat_breakdown(
                 days=1
             )
 
-        reserve = compute_vat_reserves(invoices, period_start, period_end)
+        reserve = compute_vat_reserves(
+            invoices, period_start, period_end, currency=currency
+        )
         quarters.append(
             {
                 "quarter": f"Q{q}",

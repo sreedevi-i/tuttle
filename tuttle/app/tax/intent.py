@@ -21,21 +21,30 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         SQLModelDataSourceMixin.__init__(self)
 
     def _get_country(self) -> str:
-        """Determine the user's country from their address."""
+        """Determine the user's operating country for tax purposes."""
         try:
             users = self.query(User)
-            if users and users[0].address and users[0].address.country:
-                return users[0].address.country
+            if users and users[0].operating_country:
+                return users[0].operating_country
         except Exception:
             pass
         return "Germany"
+
+    def _get_tax_currency(self, country: str) -> str:
+        """Return the ISO 4217 currency for the country's tax system."""
+        try:
+            return get_tax_system(country).currency
+        except NotImplementedError:
+            return "EUR"
 
     def get_spendable_income(self) -> IntentResult:
         """Compute spendable income breakdown."""
         try:
             invoices = self.query(Invoice)
             country = self._get_country()
-            data = compute_spendable_income(invoices, country)
+            currency = self._get_tax_currency(country)
+            spending = compute_spendable_income(invoices, country, currency=currency)
+            data = {"spending": spending, "currency": currency}
             return IntentResult(was_intent_successful=True, data=data)
         except Exception as e:
             return IntentResult(
@@ -52,7 +61,8 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
 
             invoices = self.query(Invoice)
             country = self._get_country()
-            spending = compute_spendable_income(invoices, country)
+            currency = self._get_tax_currency(country)
+            spending = compute_spendable_income(invoices, country, currency=currency)
             tax_reserve = compute_income_tax_reserve(spending.net_revenue_ytd, country)
 
             days_elapsed = max(
@@ -60,7 +70,6 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             )
             annualized = float(spending.net_revenue_ytd) * 365 / days_elapsed
 
-            # Check if country is supported for bracket visualization
             try:
                 tax_system = get_tax_system(country)
                 bracket_data = self._compute_bracket_data(
@@ -77,6 +86,7 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
                 "brackets": bracket_data,
                 "country": country,
                 "country_supported": country_supported,
+                "currency": currency,
             }
             return IntentResult(was_intent_successful=True, data=data)
         except Exception as e:
@@ -125,7 +135,10 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         """Get quarterly VAT breakdown."""
         try:
             invoices = self.query(Invoice)
-            data = quarterly_vat_breakdown(invoices, year=year)
+            country = self._get_country()
+            currency = self._get_tax_currency(country)
+            quarters = quarterly_vat_breakdown(invoices, year=year, currency=currency)
+            data = {"quarters": quarters, "currency": currency}
             return IntentResult(was_intent_successful=True, data=data)
         except Exception as e:
             return IntentResult(

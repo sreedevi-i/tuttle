@@ -4,6 +4,7 @@
     "year": 2025,
     "formula_type": "marginal_brackets",
     "source": "Barème progressif 2025 (revenus 2024) — Article 197 CGI",
+    "currency": "EUR",
 
     "income_tax": {
         "basic_allowance": 0,

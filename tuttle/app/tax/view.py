@@ -24,17 +24,9 @@ from flet import (
 
 from ..core.abstractions import TView, TViewParams
 from ..core import views
+from ..core.utils import fmt_currency
 from ..res import colors, dimens, fonts, res_utils
 from .intent import TaxIntent
-
-
-def _fmt_currency(value, symbol="€") -> str:
-    if value is None:
-        return "—"
-    v = float(value)
-    if abs(v) >= 1000:
-        return f"{symbol}{v:,.0f}"
-    return f"{symbol}{v:,.2f}"
 
 
 def _fmt_pct(value) -> str:
@@ -56,6 +48,7 @@ class _WaterfallItem(Container):
         total: Decimal,
         bar_color: str,
         is_total: bool = False,
+        currency: str = "EUR",
     ):
         ratio = float(abs(amount) / total) if total > 0 else 0
         bar_width_pct = max(ratio, 0.02)  # minimum visible width
@@ -78,7 +71,7 @@ class _WaterfallItem(Container):
                                 weight=fonts.BOLD_FONT if is_total else None,
                             ),
                             Text(
-                                f"{sign}{_fmt_currency(display_amount)}",
+                                f"{sign}{fmt_currency(display_amount, currency)}",
                                 size=fonts.BODY_1_SIZE,
                                 color=bar_color,
                                 weight=fonts.BOLD_FONT if is_total else None,
@@ -200,7 +193,8 @@ class TaxView(TView, Column):
         if not result.was_intent_successful or result.data is None:
             return
 
-        s = result.data
+        s = result.data["spending"]
+        currency = result.data.get("currency", "EUR")
         gross = s.gross_revenue_ytd
         if gross <= 0:
             self._waterfall_section.controls = [
@@ -219,17 +213,25 @@ class TaxView(TView, Column):
             return
 
         items = [
-            _WaterfallItem("Gross Revenue", gross, gross, colors.accent),
-            _WaterfallItem("VAT (to remit)", s.vat_reserve, gross, colors.warning),
+            _WaterfallItem(
+                "Gross Revenue", gross, gross, colors.accent, currency=currency
+            ),
+            _WaterfallItem(
+                "VAT (to remit)",
+                s.vat_reserve,
+                gross,
+                colors.warning,
+                currency=currency,
+            ),
             _WaterfallItem(
                 "Est. Income Tax + Soli",
                 s.income_tax_reserve,
                 gross,
                 colors.warning,
+                currency=currency,
             ),
         ]
 
-        # Divider before total
         spendable_color = colors.success if s.spendable > 0 else colors.danger
         items.append(
             _WaterfallItem(
@@ -238,6 +240,7 @@ class TaxView(TView, Column):
                 gross,
                 spendable_color,
                 is_total=True,
+                currency=currency,
             )
         )
 
@@ -286,7 +289,8 @@ class TaxView(TView, Column):
         if not result.was_intent_successful or not result.data:
             return
 
-        quarters = result.data
+        quarters = result.data["quarters"]
+        currency = result.data.get("currency", "EUR")
 
         # Table header
         header = Row(
@@ -375,7 +379,7 @@ class TaxView(TView, Column):
                         Container(
                             expand=True,
                             content=Text(
-                                _fmt_currency(q["vat_collected"]),
+                                fmt_currency(q["vat_collected"], currency),
                                 size=fonts.BODY_1_SIZE,
                                 color=vat_color,
                                 text_align=TextAlign.RIGHT,
@@ -398,7 +402,7 @@ class TaxView(TView, Column):
                         weight=fonts.BOLD_FONT,
                     ),
                     Text(
-                        _fmt_currency(total_vat),
+                        fmt_currency(total_vat, currency),
                         size=fonts.BODY_1_SIZE,
                         color=colors.warning if total_vat > 0 else colors.text_muted,
                         weight=fonts.BOLD_FONT,
@@ -431,26 +435,30 @@ class TaxView(TView, Column):
         brackets = data["brackets"]
         country = data["country"]
         country_supported = data.get("country_supported", True)
+        currency = data.get("currency", "EUR")
 
-        # Summary card
         summary_items = [
-            ("Annualized Income", _fmt_currency(annualized), colors.text_primary),
+            (
+                "Annualized Income",
+                fmt_currency(annualized, currency),
+                colors.text_primary,
+            ),
         ]
         if country_supported:
             summary_items += [
                 (
                     "Estimated Income Tax",
-                    _fmt_currency(tax_reserve.estimated_annual_tax),
+                    fmt_currency(tax_reserve.estimated_annual_tax, currency),
                     colors.warning,
                 ),
                 (
                     "Solidarity Surcharge",
-                    _fmt_currency(tax_reserve.solidarity_surcharge),
+                    fmt_currency(tax_reserve.solidarity_surcharge, currency),
                     colors.warning,
                 ),
                 (
                     "Total Annual Reserve",
-                    _fmt_currency(tax_reserve.total_annual_reserve),
+                    fmt_currency(tax_reserve.total_annual_reserve, currency),
                     colors.warning,
                 ),
                 (
@@ -489,7 +497,9 @@ class TaxView(TView, Column):
             text_color = colors.text_inverse if is_current else colors.text_secondary
             label_weight = fonts.BOLD_FONT if is_current else None
 
-            range_text = f"€{b['start']:,.0f} – €{b['end']:,.0f}"
+            range_start = fmt_currency(b["start"], currency)
+            range_end = fmt_currency(b["end"], currency)
+            range_text = f"{range_start} – {range_end}"
             indicator = " ◄ You are here" if is_current else ""
 
             bracket_rows.append(

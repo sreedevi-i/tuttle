@@ -4,6 +4,7 @@
     "year": 2026,
     "formula_type": "german_progressive",
     "source": "§32a EStG 2026 (Steuerfortentwicklungsgesetz)",
+    "currency": "EUR",
 
     "income_tax": {
         "basic_allowance": 12096,
