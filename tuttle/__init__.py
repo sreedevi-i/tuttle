@@ -4,7 +4,7 @@ __authors__ = [
     "Christian Staudt",
     "Vladimir Peter",
 ]
-__version__ = "2.0.0a1"
+__version__ = "2.1.0a1"
 
 from . import app
 from . import (
