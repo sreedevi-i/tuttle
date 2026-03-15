@@ -1,0 +1,266 @@
+@page {
+  size: A4;
+  margin: 22mm 20mm 25mm 20mm;
+  @bottom-center {
+    content: element(runningFooter);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 9pt;
+  line-height: 1.6;
+  color: #333;
+  font-weight: 300;
+}
+
+.invoice {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* ── Header ────────────────────────────────────── */
+
+.header {
+  margin-bottom: 6pt;
+}
+
+.sender-name {
+  font-size: 20pt;
+  font-weight: 600;
+  letter-spacing: -0.5pt;
+  color: #111;
+}
+
+.sender-detail {
+  margin-top: 6pt;
+  font-size: 8.5pt;
+  line-height: 1.7;
+  color: #666;
+}
+
+/* ── Dividers ──────────────────────────────────── */
+
+.divider {
+  height: 0;
+  border: none;
+  border-top: 1pt solid #222;
+  margin: 16pt 0;
+}
+
+.divider.thin {
+  border-top-width: 0.25pt;
+  border-top-color: #ccc;
+}
+
+/* ── Addresses ─────────────────────────────────── */
+
+.addresses {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6pt;
+}
+
+.address-block {
+  flex: 1;
+}
+
+.address-value {
+  margin-top: 4pt;
+  font-size: 9pt;
+  line-height: 1.7;
+}
+
+.field-label {
+  display: block;
+  font-size: 7pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5pt;
+  color: #999;
+}
+
+.invoice-details {
+  text-align: right;
+}
+
+.details-table {
+  margin-left: auto;
+  border-collapse: collapse;
+}
+
+.details-table td {
+  padding: 2pt 0 2pt 16pt;
+  font-size: 9pt;
+  vertical-align: baseline;
+}
+
+.details-table .field-label {
+  display: inline;
+  text-align: right;
+  padding-right: 12pt;
+}
+
+.detail-value {
+  font-weight: 500;
+  color: #111;
+}
+
+/* ── Items Table ───────────────────────────────── */
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20pt;
+}
+
+.items-table thead th {
+  font-size: 7pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1pt;
+  color: #999;
+  text-align: left;
+  padding: 0 8pt 8pt 8pt;
+  border-bottom: 0.25pt solid #ccc;
+}
+
+.items-table tbody tr {
+  border-bottom: 0.25pt solid #e8e8e8;
+}
+
+.items-table tbody td {
+  padding: 10pt 8pt;
+  font-size: 8.5pt;
+  vertical-align: top;
+  font-weight: 300;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.col-qty, .col-unit, .col-price, .col-vat, .col-subtotal {
+  text-align: right;
+}
+
+.items-table thead th.col-qty,
+.items-table thead th.col-unit,
+.items-table thead th.col-price,
+.items-table thead th.col-vat,
+.items-table thead th.col-subtotal {
+  text-align: right;
+}
+
+.col-date { width: 16%; }
+.col-desc { width: 28%; }
+.col-qty { width: 7%; }
+.col-unit { width: 8%; }
+.col-price { width: 14%; }
+.col-vat { width: 9%; }
+.col-subtotal { width: 14%; }
+
+/* ── Totals ────────────────────────────────────── */
+
+.totals-section {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 30pt;
+}
+
+.totals {
+  width: 200pt;
+}
+
+.totals-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 3pt 0;
+  font-size: 9pt;
+}
+
+.totals-label {
+  color: #888;
+  font-weight: 300;
+}
+
+.totals-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: #333;
+}
+
+.totals .divider {
+  border-top-width: 1pt;
+  margin: 6pt 0;
+}
+
+.total-due {
+  font-size: 12pt;
+  font-weight: 600;
+}
+
+.total-due .totals-label {
+  color: #111;
+  font-weight: 600;
+}
+
+.total-due .totals-value {
+  color: #111;
+  font-weight: 600;
+}
+
+/* ── Payment ───────────────────────────────────── */
+
+.payment {
+  margin-bottom: 30pt;
+}
+
+.payment-value {
+  margin-top: 4pt;
+  font-size: 9pt;
+  color: #444;
+}
+
+/* ── Closing ───────────────────────────────────── */
+
+.closing {
+  margin-bottom: 40pt;
+  font-size: 9pt;
+  color: #555;
+}
+
+.closing p {
+  margin-bottom: 24pt;
+}
+
+.sig-line {
+  width: 120pt;
+  border-bottom: 0.25pt solid #aaa;
+  margin-bottom: 4pt;
+}
+
+/* ── Footer ────────────────────────────────────── */
+
+.footer {
+  position: running(runningFooter);
+  display: flex;
+  justify-content: center;
+  gap: 14pt;
+  font-size: 7pt;
+  color: #bbb;
+  padding-top: 6pt;
+  border-top: 0.25pt solid #ddd;
+}
+
+.footer span {
+  color: #999;
+}

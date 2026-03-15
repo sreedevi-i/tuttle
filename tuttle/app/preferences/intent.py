@@ -54,6 +54,8 @@ class PreferencesIntent(Intent):
                 preferences.cloud_acc_provider = preference_item_result.data
             elif item.value == PreferencesStorageKeys.language_key.value:
                 preferences.language = preference_item_result.data
+            elif item.value == PreferencesStorageKeys.invoice_template_key.value:
+                preferences.invoice_template = preference_item_result.data
 
         return IntentResult(
             was_intent_successful=True,
@@ -75,6 +77,10 @@ class PreferencesIntent(Intent):
             self.set_preference_key_value_pair(
                 PreferencesStorageKeys.language_key,
                 preferences.language,
+            )
+            self.set_preference_key_value_pair(
+                PreferencesStorageKeys.invoice_template_key,
+                preferences.invoice_template,
             )
         except Exception as e:
             result = IntentResult(
@@ -128,6 +134,16 @@ class PreferencesIntent(Intent):
         )
         if not result.was_intent_successful:
             result.error_msg = "Failed to load your preferred theme"
+            result.log_message_if_any()
+        return result
+
+    def get_preferred_invoice_template(self) -> IntentResult[Optional[str]]:
+        """Returns the preferred invoice template name as string"""
+        result: IntentResult = self.get_preference_by_key(
+            preference_key=PreferencesStorageKeys.invoice_template_key
+        )
+        if not result.was_intent_successful:
+            result.error_msg = "Failed to load your preferred invoice template"
             result.log_message_if_any()
         return result
 

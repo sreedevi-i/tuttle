@@ -1,0 +1,276 @@
+@page {
+  size: A4;
+  margin: 20mm 20mm 24mm 20mm;
+  @bottom-center {
+    content: element(runningFooter);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 9pt;
+  line-height: 1.55;
+  color: #222;
+  font-weight: 400;
+}
+
+.invoice {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* ── Header ────────────────────────────────────── */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.sender-name {
+  font-size: 20pt;
+  font-weight: 600;
+  color: #111;
+  letter-spacing: -0.4pt;
+}
+
+.sender-detail {
+  margin-top: 6pt;
+  font-size: 8.5pt;
+  line-height: 1.7;
+  color: #666;
+}
+
+.header-right {
+  text-align: right;
+  padding-top: 2pt;
+}
+
+.inv-number {
+  font-size: 14pt;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.inv-date {
+  font-size: 9pt;
+  color: #888;
+  margin-top: 2pt;
+}
+
+/* ── Accent Rule ───────────────────────────────── */
+
+.accent-rule {
+  border-top: 2pt solid #2563eb;
+  margin: 16pt 0 18pt 0;
+}
+
+/* ── Parties ───────────────────────────────────── */
+
+.parties {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24pt;
+}
+
+.party {
+  flex: 1;
+}
+
+.party-right {
+  text-align: right;
+}
+
+.label {
+  display: block;
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2pt;
+  color: #2563eb;
+  margin-bottom: 4pt;
+}
+
+.party-value {
+  font-size: 9pt;
+  line-height: 1.7;
+  color: #444;
+}
+
+.detail-table {
+  margin-left: auto;
+  border-collapse: collapse;
+}
+
+.detail-table td {
+  padding: 2pt 0;
+  font-size: 9pt;
+  vertical-align: baseline;
+}
+
+.detail-table .label {
+  display: inline;
+  text-align: right;
+  padding-right: 12pt;
+  color: #2563eb;
+}
+
+.detail-val {
+  font-weight: 600;
+  color: #222;
+  text-align: right;
+}
+
+/* ── Items Table ───────────────────────────────── */
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8pt;
+}
+
+.items-table thead th {
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8pt;
+  color: #2563eb;
+  text-align: left;
+  padding: 0 8pt 8pt 8pt;
+  border-bottom: 1.5pt solid #2563eb;
+}
+
+.items-table tbody tr {
+  border-bottom: 0.5pt solid #e5e7eb;
+}
+
+.items-table tbody td {
+  padding: 9pt 8pt;
+  font-size: 8.5pt;
+  vertical-align: top;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.col-qty, .col-unit, .col-price, .col-vat, .col-subtotal {
+  text-align: right;
+}
+
+.items-table thead th.col-qty,
+.items-table thead th.col-unit,
+.items-table thead th.col-price,
+.items-table thead th.col-vat,
+.items-table thead th.col-subtotal {
+  text-align: right;
+}
+
+.col-date { width: 16%; }
+.col-desc { width: 28%; }
+.col-qty { width: 7%; }
+.col-unit { width: 8%; }
+.col-price { width: 14%; }
+.col-vat { width: 9%; }
+.col-subtotal { width: 14%; }
+
+/* ── Bottom Section ────────────────────────────── */
+
+.bottom-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 30pt;
+  padding-top: 4pt;
+}
+
+.payment {
+  flex: 1;
+}
+
+.payment-value {
+  font-size: 9pt;
+  line-height: 1.7;
+  color: #444;
+  margin-top: 4pt;
+}
+
+.totals {
+  width: 210pt;
+  background: #f5f7ff;
+  border-radius: 3pt;
+  padding: 10pt 14pt;
+}
+
+.totals-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 3pt 0;
+  font-size: 9pt;
+}
+
+.totals-label {
+  color: #666;
+}
+
+.totals-amount {
+  font-variant-numeric: tabular-nums;
+  color: #222;
+}
+
+.totals-rule {
+  border-top: 1pt solid #2563eb;
+  margin: 5pt 0;
+}
+
+.total-due {
+  font-size: 11.5pt;
+  font-weight: 700;
+}
+
+.total-due .totals-label {
+  color: #111;
+}
+
+/* ── Closing ───────────────────────────────────── */
+
+.closing {
+  margin-bottom: 40pt;
+  font-size: 9pt;
+  color: #555;
+}
+
+.closing p {
+  margin-bottom: 22pt;
+}
+
+.sig-line {
+  width: 120pt;
+  border-bottom: 0.5pt solid #aaa;
+  margin-bottom: 4pt;
+}
+
+/* ── Footer ────────────────────────────────────── */
+
+.footer {
+  position: running(runningFooter);
+  display: flex;
+  justify-content: center;
+  gap: 14pt;
+  font-size: 7pt;
+  color: #bbb;
+  padding-top: 6pt;
+  border-top: 0.5pt solid #e5e7eb;
+}
+
+.footer span {
+  color: #888;
+}

@@ -18,6 +18,8 @@ from ...model import Invoice, InvoiceItem, Project, Timesheet, User
 
 from .data_source import InvoicingDataSource
 from ..auth.intent import AuthIntent
+from ..preferences.intent import PreferencesIntent
+from ..preferences.model import DEFAULT_INVOICE_TEMPLATE
 
 
 class InvoicingIntent(Intent):
@@ -35,13 +37,17 @@ class InvoicingIntent(Intent):
             reference to the ProjectsIntent for forwarding project related intents
         _auth_intent : AuthIntent
             reference to the AuthIntent for forwarding auth related intents
+        _preferences_intent : PreferencesIntent
+            reference to the PreferencesIntent for reading user preferences
         """
+        self._client_storage = client_storage
         self._timetracking_intent = TimeTrackingIntent(client_storage=client_storage)
         self._projects_intent = ProjectsIntent()
         self._invoicing_data_source = InvoicingDataSource()
         self._timetracking_data_source = TimeTrackingDataFrameSource()
         self._user_data_source = UserDataSource()
         self._auth_intent = AuthIntent()
+        self._preferences_intent = PreferencesIntent(client_storage=client_storage)
 
     def get_user(self) -> IntentResult[User]:
         user = self._user_data_source.get_user()
@@ -157,11 +163,18 @@ class InvoicingIntent(Intent):
                             f"Error rendering timesheet for {project.title}: {ex}"
                         )
                         logger.exception(ex)
+
+                template_name = DEFAULT_INVOICE_TEMPLATE
+                tmpl_result = self._preferences_intent.get_preferred_invoice_template()
+                if tmpl_result.was_intent_successful and tmpl_result.data:
+                    template_name = tmpl_result.data
+
                 try:
                     rendering.render_invoice(
                         user=user,
                         invoice=invoice,
                         out_dir=Path.home() / ".tuttle" / "Invoices",
+                        template_name=template_name,
                         only_final=True,
                     )
                 except Exception as ex:

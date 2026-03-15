@@ -66,7 +66,6 @@ class TestRenderInvoice:
         user = demo.create_fake_user(fake)
         invoice = demo.create_fake_invoice(fake)
         document_format = "html"
-        style = "anvil"
         only_final = False
 
         result = rendering.render_invoice(
@@ -74,7 +73,6 @@ class TestRenderInvoice:
             invoice=invoice,
             out_dir=None,
             document_format=document_format,
-            style=style,
             only_final=only_final,
         )
 
@@ -84,7 +82,6 @@ class TestRenderInvoice:
         user = demo.create_fake_user(fake)
         invoice = demo.create_fake_invoice(fake)
         document_format = "pdf"
-        style = "anvil"
         only_final = True
 
         with tempfile.TemporaryDirectory() as out_dir:
@@ -93,7 +90,6 @@ class TestRenderInvoice:
                 invoice=invoice,
                 out_dir=out_dir,
                 document_format=document_format,
-                style=style,
                 only_final=only_final,
             )
 

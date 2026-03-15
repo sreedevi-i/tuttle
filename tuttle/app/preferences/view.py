@@ -28,7 +28,7 @@ from ..core.utils import (
     START_ALIGNMENT,
 )
 from ..preferences.intent import PreferencesIntent
-from ..preferences.model import Preferences
+from ..preferences.model import INVOICE_TEMPLATES, Preferences
 from ..res import colors, dimens, fonts
 from ..res.dimens import (
     MIN_WINDOW_HEIGHT,
@@ -74,6 +74,10 @@ class PreferencesScreen(TView, Row):
         self.cloud_provider_control.update_value(self.preferences.cloud_acc_provider)
         self.cloud_account_id_control.value = self.preferences.cloud_acc_id
         self.languages_control.update_value(self.preferences.language)
+        template_display = INVOICE_TEMPLATES.get(
+            self.preferences.invoice_template, "Modern"
+        )
+        self.invoice_template_control.update_value(template_display)
 
     def on_theme_changed(self, e):
         if not self.preferences:
@@ -91,6 +95,14 @@ class PreferencesScreen(TView, Row):
         self.tabs.width = self.body_width - SPACE_MD
         self.tabs.height = height - SPACE_MD * 2
         self.update_self()
+
+    def on_invoice_template_selected(self, e):
+        if not self.preferences:
+            return
+        display_name = e.control.value
+        _reverse = {v: k for k, v in INVOICE_TEMPLATES.items()}
+        if display_name in _reverse:
+            self.preferences.invoice_template = _reverse[display_name]
 
     def on_language_selected(self, e):
         if not self.preferences:
@@ -186,8 +198,12 @@ class PreferencesScreen(TView, Row):
                 "English",
             ],
         )
+        self.invoice_template_control = views.TDropDown(
+            label="Invoice Template",
+            on_change=self.on_invoice_template_selected,
+            items=list(INVOICE_TEMPLATES.values()),
+        )
 
-        # a reset button for the app with a warning sign, warning color and a confirmation dialog
         self.reset_button = views.TDangerButton(
             label="Reset App and Quit",
             icon=Icons.RESTART_ALT_OUTLINED,
@@ -198,7 +214,7 @@ class PreferencesScreen(TView, Row):
         self.tabs = Tabs(
             selected_index=0,
             animation_duration=300,
-            length=3,
+            length=4,
             width=self.body_width - SPACE_MD,
             height=MIN_WINDOW_HEIGHT,
             content=Column(
@@ -207,6 +223,9 @@ class PreferencesScreen(TView, Row):
                     TabBar(
                         tabs=[
                             self._make_tab_header("General", Icons.SETTINGS_OUTLINED),
+                            self._make_tab_header(
+                                "Documents", Icons.DESCRIPTION_OUTLINED
+                            ),
                             self._make_tab_header("Cloud", Icons.CLOUD_OUTLINED),
                             self._make_tab_header("Locale", Icons.LANGUAGE_OUTLINED),
                         ],
@@ -219,6 +238,15 @@ class PreferencesScreen(TView, Row):
                                     self.theme_control,
                                     views.Spacer(lg_space=True),
                                     self.reset_button,
+                                ]
+                            ),
+                            self._make_tab_content(
+                                [
+                                    views.TBodyText(
+                                        txt="Choose the template used when rendering new invoices.",
+                                    ),
+                                    views.Spacer(sm_space=True),
+                                    self.invoice_template_control,
                                 ]
                             ),
                             self._make_tab_content(
@@ -324,6 +352,10 @@ class PreferencesContent(TView, Column):
         self.cloud_provider_control.update_value(self.preferences.cloud_acc_provider)
         self.cloud_account_id_control.value = self.preferences.cloud_acc_id
         self.languages_control.update_value(self.preferences.language)
+        template_display = INVOICE_TEMPLATES.get(
+            self.preferences.invoice_template, "Modern"
+        )
+        self.invoice_template_control.update_value(template_display)
 
     def on_theme_changed(self, e):
         if not self.preferences:
@@ -333,6 +365,14 @@ class PreferencesContent(TView, Column):
             self.preferences.theme_mode = selected
             self.on_theme_changed_callback(selected)
             self.update_self()
+
+    def on_invoice_template_selected(self, e):
+        if not self.preferences:
+            return
+        display_name = e.control.value
+        _reverse = {v: k for k, v in INVOICE_TEMPLATES.items()}
+        if display_name in _reverse:
+            self.preferences.invoice_template = _reverse[display_name]
 
     def on_language_selected(self, e):
         if not self.preferences:
@@ -398,13 +438,18 @@ class PreferencesContent(TView, Column):
 
     def build(self):
         self._selected_tab = 0
-        self._tab_labels = ["General", "Cloud", "Locale"]
+        self._tab_labels = ["General", "Documents", "Cloud", "Locale"]
         self.loading_indicator = views.TProgressBar()
         self.theme_control = views.TDropDown(
             items=[mode.value for mode in THEME_MODES],
             on_change=self.on_theme_changed,
             label="Appearance",
             hint="",
+        )
+        self.invoice_template_control = views.TDropDown(
+            label="Invoice Template",
+            on_change=self.on_invoice_template_selected,
+            items=list(INVOICE_TEMPLATES.values()),
         )
         self.cloud_provider_control = views.TDropDown(
             label="Cloud Provider",
@@ -434,6 +479,15 @@ class PreferencesContent(TView, Column):
                     self.theme_control,
                     views.Spacer(lg_space=True),
                     self.reset_button,
+                ]
+            ),
+            self._make_tab_content(
+                [
+                    views.TBodyText(
+                        txt="Choose the template used when rendering new invoices.",
+                    ),
+                    views.Spacer(sm_space=True),
+                    self.invoice_template_control,
                 ]
             ),
             self._make_tab_content(

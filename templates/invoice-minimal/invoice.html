@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice No. {{ invoice.number }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="./invoice.css">
+</head>
+<body>
+
+<div class="invoice">
+
+  <header class="header">
+    <div class="sender-block">
+      <div class="sender-name">{{ user.name }}</div>
+      <div class="sender-detail">
+        {{ user.subtitle }}<br>
+        {{ user.address.html }}
+        {{ user.email }}
+        {% if user.phone_number %}<br>{{ user.phone_number }}{% endif %}
+        {% if user.website %}<br>{{ user.website }}{% endif %}
+      </div>
+    </div>
+  </header>
+
+  <div class="divider"></div>
+
+  <div class="addresses">
+    <div class="address-block">
+      <span class="field-label">Billed to</span>
+      <div class="address-value">
+        {{ invoice.contract.client.name }}<br>
+        c/o {{ invoice.contract.client.invoicing_contact.name }}<br>
+        {{ invoice.contract.client.invoicing_contact.address.html }}
+      </div>
+    </div>
+    <div class="invoice-details">
+      <table class="details-table">
+        <tr>
+          <td class="field-label">Invoice No.</td>
+          <td class="detail-value">{{ invoice.number }}</td>
+        </tr>
+        <tr>
+          <td class="field-label">Date</td>
+          <td class="detail-value">{{ invoice.date }}</td>
+        </tr>
+        <tr>
+          <td class="field-label">Due</td>
+          <td class="detail-value">{{ invoice.due_date }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider thin"></div>
+
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th class="col-date">Date</th>
+        <th class="col-desc">Description</th>
+        <th class="col-qty">Qty</th>
+        <th class="col-unit">Unit</th>
+        <th class="col-price">Unit Price</th>
+        <th class="col-vat">VAT</th>
+        <th class="col-subtotal">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in invoice.items %}
+      <tr>
+        <td class="col-date">{{ item.start_date }} – {{ item.end_date }}</td>
+        <td class="col-desc">{{ item.description }}</td>
+        <td class="col-qty num">{{ item.quantity }}</td>
+        <td class="col-unit">{{ item.unit }}</td>
+        <td class="col-price num">{{ item.unit_price | as_currency }}</td>
+        <td class="col-vat num">{{ item.VAT_rate | as_percentage }}</td>
+        <td class="col-subtotal num">{{ item.subtotal | as_currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="totals-section">
+    <div class="totals">
+      <div class="totals-line">
+        <span class="totals-label">Subtotal</span>
+        <span class="totals-value">{{ invoice.sum | as_currency }}</span>
+      </div>
+      <div class="totals-line">
+        <span class="totals-label">VAT</span>
+        <span class="totals-value">{{ invoice.VAT_total | as_currency }}</span>
+      </div>
+      <div class="divider"></div>
+      <div class="totals-line total-due">
+        <span class="totals-label">Total Due</span>
+        <span class="totals-value">{{ invoice.total | as_currency }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="payment">
+    <span class="field-label">Payment</span>
+    <div class="payment-value">
+      IBAN: {{ user.bank_account.IBAN }}
+      {% if user.bank_account.BIC %}&emsp;BIC: {{ user.bank_account.BIC }}{% endif %}
+    </div>
+  </div>
+
+  <div class="closing">
+    <p>Thank you for your business.</p>
+    <div class="sig-line"></div>
+    {{ user.name }}
+  </div>
+
+  <div class="footer">
+    <span>{{ user.name }}</span>
+    <span>IBAN: {{ user.bank_account.IBAN }}</span>
+    {% if user.bank_account.BIC %}<span>BIC: {{ user.bank_account.BIC }}</span>{% endif %}
+    {% if user.VAT_number %}<span>VAT: {{ user.VAT_number }}</span>{% endif %}
+  </div>
+
+</div>
+
+</body>
+</html>

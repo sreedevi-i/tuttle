@@ -2,12 +2,23 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+INVOICE_TEMPLATES = {
+    "invoice-modern": "Modern",
+    "invoice-classic": "Classic",
+    "invoice-minimal": "Minimal",
+    "invoice-anvil": "Legacy (Anvil)",
+}
+
+DEFAULT_INVOICE_TEMPLATE = "invoice-modern"
+
+
 @dataclass
 class Preferences:
     theme_mode: str = ""
     cloud_acc_id: str = ""
     cloud_acc_provider: str = ""
     language: str = ""
+    invoice_template: str = DEFAULT_INVOICE_TEMPLATE
 
 
 class PreferencesStorageKeys(Enum):
@@ -17,6 +28,7 @@ class PreferencesStorageKeys(Enum):
     cloud_acc_id_key = "preferred_cloud_acc_id"
     cloud_provider_key = "preferred_cloud_acc_provider"
     language_key = "preferred_language"
+    invoice_template_key = "preferred_invoice_template"
 
     def __str__(self) -> str:
         return str(self.value)

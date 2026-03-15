@@ -134,18 +134,18 @@ def render_invoice(
     invoice: Invoice,
     out_dir,
     document_format: str = "pdf",
-    style: str = "anvil",
+    template_name: str = "invoice-modern",
     only_final: bool = False,
 ):
     """Render an Invoice using an HTML template.
 
     Args:
-        user (User): [description]
-        invoice (Invoice): [description]
-        only_output (bool, optional): Store only the final output. Defaults to False.
-
-    Returns:
-        str: [description]
+        user: The freelancer / app user.
+        invoice: The invoice to render.
+        out_dir: Output directory. If None, returns the raw HTML string.
+        document_format: "pdf" or "html".
+        template_name: Directory name under templates/ (e.g. "invoice-modern").
+        only_final: Keep only the final output file and remove intermediates.
     """
 
     def as_currency(number):
@@ -156,69 +156,50 @@ def render_invoice(
     def as_percentage(number):
         return f"{number * 100:.1f} %"
 
-    template_name = f"invoice-anvil"
     template_path = get_template_path(template_name)
     template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
 
     template_env.filters["as_currency"] = as_currency
     template_env.filters["as_percentage"] = as_percentage
 
-    invoice_template = template_env.get_template(f"invoice.html")
+    invoice_template = template_env.get_template("invoice.html")
     html = invoice_template.render(
         user=user,
         invoice=invoice,
-        style=style,
     )
-    # output
     if out_dir is None:
         return html
-    else:
-        # write invoice html
-        invoice_dir = Path(out_dir) / Path(invoice.prefix)
-        invoice_dir.mkdir(parents=True, exist_ok=True)
-        invoice_path = invoice_dir / Path(f"{invoice.prefix}.html")
-        with open(invoice_path, "w") as invoice_file:
-            invoice_file.write(html)
-        # copy stylsheets
-        if style:
-            stylesheets = []
-            stylesheet_folders = []
-            if style == "anvil":
-                stylesheets = ["invoice.css"]
-                stylesheet_folders = [
-                    "web",
-                ]
-            for stylesheet_path in stylesheets:
-                stylesheet_path = template_path / stylesheet_path
-                shutil.copy(stylesheet_path, invoice_dir)
-            for stylesheet_folder_path in stylesheet_folders:
-                full_stylesheet_folder_path = template_path / stylesheet_folder_path
-                shutil.copytree(
-                    full_stylesheet_folder_path,
-                    invoice_dir / stylesheet_folder_path,
-                    dirs_exist_ok=True,
-                )
+
+    invoice_dir = Path(out_dir) / Path(invoice.prefix)
+    invoice_dir.mkdir(parents=True, exist_ok=True)
+    invoice_path = invoice_dir / Path(f"{invoice.prefix}.html")
+    with open(invoice_path, "w") as invoice_file:
+        invoice_file.write(html)
+
+    # Copy all CSS files and subdirectories from the template
+    for item in template_path.iterdir():
+        dest = invoice_dir / item.name
+        if item.is_file() and item.suffix == ".css":
+            shutil.copy(item, dest)
+        elif item.is_dir() and not item.name.startswith("."):
+            shutil.copytree(item, dest, dirs_exist_ok=True)
+
+    if document_format == "pdf":
+        css_paths = [
+            path for path in glob.glob(f"{invoice_dir}/**/*.css", recursive=True)
+        ]
+        convert_html_to_pdf(
+            in_path=str(invoice_path),
+            css_paths=css_paths,
+            out_path=invoice_dir / Path(f"{invoice.prefix}.pdf"),
+        )
+    if only_final:
+        final_output_path = out_dir / Path(f"{invoice.prefix}.{document_format}")
         if document_format == "pdf":
-            css_paths = [
-                path for path in glob.glob(f"{invoice_dir}/**/*.css", recursive=True)
-            ]
-            convert_html_to_pdf(
-                in_path=str(invoice_path),
-                css_paths=css_paths,
-                out_path=invoice_dir / Path(f"{invoice.prefix}.pdf"),
-            )
-        if only_final:
-            final_output_path = out_dir / Path(f"{invoice.prefix}.{document_format}")
-            if document_format == "pdf":
-                shutil.move(
-                    invoice_dir / Path(f"{invoice.prefix}.pdf"), final_output_path
-                )
-            else:
-                shutil.move(
-                    invoice_dir / Path(f"{invoice.prefix}.html"), final_output_path
-                )
-            shutil.rmtree(invoice_dir)
-    # finally set the rendered flag
+            shutil.move(invoice_dir / Path(f"{invoice.prefix}.pdf"), final_output_path)
+        else:
+            shutil.move(invoice_dir / Path(f"{invoice.prefix}.html"), final_output_path)
+        shutil.rmtree(invoice_dir)
     invoice.rendered = True
 
 
