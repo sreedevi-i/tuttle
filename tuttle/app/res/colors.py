@@ -40,6 +40,7 @@ status_upcoming = "#0A84FF"  # upcoming / scheduled
 status_completed = "#8E8E93"  # completed / archived
 status_overdue = "#FF453A"  # overdue invoices
 status_draft = "#636366"  # draft / not yet sent
+goal_purple = "#BF5AF2"  # financial goals (macOS system purple)
 
 # ── Borders & separators ─────────────────────────────────────
 border = "#38383A"  # card borders, dividers

@@ -33,6 +33,7 @@ from ..core.status_bar import StatusBarManager
 from ..dashboard.view import DashboardView
 from ..invoicing.view import InvoicingListView
 from ..tax.view import TaxView
+from ..timeline.view import TimelineView
 from ..projects.view import ProjectsListView
 from ..res import colors, dimens, fonts, res_utils, theme
 from ..timetracking.view import TimeTrackingView
@@ -123,6 +124,7 @@ class InsightsMenuHandler:
         super().__init__()
         self.menu_title = "Insights"
         self.dashboard_view = DashboardView(params)
+        self.timeline_view = TimelineView(params)
         self.tax_view = TaxView(params)
         self.items = [
             views.NavigationMenuItem(
@@ -134,6 +136,13 @@ class InsightsMenuHandler:
             ),
             views.NavigationMenuItem(
                 index=1,
+                label="Timeline",
+                icon=utils.TuttleComponentIcons.timeline_icon,
+                selected_icon=utils.TuttleComponentIcons.timeline_selected_icon,
+                destination=self.timeline_view,
+            ),
+            views.NavigationMenuItem(
+                index=2,
                 label="Tax & Reserves",
                 icon=utils.TuttleComponentIcons.tax_icon,
                 selected_icon=utils.TuttleComponentIcons.tax_selected_icon,
@@ -456,6 +465,8 @@ class HomeScreen(TView, Container):
                 count_text = "Time Tracking"
             elif view_label == "Dashboard":
                 count_text = "Dashboard"
+            elif view_label == "Timeline":
+                count_text = "Timeline"
         except Exception:
             pass
 

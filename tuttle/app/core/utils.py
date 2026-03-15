@@ -150,6 +150,8 @@ class TuttleComponentIcons(Enum):
     payment_selected_icon = Icons.PAYMENT_ROUNDED
     profile_photo_icon = Icons.PHOTO_OUTLINED
     profile_photo_selected_icon = Icons.PHOTO_ROUNDED
+    timeline_icon = Icons.TIMELINE_OUTLINED
+    timeline_selected_icon = Icons.TIMELINE_ROUNDED
 
     def __str__(self) -> str:
         return str(self.value)
