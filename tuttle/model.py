@@ -746,3 +746,26 @@ class FinancialGoal(SQLModel, table=True):
         default=False,
         description="Whether the goal has been reached.",
     )
+
+
+class RecurringExpense(SQLModel, table=True):
+    """A regular operating expense that reduces the freelancer's spendable income.
+
+    Examples: health insurance, professional liability insurance, accounting software.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(description="Short label, e.g. 'Health Insurance'.")
+    amount: Decimal = Field(
+        description="Amount per period in the given currency.",
+        sa_column=sqlalchemy.Column(sqlalchemy.Numeric(12, 2), nullable=False),
+    )
+    currency: str = Field(default="EUR", description="ISO 4217 currency code.")
+    period: Cycle = Field(
+        sa_column=sqlalchemy.Column(sqlalchemy.Enum(Cycle), nullable=False),
+        description="How often this expense recurs.",
+    )
+    category: str = Field(
+        default="operating",
+        description="Category tag: 'insurance', 'operating', 'professional', 'other'.",
+    )

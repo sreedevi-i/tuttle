@@ -152,6 +152,8 @@ class TuttleComponentIcons(Enum):
     profile_photo_selected_icon = Icons.PHOTO_ROUNDED
     timeline_icon = Icons.TIMELINE_OUTLINED
     timeline_selected_icon = Icons.TIMELINE_ROUNDED
+    salary_icon = Icons.SAVINGS_OUTLINED
+    salary_selected_icon = Icons.SAVINGS_ROUNDED
 
     def __str__(self) -> str:
         return str(self.value)

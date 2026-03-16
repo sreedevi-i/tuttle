@@ -32,6 +32,7 @@ from ..core.abstractions import DialogHandler, TView, TViewParams
 from ..core.status_bar import StatusBarManager
 from ..dashboard.view import DashboardView
 from ..invoicing.view import InvoicingListView
+from ..salary.view import SalaryView
 from ..tax.view import TaxView
 from ..timeline.view import TimelineView
 from ..projects.view import ProjectsListView
@@ -126,6 +127,7 @@ class InsightsMenuHandler:
         self.dashboard_view = DashboardView(params)
         self.timeline_view = TimelineView(params)
         self.tax_view = TaxView(params)
+        self.salary_view = SalaryView(params)
         self.items = [
             views.NavigationMenuItem(
                 index=0,
@@ -147,6 +149,13 @@ class InsightsMenuHandler:
                 icon=utils.TuttleComponentIcons.tax_icon,
                 selected_icon=utils.TuttleComponentIcons.tax_selected_icon,
                 destination=self.tax_view,
+            ),
+            views.NavigationMenuItem(
+                index=3,
+                label="Salary",
+                icon=utils.TuttleComponentIcons.salary_icon,
+                selected_icon=utils.TuttleComponentIcons.salary_selected_icon,
+                destination=self.salary_view,
             ),
         ]
 

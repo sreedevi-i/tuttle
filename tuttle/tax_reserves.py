@@ -9,8 +9,9 @@ import logging
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
-from .model import Invoice
+from .model import Invoice, RecurringExpense
 from .tax import get_tax_system
+from .time import Cycle
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +205,137 @@ def compute_spendable_income(
         vat_reserve=vat_ytd,
         income_tax_reserve=tax_reserve.ytd_reserve,
         spendable=spendable,
+    )
+
+
+def _normalize_to_monthly(expense: RecurringExpense) -> Decimal:
+    """Convert a recurring expense amount to its monthly equivalent."""
+    period_to_months = {
+        Cycle.monthly: Decimal(1),
+        Cycle.quarterly: Decimal(3),
+        Cycle.yearly: Decimal(12),
+        Cycle.weekly: Decimal("0.25"),  # ~4.33 weeks/month → approx
+        Cycle.daily: Decimal("30"),
+        Cycle.hourly: Decimal("160"),  # rough ~160 work-hours/month
+    }
+    divisor = period_to_months.get(expense.period, Decimal(1))
+    return (expense.amount / divisor).quantize(Decimal("0.01"))
+
+
+def _monthly_expenses_total(expenses: List[RecurringExpense]) -> Decimal:
+    """Sum all recurring expenses, normalized to a monthly amount."""
+    return sum((_normalize_to_monthly(e) for e in expenses), Decimal(0))
+
+
+class EffectiveSalary(NamedTuple):
+    """The freelancer's safe-to-spend monthly salary, expressed as a range.
+
+    conservative_monthly — floor: based only on revenue already received (paid invoices)
+    optimistic_monthly   — ceiling: includes outstanding (unpaid, non-cancelled) invoices
+    monthly_expenses     — normalized total of recurring operating expenses
+    income_tax_reserve_monthly — prorated income-tax reserve per month
+    vat_reserve_monthly        — prorated VAT reserve per month
+    currency             — ISO 4217 currency code
+    """
+
+    conservative_monthly: Decimal
+    optimistic_monthly: Decimal
+    monthly_expenses: Decimal
+    income_tax_reserve_monthly: Decimal
+    vat_reserve_monthly: Decimal
+    currency: str
+
+
+def compute_effective_salary(
+    invoices: List[Invoice],
+    expenses: List[RecurringExpense],
+    country: str,
+    currency: Optional[str] = None,
+) -> EffectiveSalary:
+    """Compute the freelancer's effective monthly salary range.
+
+    The *conservative* figure uses only paid invoices (certain, received revenue).
+    The *optimistic* figure adds outstanding (sent but unpaid) invoices.
+    Both are reduced by the prorated VAT reserve, income-tax reserve, and the
+    total monthly recurring expenses.
+    """
+    today = datetime.date.today()
+    year_start = today.replace(month=1, day=1)
+
+    if currency is None:
+        try:
+            tax_system = get_tax_system(country, date=today)
+            currency = tax_system.currency
+        except NotImplementedError:
+            currency = "EUR"
+
+    months_elapsed = max(
+        (today.year - year_start.year) * 12 + today.month - year_start.month + 1, 1
+    )
+
+    gross_paid = Decimal(0)
+    vat_paid = Decimal(0)
+    gross_outstanding = Decimal(0)
+    vat_outstanding = Decimal(0)
+
+    for inv in invoices:
+        if inv.cancelled:
+            continue
+        if inv.date < year_start:
+            continue
+        if currency and _invoice_currency(inv) not in (currency, None):
+            continue
+        if inv.paid:
+            gross_paid += inv.total
+            vat_paid += inv.VAT_total
+        else:
+            gross_outstanding += inv.total
+            vat_outstanding += inv.VAT_total
+
+    net_paid = gross_paid - vat_paid
+    net_all = net_paid + (gross_outstanding - vat_outstanding)
+
+    # Income-tax reserve based on each revenue scenario
+    tax_conservative = compute_income_tax_reserve(net_paid, country)
+    tax_optimistic = compute_income_tax_reserve(net_all, country)
+
+    monthly_vat_conservative = (vat_paid / months_elapsed).quantize(Decimal("0.01"))
+    monthly_vat_optimistic = ((vat_paid + vat_outstanding) / months_elapsed).quantize(
+        Decimal("0.01")
+    )
+
+    monthly_tax_conservative = (tax_conservative.ytd_reserve / months_elapsed).quantize(
+        Decimal("0.01")
+    )
+    monthly_tax_optimistic = (tax_optimistic.ytd_reserve / months_elapsed).quantize(
+        Decimal("0.01")
+    )
+
+    monthly_exp = _monthly_expenses_total(expenses)
+
+    conservative = (
+        net_paid / months_elapsed - monthly_tax_conservative - monthly_exp
+    ).quantize(Decimal("0.01"))
+
+    optimistic = (
+        net_all / months_elapsed - monthly_tax_optimistic - monthly_exp
+    ).quantize(Decimal("0.01"))
+
+    # Use the average monthly figures for display breakdown
+    avg_monthly_vat = (
+        (monthly_vat_conservative + monthly_vat_optimistic) / 2
+    ).quantize(Decimal("0.01"))
+    avg_monthly_tax = (
+        (monthly_tax_conservative + monthly_tax_optimistic) / 2
+    ).quantize(Decimal("0.01"))
+
+    return EffectiveSalary(
+        conservative_monthly=conservative,
+        optimistic_monthly=optimistic,
+        monthly_expenses=monthly_exp,
+        income_tax_reserve_monthly=avg_monthly_tax,
+        vat_reserve_monthly=avg_monthly_vat,
+        currency=currency,
     )
 
 
