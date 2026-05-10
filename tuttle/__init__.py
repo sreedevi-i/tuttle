@@ -6,7 +6,11 @@ __authors__ = [
 ]
 __version__ = "2.1.0a1"
 
-from . import app
+try:
+    from . import app
+except ImportError:
+    pass
+
 from . import (
     banking,
     calendar,

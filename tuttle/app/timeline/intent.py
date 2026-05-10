@@ -11,11 +11,9 @@ import datetime
 from dataclasses import dataclass
 from typing import List, Optional
 
-from flet import Icons
-
 from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
-from ..core.utils import fmt_currency
+from ..core.formatting import fmt_currency
 from ..res import colors
 
 from ...model import Contract, Invoice, Project, FinancialGoal
@@ -35,11 +33,22 @@ CATEGORY_COLORS = {
     CATEGORY_GOAL: colors.goal_purple,
 }
 
+# Icon codepoints (Material Symbols) -- same values as flet.Icons members.
+ICON_RECEIPT_OUTLINED = 71694
+ICON_HANDSHAKE_OUTLINED = 69034
+ICON_WORK_OUTLINE = 74308
+ICON_FLAG_OUTLINED = 68514
+ICON_CANCEL_OUTLINED = 66730
+ICON_CHECK_CIRCLE_OUTLINE = 66871
+ICON_WARNING_AMBER_ROUNDED = 74074
+ICON_SCHEDULE = 72057
+ICON_EMOJI_EVENTS_OUTLINED = 68020
+
 CATEGORY_ICONS = {
-    CATEGORY_INVOICE: Icons.RECEIPT_OUTLINED,
-    CATEGORY_CONTRACT: Icons.HANDSHAKE_OUTLINED,
-    CATEGORY_PROJECT: Icons.WORK_OUTLINE,
-    CATEGORY_GOAL: Icons.FLAG_OUTLINED,
+    CATEGORY_INVOICE: ICON_RECEIPT_OUTLINED,
+    CATEGORY_CONTRACT: ICON_HANDSHAKE_OUTLINED,
+    CATEGORY_PROJECT: ICON_WORK_OUTLINE,
+    CATEGORY_GOAL: ICON_FLAG_OUTLINED,
 }
 
 
@@ -54,7 +63,7 @@ class TimelineEvent:
     title: str
     description: str
     category: str
-    icon: str
+    icon: int
     color: str
     is_future: bool
     entity_id: Optional[int] = None
@@ -127,7 +136,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                         title=f"{label} cancelled",
                         description=client_name,
                         category=cat,
-                        icon=Icons.CANCEL_OUTLINED,
+                        icon=ICON_CANCEL_OUTLINED,
                         color=colors.danger,
                         is_future=False,
                         entity_id=inv.id,
@@ -142,7 +151,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                         title=f"{label} paid",
                         description=desc,
                         category=cat,
-                        icon=Icons.CHECK_CIRCLE_OUTLINE,
+                        icon=ICON_CHECK_CIRCLE_OUTLINE,
                         color=colors.success,
                         is_future=False,
                         entity_id=inv.id,
@@ -174,9 +183,9 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                         title=f"{label} {'overdue' if is_overdue else 'due'}",
                         description=desc,
                         category=cat,
-                        icon=Icons.WARNING_AMBER_ROUNDED
+                        icon=ICON_WARNING_AMBER_ROUNDED
                         if is_overdue
-                        else Icons.SCHEDULE,
+                        else ICON_SCHEDULE,
                         color=colors.danger if is_overdue else color,
                         is_future=due > today,
                         entity_id=inv.id,
@@ -263,7 +272,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                         title=f"{label} completed",
                         description=client_name,
                         category=cat,
-                        icon=Icons.CHECK_CIRCLE_OUTLINE,
+                        icon=ICON_CHECK_CIRCLE_OUTLINE,
                         color=colors.success,
                         is_future=False,
                         entity_id=p.id,
@@ -303,7 +312,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                         title=f"{g.title} reached",
                         description=fmt_currency(g.target_amount),
                         category=cat,
-                        icon=Icons.EMOJI_EVENTS_OUTLINED,
+                        icon=ICON_EMOJI_EVENTS_OUTLINED,
                         color=colors.success,
                         is_future=False,
                         entity_id=g.id,

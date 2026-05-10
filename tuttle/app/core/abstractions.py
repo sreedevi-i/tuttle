@@ -1,11 +1,11 @@
-from typing import Any, Callable, List, Mapping, Optional, Type
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Type
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 import functools
-
-from flet import AlertDialog, FilePicker
 
 import sqlalchemy
 import sqlmodel
@@ -13,8 +13,11 @@ from sqlmodel import pool
 
 from loguru import logger
 
-from .utils import AUTO_SCROLL, START_ALIGNMENT, CROSS_START, AlertDialogControls
 from .intent_result import IntentResult
+
+if TYPE_CHECKING:
+    from flet import AlertDialog
+    from .utils import AlertDialogControls
 
 
 class DatabaseStorage(ABC):
@@ -99,11 +102,21 @@ class TViewParams:
     dialog_controller: Callable
     pick_file_callback: Callable
     client_storage: ClientStorage
-    vertical_alignment_in_parent = START_ALIGNMENT
-    horizontal_alignment_in_parent = CROSS_START
     keep_back_stack: bool = True
     on_navigate_back: Optional[Callable] = None
-    page_scroll_type = AUTO_SCROLL
+    vertical_alignment_in_parent: Any = None
+    horizontal_alignment_in_parent: Any = None
+    page_scroll_type: Any = None
+
+    def __post_init__(self):
+        from .utils import AUTO_SCROLL, START_ALIGNMENT, CROSS_START
+
+        if self.vertical_alignment_in_parent is None:
+            self.vertical_alignment_in_parent = START_ALIGNMENT
+        if self.horizontal_alignment_in_parent is None:
+            self.horizontal_alignment_in_parent = CROSS_START
+        if self.page_scroll_type is None:
+            self.page_scroll_type = AUTO_SCROLL
 
 
 class TView(ABC):
@@ -169,12 +182,16 @@ class DialogHandler(ABC):
     ):
         super().__init__()
         self.dialog_controller = dialog_controller
-        self.dialog: AlertDialog = dialog
+        self.dialog = dialog
 
     def close_dialog(self, e: Optional[any] = None):
+        from .utils import AlertDialogControls
+
         self.dialog_controller(self.dialog, AlertDialogControls.CLOSE)
 
     def open_dialog(self, e: Optional[any] = None):
+        from .utils import AlertDialogControls
+
         self.dialog_controller(self.dialog, AlertDialogControls.ADD_AND_OPEN)
 
     def dimiss_open_dialogs(self):
