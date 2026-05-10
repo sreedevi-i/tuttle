@@ -4,6 +4,8 @@ struct ContactsView: View {
     @State private var viewModel = BusinessViewModel()
     @State private var selectedContact: Entity?
     @State private var searchText = ""
+    @State private var showingForm = false
+    @State private var editingEntity: Entity?
 
     private var filtered: [Entity] {
         if searchText.isEmpty { return viewModel.contacts }
@@ -25,6 +27,16 @@ struct ContactsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Contacts")
         .searchable(text: $searchText, prompt: "Search contacts…")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { editingEntity = nil; showingForm = true } label: {
+                    Label("Add Contact", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingForm) {
+            ContactFormSheet(viewModel: viewModel, editing: editingEntity)
+        }
         .onAppear { viewModel.loadAll() }
         .refreshable { viewModel.loadAll() }
     }
@@ -111,6 +123,15 @@ struct ContactsView: View {
                             DetailRow(label: "Location", value: contact.location, icon: "mappin")
                         }
                     }
+
+                    Button {
+                        editingEntity = contact
+                        showingForm = true
+                    } label: {
+                        Label("Edit Contact", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(20)
             }

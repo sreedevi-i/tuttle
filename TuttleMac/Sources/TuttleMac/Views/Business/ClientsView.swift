@@ -4,6 +4,8 @@ struct ClientsView: View {
     @State private var viewModel = BusinessViewModel()
     @State private var selectedClient: Entity?
     @State private var searchText = ""
+    @State private var showingForm = false
+    @State private var editingEntity: Entity?
 
     private var filtered: [Entity] {
         if searchText.isEmpty { return viewModel.clients }
@@ -24,6 +26,16 @@ struct ClientsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Clients")
         .searchable(text: $searchText, prompt: "Search clients…")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { editingEntity = nil; showingForm = true } label: {
+                    Label("Add Client", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingForm) {
+            ClientFormSheet(viewModel: viewModel, editing: editingEntity)
+        }
         .onAppear { viewModel.loadAll() }
         .refreshable { viewModel.loadAll() }
     }
@@ -115,6 +127,15 @@ struct ClientsView: View {
                             StatPill(label: "Contracts", value: "\(client.int("num_contracts"))", icon: "signature")
                         }
                     }
+
+                    Button {
+                        editingEntity = client
+                        showingForm = true
+                    } label: {
+                        Label("Edit Client", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(20)
             }

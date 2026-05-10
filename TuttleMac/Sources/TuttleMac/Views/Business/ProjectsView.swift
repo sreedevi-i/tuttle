@@ -5,6 +5,8 @@ struct ProjectsView: View {
     @State private var selectedProject: Entity?
     @State private var statusFilter: EntityStatus = .all
     @State private var searchText = ""
+    @State private var showingForm = false
+    @State private var editingEntity: Entity?
 
     private var filtered: [Entity] {
         viewModel.projects.filter { p in
@@ -26,6 +28,16 @@ struct ProjectsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Projects")
         .searchable(text: $searchText, prompt: "Search projects…")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { editingEntity = nil; showingForm = true } label: {
+                    Label("Add Project", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingForm) {
+            ProjectFormSheet(viewModel: viewModel, editing: editingEntity)
+        }
         .onAppear { viewModel.loadAll() }
         .refreshable { viewModel.loadAll() }
     }
@@ -141,6 +153,15 @@ struct ProjectsView: View {
                             StatPill(label: "Timesheets", value: "\(project.int("num_timesheets"))", icon: "clock")
                         }
                     }
+
+                    Button {
+                        editingEntity = project
+                        showingForm = true
+                    } label: {
+                        Label("Edit Project", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(20)
             }

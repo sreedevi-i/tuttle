@@ -5,6 +5,8 @@ struct ContractsView: View {
     @State private var selectedContract: Entity?
     @State private var statusFilter: EntityStatus = .all
     @State private var searchText = ""
+    @State private var showingForm = false
+    @State private var editingEntity: Entity?
 
     private var filtered: [Entity] {
         viewModel.contracts.filter { c in
@@ -25,6 +27,16 @@ struct ContractsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Contracts")
         .searchable(text: $searchText, prompt: "Search contracts…")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { editingEntity = nil; showingForm = true } label: {
+                    Label("Add Contract", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingForm) {
+            ContractFormSheet(viewModel: viewModel, editing: editingEntity)
+        }
         .onAppear { viewModel.loadAll() }
         .refreshable { viewModel.loadAll() }
     }
@@ -141,6 +153,15 @@ struct ContractsView: View {
                             StatPill(label: "Invoices", value: "\(contract.int("num_invoices"))", icon: "doc.text")
                         }
                     }
+
+                    Button {
+                        editingEntity = contract
+                        showingForm = true
+                    } label: {
+                        Label("Edit Contract", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(20)
             }
