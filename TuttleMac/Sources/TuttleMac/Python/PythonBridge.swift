@@ -1,12 +1,23 @@
 import Foundation
 import PythonKit
 
-/// Manages the embedded Python interpreter and provides access to the tuttle bridge module.
-/// All Python calls happen on a single dedicated thread to satisfy CPython's GIL requirements.
+/// Manages the embedded Python interpreter. Exposes tuttle intents directly.
+/// All Python calls happen on a single dedicated thread to satisfy CPython's GIL.
 final class PythonBridge {
     static let shared = PythonBridge()
 
-    private var _bridge: PythonObject!
+    // Intents -- Swift calls these directly, no intermediary
+    private(set) var contacts: PythonObject!
+    private(set) var clients: PythonObject!
+    private(set) var contracts: PythonObject!
+    private(set) var projects: PythonObject!
+    private(set) var dashboard: PythonObject!
+    private(set) var timeline: PythonObject!
+    private(set) var invoicingDS: PythonObject!  // InvoicingDataSource for reads
+    private(set) var invoicing: PythonObject!    // InvoicingIntent for mutations
+    private(set) var demo: PythonObject!
+    private(set) var fmtCurrency: PythonObject!
+
     private var _runLoop: CFRunLoop!
     private let _thread: Thread
 
@@ -18,7 +29,6 @@ final class PythonBridge {
 
         _thread = Thread {
             capturedRunLoop = CFRunLoopGetCurrent()
-            // A run loop needs at least one source to stay alive
             let keepAlive = NSMachPort()
             RunLoop.current.add(keepAlive, forMode: .default)
             readySem.signal()
@@ -31,28 +41,34 @@ final class PythonBridge {
         readySem.wait()
         _runLoop = capturedRunLoop
 
-        // Initialize Python on the dedicated thread
-        var bridge: PythonObject!
-        CFRunLoopPerformBlock(_runLoop, CFRunLoopMode.defaultMode.rawValue) {
+        CFRunLoopPerformBlock(_runLoop, CFRunLoopMode.defaultMode.rawValue) { [self] in
             let projectRoot = PythonBridge.findProjectRoot()
             PythonBridge.configurePythonEnvironment(projectRoot: projectRoot)
             let sys = Python.import("sys")
             sys.path.insert(0, projectRoot)
-            bridge = Python.import("tuttle.bridge").TuttleBridge()
+
+            self.contacts = Python.import("tuttle.app.contacts.intent").ContactsIntent()
+            self.clients = Python.import("tuttle.app.clients.intent").ClientsIntent()
+            self.contracts = Python.import("tuttle.app.contracts.intent").ContractsIntent()
+            self.projects = Python.import("tuttle.app.projects.intent").ProjectsIntent()
+            self.dashboard = Python.import("tuttle.app.dashboard.intent").DashboardIntent()
+            self.timeline = Python.import("tuttle.app.timeline.intent").TimelineIntent()
+            self.invoicingDS = Python.import("tuttle.app.invoicing.data_source").InvoicingDataSource()
+            self.invoicing = Python.import("tuttle.app.invoicing.intent").InvoicingIntent(client_storage: Python.None)
+            self.demo = Python.import("tuttle.demo")
+            self.fmtCurrency = Python.import("tuttle.app.core.formatting").fmt_currency
+
             initSem.signal()
         }
         CFRunLoopWakeUp(_runLoop)
         initSem.wait()
-        _bridge = bridge
     }
 
-    /// Execute `work` on the dedicated Python thread, then deliver the result on the main thread.
-    /// The `work` closure MUST convert all PythonObjects to Swift types before returning --
-    /// the returned value must not contain any PythonObject references.
-    func run<T>(_ work: @escaping (PythonObject) -> T, completion: @escaping (T) -> Void) {
-        let bridge = _bridge!
+    /// Execute `work` on the dedicated Python thread, deliver result on main thread.
+    /// The closure MUST convert all PythonObjects to Swift types before returning.
+    func run<T>(_ work: @escaping () -> T, completion: @escaping (T) -> Void) {
         CFRunLoopPerformBlock(_runLoop, CFRunLoopMode.defaultMode.rawValue) {
-            let result = work(bridge)
+            let result = work()
             DispatchQueue.main.async {
                 completion(result)
             }
@@ -60,7 +76,33 @@ final class PythonBridge {
         CFRunLoopWakeUp(_runLoop)
     }
 
-    // MARK: - Python Environment Configuration
+    /// Reinstall demo data, then re-create all intents.
+    func installDemoData(nProjects: Int = 4, completion: @escaping (Bool) -> Void) {
+        run({
+            let pathlib = Python.import("pathlib")
+            let dbPath = pathlib.Path.home() / ".tuttle" / "tuttle.db"
+            if Bool(dbPath.exists())! { dbPath.unlink() }
+            let migrations = Python.import("tuttle.migrations.run")
+            migrations.run_migrations("sqlite:///\(dbPath)")
+            PythonBridge.shared.demo.install_demo_data(
+                n_projects: nProjects,
+                db_path: String(dbPath)!,
+                on_cache_timetracking_dataframe: Python.None
+            )
+            // Re-create intents so they pick up the new DB
+            PythonBridge.shared.contacts = Python.import("tuttle.app.contacts.intent").ContactsIntent()
+            PythonBridge.shared.clients = Python.import("tuttle.app.clients.intent").ClientsIntent()
+            PythonBridge.shared.contracts = Python.import("tuttle.app.contracts.intent").ContractsIntent()
+            PythonBridge.shared.projects = Python.import("tuttle.app.projects.intent").ProjectsIntent()
+            PythonBridge.shared.dashboard = Python.import("tuttle.app.dashboard.intent").DashboardIntent()
+            PythonBridge.shared.timeline = Python.import("tuttle.app.timeline.intent").TimelineIntent()
+            PythonBridge.shared.invoicingDS = Python.import("tuttle.app.invoicing.data_source").InvoicingDataSource()
+            PythonBridge.shared.invoicing = Python.import("tuttle.app.invoicing.intent").InvoicingIntent(client_storage: Python.None)
+            return true
+        }, completion: completion)
+    }
+
+    // MARK: - Python Environment Configuration (unchanged)
 
     private static func configurePythonEnvironment(projectRoot: String) {
         let venvPath = projectRoot + "/.venv"
@@ -139,30 +181,100 @@ final class PythonBridge {
     }
 }
 
-// MARK: - Conversion Helpers
+// MARK: - Python → Swift Conversion
 
 extension PythonBridge {
-    static func string(_ obj: PythonObject, key: String, fallback: String = "—") -> String {
-        guard let val = obj.checking[key] else { return fallback }
-        if val == Python.None { return fallback }
-        return String(val) ?? fallback
+    /// Check IntentResult success
+    static func isOk(_ result: PythonObject) -> Bool {
+        Bool(result.was_intent_successful) ?? false
     }
 
-    static func double(_ obj: PythonObject, key: String, fallback: Double = 0) -> Double {
-        guard let val = obj.checking[key] else { return fallback }
-        if val == Python.None { return fallback }
-        return Double(val) ?? fallback
+    /// Format a Python numeric value with tuttle's fmt_currency
+    static func fmtCurrencyStr(_ amount: PythonObject, _ currency: String) -> String {
+        String(PythonBridge.shared.fmtCurrency(amount, currency)) ?? "—"
     }
 
-    static func int(_ obj: PythonObject, key: String, fallback: Int = 0) -> Int {
-        guard let val = obj.checking[key] else { return fallback }
-        if val == Python.None { return fallback }
-        return Int(val) ?? fallback
+    /// Recursively convert a Python value to a Swift-native value.
+    /// Handles: None, bool, int, float, Decimal, str, date/datetime, Enum, list, dict.
+    static func toSwift(_ val: PythonObject) -> Any? {
+        if val == Python.None { return nil }
+
+        let typeName = String(Python.type(val).__name__) ?? ""
+
+        switch typeName {
+        case "bool":
+            return Bool(val) ?? false
+        case "int":
+            return Int(val) ?? 0
+        case "float":
+            return Double(val) ?? 0.0
+        case "str":
+            return String(val) ?? ""
+        case "Decimal":
+            return Double(Python.float(val)) ?? 0.0
+        case "date", "datetime":
+            return String(val.isoformat()) ?? ""
+        case "list", "tuple":
+            var arr: [Any] = []
+            for item in val {
+                if let v = toSwift(item) { arr.append(v) }
+            }
+            return arr
+        case "dict", "OrderedDict":
+            return toSwiftDict(val)
+        default:
+            // Enum types have a .value attribute
+            if let v = val.checking.value {
+                return String(v) ?? String(val)
+            }
+            return String(val)
+        }
     }
 
-    static func bool(_ obj: PythonObject, key: String, fallback: Bool = false) -> Bool {
-        guard let val = obj.checking[key] else { return fallback }
-        if val == Python.None { return fallback }
-        return Bool(val) ?? fallback
+    /// Convert a Python dict to [String: Any]
+    static func toSwiftDict(_ pyDict: PythonObject) -> [String: Any] {
+        var result: [String: Any] = [:]
+        guard let items = Dictionary<String, PythonObject>(pyDict) else { return result }
+        for (key, val) in items {
+            if let swiftVal = toSwift(val) {
+                result[key] = swiftVal
+            }
+        }
+        return result
+    }
+
+    /// Convert a Python model object to an Entity using model_dump().
+    /// The `extras` closure can inject additional computed fields.
+    static func toEntity(
+        _ obj: PythonObject,
+        extras: ((PythonObject, inout [String: Any]) -> Void)? = nil
+    ) -> Entity {
+        let pyDict = obj.model_dump()
+        var dict = toSwiftDict(pyDict)
+        extras?(obj, &dict)
+        return Entity(data: dict)
+    }
+
+    /// Convert a Python list of model objects to [Entity].
+    static func toEntityList(
+        _ pyList: PythonObject,
+        extras: ((PythonObject, inout [String: Any]) -> Void)? = nil
+    ) -> [Entity] {
+        if pyList == Python.None { return [] }
+        var out: [Entity] = []
+        for obj in pyList {
+            out.append(toEntity(obj, extras: extras))
+        }
+        return out
+    }
+
+    /// Convert a Python list of plain dicts to [Entity].
+    static func dictListToEntities(_ pyList: PythonObject) -> [Entity] {
+        if pyList == Python.None { return [] }
+        var out: [Entity] = []
+        for item in pyList {
+            out.append(Entity(data: toSwiftDict(item)))
+        }
+        return out
     }
 }

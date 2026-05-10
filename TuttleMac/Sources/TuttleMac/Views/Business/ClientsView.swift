@@ -2,14 +2,14 @@ import SwiftUI
 
 struct ClientsView: View {
     @State private var viewModel = BusinessViewModel()
-    @State private var selectedClient: ClientModel?
+    @State private var selectedClient: Entity?
     @State private var searchText = ""
 
-    private var filtered: [ClientModel] {
+    private var filtered: [Entity] {
         if searchText.isEmpty { return viewModel.clients }
         return viewModel.clients.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
-            || $0.contactName.localizedCaseInsensitiveContains(searchText)
+            $0.str("name").localizedCaseInsensitiveContains(searchText)
+            || $0.str("contact_name").localizedCaseInsensitiveContains(searchText)
             || $0.location.localizedCaseInsensitiveContains(searchText)
         }
     }
@@ -103,16 +103,16 @@ struct ClientsView: View {
                     Divider()
 
                     DetailSection(title: "Contact") {
-                        DetailRow(label: "Name", value: client.contactName, icon: "person")
-                        DetailRow(label: "Email", value: client.contactEmail, icon: "envelope")
-                        if !client.contactCompany.isEmpty {
-                            DetailRow(label: "Company", value: client.contactCompany, icon: "building.2")
+                        DetailRow(label: "Name", value: client.str("contact_name"), icon: "person")
+                        DetailRow(label: "Email", value: client.str("contact_email"), icon: "envelope")
+                        if !client.str("contact_company").isEmpty {
+                            DetailRow(label: "Company", value: client.str("contact_company"), icon: "building.2")
                         }
                     }
 
                     DetailSection(title: "Business") {
                         HStack(spacing: 20) {
-                            StatPill(label: "Contracts", value: "\(client.numContracts)", icon: "signature")
+                            StatPill(label: "Contracts", value: "\(client.int("num_contracts"))", icon: "signature")
                         }
                     }
                 }
@@ -133,7 +133,7 @@ struct ClientsView: View {
 // MARK: - Client Row
 
 struct ClientRow: View {
-    let client: ClientModel
+    let client: Entity
 
     var body: some View {
         HStack(spacing: 12) {
@@ -144,8 +144,8 @@ struct ClientRow: View {
                     .font(.body)
                     .fontWeight(.medium)
                 HStack(spacing: 4) {
-                    if !client.contactName.isEmpty {
-                        Text(client.contactName)
+                    if !client.str("contact_name").isEmpty {
+                        Text(client.str("contact_name"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -161,8 +161,8 @@ struct ClientRow: View {
 
             Spacer()
 
-            if client.numContracts > 0 {
-                Text("\(client.numContracts)")
+            if client.int("num_contracts") > 0 {
+                Text("\(client.int("num_contracts"))")
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
@@ -173,9 +173,4 @@ struct ClientRow: View {
         }
         .padding(.vertical, 4)
     }
-}
-
-extension ClientModel: Hashable {
-    static func == (lhs: ClientModel, rhs: ClientModel) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

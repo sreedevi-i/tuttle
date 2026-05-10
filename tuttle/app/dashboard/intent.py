@@ -131,10 +131,29 @@ class DashboardIntent(SQLModelDataSourceMixin, Intent):
             )
 
     def get_financial_goals(self) -> IntentResult:
-        """Load all financial goals."""
+        """Load all financial goals with progress calculated against YTD revenue."""
         try:
             goals = self.query(FinancialGoal)
-            return IntentResult(was_intent_successful=True, data=goals)
+            invoices = self.query(Invoice)
+            country = self._get_country()
+            kpis = compute_kpis(
+                invoices, self.query(Contract), self.query(Project), country=country
+            )
+            ytd_revenue = float(kpis.total_revenue_ytd)
+
+            goals_with_progress = []
+            for g in goals:
+                target = float(g.target_amount)
+                progress = min(ytd_revenue / target, 1.0) if target > 0 else 0.0
+                goals_with_progress.append(
+                    {
+                        "goal": g,
+                        "progress": progress,
+                        "ytd_revenue": ytd_revenue,
+                        "currency": kpis.tax_currency,
+                    }
+                )
+            return IntentResult(was_intent_successful=True, data=goals_with_progress)
         except Exception as e:
             return IntentResult(
                 was_intent_successful=False,

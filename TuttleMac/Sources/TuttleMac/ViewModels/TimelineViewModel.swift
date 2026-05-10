@@ -3,33 +3,34 @@ import PythonKit
 
 @Observable
 final class TimelineViewModel {
-    var events: [TimelineEvent] = []
+    var events: [Entity] = []
     var activeFilter: TimelineCategory = .all
     var searchQuery: String = ""
     var isLoading = false
     var errorMessage: String?
 
-    var filteredEvents: [TimelineEvent] {
+    var filteredEvents: [Entity] {
         var result = events
         if activeFilter != .all {
-            result = result.filter { $0.category == activeFilter }
+            result = result.filter {
+                TimelineCategory(rawValue: $0.str("category")) == activeFilter
+            }
         }
         if !searchQuery.isEmpty {
             let q = searchQuery.lowercased()
             result = result.filter {
-                $0.title.lowercased().contains(q)
-                || $0.description.lowercased().contains(q)
+                $0.str("title").lowercased().contains(q)
+                || $0.str("description").lowercased().contains(q)
             }
         }
         return result
     }
 
-    /// Events grouped by month, preserving the descending date order.
-    var groupedEvents: [(key: String, label: String, events: [TimelineEvent])] {
+    var groupedEvents: [(key: String, label: String, events: [Entity])] {
         let filtered = filteredEvents
-        var groups: [(key: String, label: String, events: [TimelineEvent])] = []
+        var groups: [(key: String, label: String, events: [Entity])] = []
         var currentKey = ""
-        var currentEvents: [TimelineEvent] = []
+        var currentEvents: [Entity] = []
         var currentLabel = ""
 
         for event in filtered {
@@ -55,20 +56,50 @@ final class TimelineViewModel {
         isLoading = true
         errorMessage = nil
 
-        PythonBridge.shared.run({ bridge -> [TimelineEvent] in
-            let result = bridge.get_timeline_events()
-            var parsed: [TimelineEvent] = []
-            if PythonBridge.bool(result, key: "ok") {
-                for item in result["events"] {
-                    if let event = TimelineEvent.from(item) {
-                        parsed.append(event)
-                    }
+        PythonBridge.shared.run({
+            let result = PythonBridge.shared.timeline.get_timeline_events()
+            guard PythonBridge.isOk(result) else { return [Entity]() }
+
+            var entities: [Entity] = []
+            for e in result.data {
+                let dateStr = String(e.date.isoformat()) ?? ""
+                let fmt = DateFormatter()
+                fmt.dateFormat = "yyyy-MM-dd"
+                guard let date = fmt.date(from: dateStr) else { continue }
+
+                let displayFmt = DateFormatter()
+                displayFmt.dateFormat = "MMM d, yyyy"
+
+                let title = String(e.title) ?? ""
+                let catStr = String(e.category) ?? "invoice"
+
+                var dict: [String: Any] = [
+                    "id": Int(e.entity_id) ?? entities.count,
+                    "_date": date,
+                    "date_formatted": displayFmt.string(from: date),
+                    "title": title,
+                    "description": String(e[dynamicMember: "description"]) ?? "",
+                    "category": catStr,
+                    "status": Self.inferStatus(title),
+                    "is_future": Bool(e.is_future) ?? false,
+                ]
+                if e.entity_id != Python.None {
+                    dict["entity_id"] = Int(e.entity_id) ?? 0
                 }
+                entities.append(Entity(data: dict))
             }
-            return parsed
+            return entities
         }, completion: { [self] parsed in
             self.events = parsed
             self.isLoading = false
         })
+    }
+
+    private static func inferStatus(_ title: String) -> String {
+        let t = title.lowercased()
+        for kw in ["cancelled", "overdue", "paid", "completed", "reached", "due"] {
+            if t.contains(kw) { return kw }
+        }
+        return "default"
     }
 }

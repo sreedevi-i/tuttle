@@ -2,15 +2,15 @@ import SwiftUI
 
 struct ContactsView: View {
     @State private var viewModel = BusinessViewModel()
-    @State private var selectedContact: ContactModel?
+    @State private var selectedContact: Entity?
     @State private var searchText = ""
 
-    private var filtered: [ContactModel] {
+    private var filtered: [Entity] {
         if searchText.isEmpty { return viewModel.contacts }
         return viewModel.contacts.filter {
             $0.fullName.localizedCaseInsensitiveContains(searchText)
-            || $0.company.localizedCaseInsensitiveContains(searchText)
-            || $0.email.localizedCaseInsensitiveContains(searchText)
+            || $0.str("company").localizedCaseInsensitiveContains(searchText)
+            || $0.str("email").localizedCaseInsensitiveContains(searchText)
             || $0.location.localizedCaseInsensitiveContains(searchText)
         }
     }
@@ -93,7 +93,7 @@ struct ContactsView: View {
                             Text(contact.displayName)
                                 .font(.title2)
                                 .fontWeight(.bold)
-                            if !contact.company.isEmpty {
+                            if !contact.str("company").isEmpty {
                                 Text(contact.company)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
@@ -104,7 +104,7 @@ struct ContactsView: View {
                     Divider()
 
                     DetailSection(title: "Contact Info") {
-                        if !contact.email.isEmpty {
+                        if !contact.str("email").isEmpty {
                             DetailRow(label: "Email", value: contact.email, icon: "envelope")
                         }
                         if !contact.location.isEmpty {
@@ -129,7 +129,7 @@ struct ContactsView: View {
 // MARK: - Contact Row
 
 struct ContactRow: View {
-    let contact: ContactModel
+    let contact: Entity
 
     var body: some View {
         HStack(spacing: 12) {
@@ -140,13 +140,13 @@ struct ContactRow: View {
                     .font(.body)
                     .fontWeight(.medium)
                 HStack(spacing: 4) {
-                    if !contact.company.isEmpty {
+                    if !contact.str("company").isEmpty {
                         Text(contact.company)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if !contact.email.isEmpty {
-                        if !contact.company.isEmpty {
+                    if !contact.str("email").isEmpty {
+                        if !contact.str("company").isEmpty {
                             Text("·").foregroundStyle(.quaternary)
                         }
                         Text(contact.email)
@@ -166,9 +166,4 @@ struct ContactRow: View {
         }
         .padding(.vertical, 4)
     }
-}
-
-extension ContactModel: Hashable {
-    static func == (lhs: ContactModel, rhs: ContactModel) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

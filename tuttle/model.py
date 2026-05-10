@@ -660,6 +660,20 @@ class Invoice(SQLModel, table=True):
             return None
 
     @property
+    def status(self) -> str:
+        """Derived invoice status: draft, cancelled, paid, overdue, or sent."""
+        if self.cancelled:
+            return "cancelled"
+        if self.paid:
+            return "paid"
+        if self.sent:
+            due = self.due_date
+            if due and due < datetime.date.today():
+                return "overdue"
+            return "sent"
+        return "draft"
+
+    @property
     def client(self):
         return self.contract.client
 

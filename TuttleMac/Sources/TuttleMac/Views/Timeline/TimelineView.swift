@@ -63,7 +63,6 @@ struct TimelineView: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(groups.enumerated()), id: \.element.key) { groupIdx, group in
-                // Month header
                 MonthHeader(label: group.label)
                     .padding(.top, groupIdx > 0 ? 8 : 0)
 
@@ -71,8 +70,8 @@ struct TimelineView: View {
                     let isLast = groupIdx == groups.count - 1
                         && eventIdx == group.events.count - 1
 
-                    // Insert today marker before the first past event
-                    if !todayInserted && !event.isFuture && event.date <= today {
+                    if !todayInserted && !event.bool("is_future"),
+                       let eventDate = event.date("_date"), eventDate <= today {
                         let _ = { todayInserted = true }()
                         TodayMarker()
                     }
@@ -81,7 +80,6 @@ struct TimelineView: View {
                 }
             }
 
-            // If all events are in the future, show today at the bottom
             if !todayInserted {
                 TodayMarker()
             }
@@ -159,7 +157,6 @@ struct MonthHeader: View {
 struct TodayMarker: View {
     var body: some View {
         HStack(spacing: 8) {
-            // Spine dot
             ZStack {
                 Rectangle()
                     .fill(.quaternary)
@@ -186,25 +183,28 @@ struct TodayMarker: View {
 // MARK: - Event Card
 
 struct TimelineEventCard: View {
-    let event: TimelineEvent
+    let event: Entity
     var isLast: Bool = false
 
+    private var category: TimelineCategory {
+        TimelineCategory(rawValue: event.str("category")) ?? .invoice
+    }
+
     private var dotColor: Color {
-        switch event.status {
+        switch event.str("status") {
         case "paid", "completed": .green
         case "overdue", "cancelled": .red
-        case "due": TimelineView.categoryColor(event.category)
-        default: TimelineView.categoryColor(event.category)
+        case "due": TimelineView.categoryColor(category)
+        default: TimelineView.categoryColor(category)
         }
     }
 
     private var categoryColor: Color {
-        TimelineView.categoryColor(event.category)
+        TimelineView.categoryColor(category)
     }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            // Spine with dot
             VStack(spacing: 0) {
                 Rectangle()
                     .fill(.quaternary)
@@ -230,11 +230,10 @@ struct TimelineEventCard: View {
             }
             .frame(width: 36)
 
-            // Card
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .top) {
                     HStack(spacing: 6) {
-                        Image(systemName: event.category.systemImage)
+                        Image(systemName: category.systemImage)
                             .font(.subheadline)
                             .foregroundStyle(dotColor)
                         Text(event.title)
@@ -242,18 +241,18 @@ struct TimelineEventCard: View {
                             .fontWeight(.semibold)
                     }
                     Spacer()
-                    Text(event.dateFormatted)
+                    Text(event.str("date_formatted"))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
 
-                if !event.description.isEmpty {
+                if !event.str("description").isEmpty {
                     Text(event.description)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
-                Text(event.category.label)
+                Text(category.label)
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .foregroundStyle(categoryColor)
@@ -264,7 +263,7 @@ struct TimelineEventCard: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 10))
-            .opacity(event.isFuture ? 0.55 : 1.0)
+            .opacity(event.bool("is_future") ? 0.55 : 1.0)
         }
     }
 }

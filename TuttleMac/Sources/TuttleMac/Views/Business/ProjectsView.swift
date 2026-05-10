@@ -2,17 +2,17 @@ import SwiftUI
 
 struct ProjectsView: View {
     @State private var viewModel = BusinessViewModel()
-    @State private var selectedProject: ProjectModel?
+    @State private var selectedProject: Entity?
     @State private var statusFilter: EntityStatus = .all
     @State private var searchText = ""
 
-    private var filtered: [ProjectModel] {
+    private var filtered: [Entity] {
         viewModel.projects.filter { p in
-            (statusFilter == .all || p.status == statusFilter)
+            (statusFilter == .all || p.entityStatus == statusFilter)
             && (searchText.isEmpty
-                || p.title.localizedCaseInsensitiveContains(searchText)
-                || p.clientName.localizedCaseInsensitiveContains(searchText)
-                || p.tag.localizedCaseInsensitiveContains(searchText))
+                || p.str("title").localizedCaseInsensitiveContains(searchText)
+                || p.str("client_name").localizedCaseInsensitiveContains(searchText)
+                || p.str("tag").localizedCaseInsensitiveContains(searchText))
         }
     }
 
@@ -51,7 +51,7 @@ struct ProjectsView: View {
                     ProjectRow(project: project)
                         .tag(project)
                         .contextMenu {
-                            Button(project.isCompleted ? "Mark Active" : "Mark Completed") {
+                            Button(project.bool("is_completed") ? "Mark Active" : "Mark Completed") {
                                 viewModel.toggleProjectCompleted(project.id)
                             }
                             Divider()
@@ -97,12 +97,13 @@ struct ProjectsView: View {
     @ViewBuilder
     private var detailPane: some View {
         if let project = selectedProject {
+            let status = project.entityStatus
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 12) {
                         InitialsAvatar(
-                            text: String(project.title.prefix(2)).uppercased(),
-                            color: project.status.color,
+                            text: String(project.str("title").prefix(2)).uppercased(),
+                            color: status.color,
                             size: 48
                         )
                         VStack(alignment: .leading, spacing: 2) {
@@ -113,7 +114,7 @@ struct ProjectsView: View {
                                 Text(project.tag)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                StatusBadge(status: project.status)
+                                StatusBadge(status: status)
                             }
                         }
                     }
@@ -121,12 +122,12 @@ struct ProjectsView: View {
                     Divider()
 
                     DetailSection(title: "Details") {
-                        DetailRow(label: "Client", value: project.clientName)
-                        DetailRow(label: "Contract", value: project.contractTitle)
+                        DetailRow(label: "Client", value: project.str("client_name"))
+                        DetailRow(label: "Contract", value: project.str("contract_title"))
                         DetailRow(label: "Period", value: project.dateRange)
                     }
 
-                    if !project.description.isEmpty {
+                    if !project.str("description").isEmpty {
                         DetailSection(title: "Description") {
                             Text(project.description)
                                 .font(.body)
@@ -136,8 +137,8 @@ struct ProjectsView: View {
 
                     DetailSection(title: "Activity") {
                         HStack(spacing: 20) {
-                            StatPill(label: "Invoices", value: "\(project.numInvoices)", icon: "doc.text")
-                            StatPill(label: "Timesheets", value: "\(project.numTimesheets)", icon: "clock")
+                            StatPill(label: "Invoices", value: "\(project.int("num_invoices"))", icon: "doc.text")
+                            StatPill(label: "Timesheets", value: "\(project.int("num_timesheets"))", icon: "clock")
                         }
                     }
                 }
@@ -158,13 +159,14 @@ struct ProjectsView: View {
 // MARK: - Project Row
 
 struct ProjectRow: View {
-    let project: ProjectModel
+    let project: Entity
 
     var body: some View {
+        let status = project.entityStatus
         HStack(spacing: 12) {
             InitialsAvatar(
-                text: String(project.title.prefix(2)).uppercased(),
-                color: project.status.color,
+                text: String(project.str("title").prefix(2)).uppercased(),
+                color: status.color,
                 size: 34
             )
 
@@ -180,20 +182,15 @@ struct ProjectRow: View {
                         .padding(.vertical, 1)
                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 3))
                 }
-                Text(project.clientName.isEmpty ? "No client" : project.clientName)
+                Text(project.str("client_name").isEmpty ? "No client" : project.str("client_name"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            StatusBadge(status: project.status)
+            StatusBadge(status: status)
         }
         .padding(.vertical, 4)
     }
-}
-
-extension ProjectModel: Hashable {
-    static func == (lhs: ProjectModel, rhs: ProjectModel) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

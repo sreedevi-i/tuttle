@@ -35,78 +35,78 @@ struct DashboardView: View {
 
     // MARK: - KPI Cards
 
-    private func kpiSection(_ kpis: KPISummary) -> some View {
+    private func kpiSection(_ kpis: Entity) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
             KPICard(
                 title: "Revenue (YTD)",
-                value: kpis.totalRevenueYTDFormatted,
+                value: kpis.str("total_revenue_ytd_formatted"),
                 icon: "arrow.up.right",
-                valueColor: kpis.totalRevenueYTD > 0 ? .green : .primary
+                valueColor: kpis.num("total_revenue_ytd") > 0 ? .green : .primary
             )
             KPICard(
                 title: "Outstanding",
-                value: kpis.outstandingAmountFormatted,
+                value: kpis.str("outstanding_amount_formatted"),
                 icon: "wallet.bifold",
-                valueColor: kpis.outstandingAmount > 0 ? .yellow : .primary
+                valueColor: kpis.num("outstanding_amount") > 0 ? .yellow : .primary
             )
             KPICard(
                 title: "Overdue",
-                value: kpis.overdueAmountFormatted,
+                value: kpis.str("overdue_amount_formatted"),
                 icon: "exclamationmark.triangle",
-                valueColor: kpis.overdueAmount > 0 ? .red : .primary
+                valueColor: kpis.num("overdue_amount") > 0 ? .red : .primary
             )
             KPICard(
                 title: "Eff. Hourly Rate",
-                value: kpis.effectiveHourlyRateFormatted,
+                value: kpis.str("effective_hourly_rate_formatted"),
                 icon: "gauge.with.needle",
                 valueColor: .blue
             )
             KPICard(
                 title: "Utilization",
-                value: kpis.utilizationRateFormatted,
+                value: kpis.str("utilization_rate_formatted"),
                 icon: "chart.pie",
-                valueColor: (kpis.utilizationRate ?? 0) >= 0.7 ? .blue : .yellow
+                valueColor: (kpis.optNum("utilization_rate") ?? 0) >= 0.7 ? .blue : .yellow
             )
             KPICard(
                 title: "Active Projects",
-                value: "\(kpis.activeProjects)",
+                value: "\(kpis.int("active_projects"))",
                 icon: "folder",
                 valueColor: .primary
             )
             KPICard(
                 title: "Active Contracts",
-                value: "\(kpis.activeContracts)",
+                value: "\(kpis.int("active_contracts"))",
                 icon: "signature",
                 valueColor: .primary
             )
             KPICard(
                 title: "Unpaid Invoices",
-                value: "\(kpis.unpaidInvoices)",
+                value: "\(kpis.int("unpaid_invoices"))",
                 icon: "doc.text",
-                valueColor: kpis.unpaidInvoices > 0 ? .yellow : .primary
+                valueColor: kpis.int("unpaid_invoices") > 0 ? .yellow : .primary
             )
         }
     }
 
-    private func taxSection(_ kpis: KPISummary) -> some View {
+    private func taxSection(_ kpis: Entity) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
             KPICard(
                 title: "VAT Reserve",
-                value: kpis.vatReserveFormatted,
+                value: kpis.str("vat_reserve_formatted"),
                 icon: "building.columns",
-                valueColor: kpis.vatReserve > 0 ? .yellow : .primary
+                valueColor: kpis.num("vat_reserve") > 0 ? .yellow : .primary
             )
             KPICard(
                 title: "Est. Income Tax",
-                value: kpis.incomeTaxReserveFormatted,
+                value: kpis.str("income_tax_reserve_formatted"),
                 icon: "function",
-                valueColor: kpis.incomeTaxReserve > 0 ? .yellow : .primary
+                valueColor: kpis.num("income_tax_reserve") > 0 ? .yellow : .primary
             )
             KPICard(
                 title: "Spendable Income",
-                value: kpis.spendableIncomeFormatted,
+                value: kpis.str("spendable_income_formatted"),
                 icon: "banknote",
-                valueColor: kpis.spendableIncome > 0 ? .green : .red
+                valueColor: kpis.num("spendable_income") > 0 ? .green : .red
             )
         }
     }
@@ -157,7 +157,7 @@ struct DashboardView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks { value in
+                    AxisMarks { _ in
                         AxisValueLabel()
                             .font(.caption2)
                     }
@@ -268,21 +268,22 @@ struct KPICard: View {
 }
 
 struct ProjectBudgetRow: View {
-    let budget: ProjectBudget
+    let budget: Entity
 
     private var barColor: Color {
-        if budget.progress >= 1.0 { return .red }
-        if budget.progress >= 0.8 { return .yellow }
+        let progress = budget.num("progress")
+        if progress >= 1.0 { return .red }
+        if progress >= 0.8 { return .yellow }
         return .green
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(budget.project)
+                Text(budget.str("project"))
                     .font(.body)
                 Spacer()
-                Text("\(Int(budget.hoursTracked)) / \(Int(budget.hoursBudget)) h (\(Int(budget.progress * 100))%)")
+                Text("\(Int(budget.num("hours_tracked"))) / \(Int(budget.num("hours_budget"))) h (\(Int(budget.num("progress") * 100))%)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -293,7 +294,7 @@ struct ProjectBudgetRow: View {
                         .frame(height: 6)
                     Capsule()
                         .fill(barColor)
-                        .frame(width: geo.size.width * min(budget.progress, 1.0), height: 6)
+                        .frame(width: geo.size.width * min(budget.num("progress"), 1.0), height: 6)
                 }
             }
             .frame(height: 6)
@@ -302,10 +303,10 @@ struct ProjectBudgetRow: View {
 }
 
 struct FinancialGoalRow: View {
-    let goal: FinancialGoalModel
+    let goal: Entity
 
     private var barColor: Color {
-        goal.isReached ? .green : .blue
+        goal.bool("is_reached") ? .green : .blue
     }
 
     var body: some View {
@@ -314,18 +315,18 @@ struct FinancialGoalRow: View {
                 Text(goal.title)
                     .font(.body)
                 Spacer()
-                if goal.isReached {
+                if goal.bool("is_reached") {
                     Text("Reached!")
                         .font(.caption)
                         .foregroundStyle(.green)
                         .fontWeight(.semibold)
                 } else {
-                    Text("\(goal.ytdRevenueFormatted) / \(goal.targetAmountFormatted)")
+                    Text("\(goal.str("ytd_revenue_formatted")) / \(goal.str("target_amount_formatted"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            Text("Target: \(goal.targetAmountFormatted) by \(goal.targetDateFormatted)")
+            Text("Target: \(goal.str("target_amount_formatted")) by \(goal.str("target_date_formatted"))")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
             GeometryReader { geo in
@@ -335,7 +336,7 @@ struct FinancialGoalRow: View {
                         .frame(height: 6)
                     Capsule()
                         .fill(barColor)
-                        .frame(width: geo.size.width * min(goal.progress, 1.0), height: 6)
+                        .frame(width: geo.size.width * min(goal.num("progress"), 1.0), height: 6)
                 }
             }
             .frame(height: 6)

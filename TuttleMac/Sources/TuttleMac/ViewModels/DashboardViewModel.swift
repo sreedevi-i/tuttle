@@ -1,22 +1,21 @@
 import Foundation
 import PythonKit
 
-/// Holds all dashboard data as pure Swift types (no PythonObject references).
 struct DashboardData {
-    var kpis: KPISummary?
+    var kpis: Entity?
     var revenueData: [MonthlyDataPoint]
     var spendableData: [MonthlyDataPoint]
-    var projectBudgets: [ProjectBudget]
-    var financialGoals: [FinancialGoalModel]
+    var projectBudgets: [Entity]
+    var financialGoals: [Entity]
 }
 
 @Observable
 final class DashboardViewModel {
-    var kpis: KPISummary?
+    var kpis: Entity?
     var revenueData: [MonthlyDataPoint] = []
     var spendableData: [MonthlyDataPoint] = []
-    var projectBudgets: [ProjectBudget] = []
-    var financialGoals: [FinancialGoalModel] = []
+    var projectBudgets: [Entity] = []
+    var financialGoals: [Entity] = []
     var isLoading = false
     var errorMessage: String?
 
@@ -24,49 +23,92 @@ final class DashboardViewModel {
         isLoading = true
         errorMessage = nil
 
-        PythonBridge.shared.run({ bridge -> DashboardData in
-            // All PythonObject access happens here on the Python thread.
-            // Convert everything to Swift types before returning.
-            let kpiResult = bridge.get_dashboard_kpis()
-            let chartResult = bridge.get_monthly_chart_data(12)
-            let budgetResult = bridge.get_project_budgets()
-            let goalsResult = bridge.get_financial_goals()
+        PythonBridge.shared.run({
+            let db = PythonBridge.shared.dashboard!
 
-            let kpis: KPISummary? = PythonBridge.bool(kpiResult, key: "ok")
-                ? KPISummary.from(kpiResult) : nil
+            // KPIs (NamedTuple, not SQLModel — use _asdict())
+            let kpiResult = db.get_kpis()
+            var kpis: Entity? = nil
+            if PythonBridge.isOk(kpiResult) {
+                let obj = kpiResult.data
+                var dict = PythonBridge.toSwiftDict(obj._asdict())
+                let tc = dict["tax_currency"] as? String ?? "EUR"
+                dict["total_revenue_ytd_formatted"] = PythonBridge.fmtCurrencyStr(obj.total_revenue_ytd, tc)
+                dict["outstanding_amount_formatted"] = PythonBridge.fmtCurrencyStr(obj.outstanding_amount, tc)
+                dict["overdue_amount_formatted"] = PythonBridge.fmtCurrencyStr(obj.overdue_amount, tc)
+                dict["vat_reserve_formatted"] = PythonBridge.fmtCurrencyStr(obj.vat_reserve, tc)
+                dict["income_tax_reserve_formatted"] = PythonBridge.fmtCurrencyStr(obj.income_tax_reserve, tc)
+                dict["spendable_income_formatted"] = PythonBridge.fmtCurrencyStr(obj.spendable_income, tc)
 
+                let ehr = obj.effective_hourly_rate
+                if ehr != Python.None {
+                    dict["effective_hourly_rate_formatted"] = PythonBridge.fmtCurrencyStr(ehr, tc)
+                } else {
+                    dict["effective_hourly_rate_formatted"] = "—"
+                }
+
+                let ur = obj.utilization_rate
+                if ur != Python.None {
+                    if let d = Double(ur) {
+                        dict["utilization_rate_formatted"] = String(format: "%.0f%%", d * 100)
+                    }
+                } else {
+                    dict["utilization_rate_formatted"] = "—"
+                }
+
+                kpis = Entity(data: dict)
+            }
+
+            // Monthly chart data
+            let chartResult = db.get_monthly_chart_data(12)
             var rev: [MonthlyDataPoint] = []
             var sp: [MonthlyDataPoint] = []
-            if PythonBridge.bool(chartResult, key: "ok") {
-                for item in chartResult["revenue"] {
-                    let month = PythonBridge.string(item, key: "month")
+            if PythonBridge.isOk(chartResult) {
+                let data = chartResult.data
+                for item in data["revenue"] {
+                    let month = String(item["month"]) ?? ""
                     rev.append(MonthlyDataPoint(
                         month: month,
                         label: Self.shortLabel(month),
-                        value: PythonBridge.double(item, key: "revenue")
+                        value: Double(Python.float(item["revenue"])) ?? 0
                     ))
                 }
-                for item in chartResult["spendable"] {
-                    let month = PythonBridge.string(item, key: "month")
+                for item in data["spendable"] {
+                    let month = String(item["month"]) ?? ""
                     sp.append(MonthlyDataPoint(
                         month: month,
                         label: Self.shortLabel(month),
-                        value: PythonBridge.double(item, key: "spendable")
+                        value: Double(Python.float(item["spendable"])) ?? 0
                     ))
                 }
             }
 
-            var budgets: [ProjectBudget] = []
-            if PythonBridge.bool(budgetResult, key: "ok") {
-                for item in budgetResult["budgets"] {
-                    budgets.append(ProjectBudget.from(item))
-                }
+            // Project budgets
+            let budgetResult = db.get_project_budgets()
+            var budgets: [Entity] = []
+            if PythonBridge.isOk(budgetResult) {
+                budgets = PythonBridge.dictListToEntities(budgetResult.data)
             }
 
-            var goals: [FinancialGoalModel] = []
-            if PythonBridge.bool(goalsResult, key: "ok") {
-                for item in goalsResult["goals"] {
-                    goals.append(FinancialGoalModel.from(item))
+            // Financial goals
+            let goalsResult = db.get_financial_goals()
+            var goals: [Entity] = []
+            if PythonBridge.isOk(goalsResult) {
+                for item in goalsResult.data {
+                    let g = item["goal"]
+                    let tc = String(item["currency"]) ?? "EUR"
+                    let dict: [String: Any] = [
+                        "id": Int(g.id) ?? 0,
+                        "title": String(g.title) ?? "",
+                        "target_amount": Double(Python.float(g.target_amount)) ?? 0,
+                        "target_amount_formatted": PythonBridge.fmtCurrencyStr(g.target_amount, tc),
+                        "target_date": String(g.target_date.isoformat()) ?? "",
+                        "target_date_formatted": String(g.target_date.strftime("%b %Y")) ?? "",
+                        "is_reached": Bool(g.is_reached) ?? false,
+                        "progress": Double(item["progress"]) ?? 0,
+                        "ytd_revenue_formatted": PythonBridge.fmtCurrencyStr(item["ytd_revenue"], tc),
+                    ]
+                    goals.append(Entity(data: dict))
                 }
             }
 
@@ -77,7 +119,7 @@ final class DashboardViewModel {
                 projectBudgets: budgets,
                 financialGoals: goals
             )
-        }, completion: { [self] data in
+        }, completion: { [self] (data: DashboardData) in
             self.kpis = data.kpis
             self.revenueData = data.revenueData
             self.spendableData = data.spendableData
@@ -90,8 +132,6 @@ final class DashboardViewModel {
     private static func shortLabel(_ month: String) -> String {
         let parts = month.split(separator: "-")
         guard parts.count == 2 else { return month }
-        let m = parts[1]
-        let y = parts[0].suffix(2)
-        return "\(m)/\(y)"
+        return "\(parts[1])/\(parts[0].suffix(2))"
     }
 }

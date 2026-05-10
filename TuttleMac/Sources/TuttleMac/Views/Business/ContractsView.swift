@@ -2,16 +2,16 @@ import SwiftUI
 
 struct ContractsView: View {
     @State private var viewModel = BusinessViewModel()
-    @State private var selectedContract: ContractModel?
+    @State private var selectedContract: Entity?
     @State private var statusFilter: EntityStatus = .all
     @State private var searchText = ""
 
-    private var filtered: [ContractModel] {
+    private var filtered: [Entity] {
         viewModel.contracts.filter { c in
-            (statusFilter == .all || c.status == statusFilter)
+            (statusFilter == .all || c.entityStatus == statusFilter)
             && (searchText.isEmpty
-                || c.title.localizedCaseInsensitiveContains(searchText)
-                || c.clientName.localizedCaseInsensitiveContains(searchText))
+                || c.str("title").localizedCaseInsensitiveContains(searchText)
+                || c.str("client_name").localizedCaseInsensitiveContains(searchText))
         }
     }
 
@@ -50,7 +50,7 @@ struct ContractsView: View {
                     ContractRow(contract: contract)
                         .tag(contract)
                         .contextMenu {
-                            Button(contract.isCompleted ? "Mark Active" : "Mark Completed") {
+                            Button(contract.bool("is_completed") ? "Mark Active" : "Mark Completed") {
                                 viewModel.toggleContractCompleted(contract.id)
                             }
                             Divider()
@@ -96,24 +96,25 @@ struct ContractsView: View {
     @ViewBuilder
     private var detailPane: some View {
         if let contract = selectedContract {
+            let status = contract.entityStatus
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 12) {
                         Image(systemName: "signature")
                             .font(.title2)
-                            .foregroundStyle(contract.status.color)
+                            .foregroundStyle(status.color)
                             .frame(width: 48, height: 48)
-                            .background(contract.status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                            .background(status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(contract.title)
                                 .font(.title2)
                                 .fontWeight(.bold)
                             HStack(spacing: 6) {
-                                Text(contract.clientName)
+                                Text(contract.str("client_name"))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                StatusBadge(status: contract.status)
+                                StatusBadge(status: status)
                             }
                         }
                     }
@@ -121,13 +122,13 @@ struct ContractsView: View {
                     Divider()
 
                     DetailSection(title: "Terms") {
-                        DetailRow(label: "Rate", value: "\(contract.rateFormatted) / \(contract.unit)")
-                        if let vol = contract.volume {
-                            DetailRow(label: "Volume", value: "\(vol) \(contract.unit)s")
+                        DetailRow(label: "Rate", value: "\(contract.str("rate_formatted")) / \(contract.str("unit_value"))")
+                        if let vol = contract.optInt("volume") {
+                            DetailRow(label: "Volume", value: "\(vol) \(contract.str("unit_value"))s")
                         }
-                        DetailRow(label: "Billing", value: contract.billingCycle)
-                        DetailRow(label: "VAT", value: String(format: "%.0f%%", contract.vatRate * 100))
-                        DetailRow(label: "Currency", value: contract.currency)
+                        DetailRow(label: "Billing", value: contract.str("billing_cycle_value"))
+                        DetailRow(label: "VAT", value: contract.vatPercent)
+                        DetailRow(label: "Currency", value: contract.str("currency"))
                     }
 
                     DetailSection(title: "Period") {
@@ -136,8 +137,8 @@ struct ContractsView: View {
 
                     DetailSection(title: "Related") {
                         HStack(spacing: 20) {
-                            StatPill(label: "Projects", value: "\(contract.numProjects)", icon: "folder")
-                            StatPill(label: "Invoices", value: "\(contract.numInvoices)", icon: "doc.text")
+                            StatPill(label: "Projects", value: "\(contract.int("num_projects"))", icon: "folder")
+                            StatPill(label: "Invoices", value: "\(contract.int("num_invoices"))", icon: "doc.text")
                         }
                     }
                 }
@@ -158,27 +159,28 @@ struct ContractsView: View {
 // MARK: - Contract Row
 
 struct ContractRow: View {
-    let contract: ContractModel
+    let contract: Entity
 
     var body: some View {
+        let status = contract.entityStatus
         HStack(spacing: 12) {
             Image(systemName: "signature")
                 .font(.body)
-                .foregroundStyle(contract.status.color)
+                .foregroundStyle(status.color)
                 .frame(width: 34, height: 34)
-                .background(contract.status.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+                .background(status.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(contract.title)
                     .font(.body)
                     .fontWeight(.medium)
                 HStack(spacing: 4) {
-                    Text(contract.clientName)
+                    Text(contract.str("client_name"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("·")
                         .foregroundStyle(.quaternary)
-                    Text(contract.rateFormatted + "/\(contract.unit)")
+                    Text(contract.str("rate_formatted") + "/\(contract.str("unit_value"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -186,13 +188,8 @@ struct ContractRow: View {
 
             Spacer()
 
-            StatusBadge(status: contract.status)
+            StatusBadge(status: status)
         }
         .padding(.vertical, 4)
     }
-}
-
-extension ContractModel: Hashable {
-    static func == (lhs: ContractModel, rhs: ContractModel) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

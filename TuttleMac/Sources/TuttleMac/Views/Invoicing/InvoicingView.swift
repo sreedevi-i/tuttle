@@ -2,22 +2,22 @@ import SwiftUI
 
 struct InvoicingView: View {
     @State private var viewModel = InvoicingViewModel()
-    @State private var selectedInvoice: InvoiceModel?
+    @State private var selectedInvoice: Entity?
     @State private var statusFilter: InvoiceStatus = .all
     @State private var searchText = ""
 
-    private var filtered: [InvoiceModel] {
+    private var filtered: [Entity] {
         viewModel.invoices.filter { inv in
-            (statusFilter == .all || inv.status == statusFilter)
+            (statusFilter == .all || inv.invoiceStatus == statusFilter)
             && (searchText.isEmpty
-                || inv.number.localizedCaseInsensitiveContains(searchText)
-                || inv.clientName.localizedCaseInsensitiveContains(searchText)
-                || inv.projectTitle.localizedCaseInsensitiveContains(searchText))
+                || inv.str("number").localizedCaseInsensitiveContains(searchText)
+                || inv.str("client_name").localizedCaseInsensitiveContains(searchText)
+                || inv.str("project_title").localizedCaseInsensitiveContains(searchText))
         }
     }
 
     private var totalFiltered: Double {
-        filtered.reduce(0) { $0 + $1.total }
+        filtered.reduce(0) { $0 + $1.num("total_value") }
     }
 
     var body: some View {
@@ -106,16 +106,16 @@ struct InvoicingView: View {
     // MARK: - Context Menu
 
     @ViewBuilder
-    private func statusContextMenu(for invoice: InvoiceModel) -> some View {
-        if !invoice.cancelled {
-            Button(invoice.sent ? "Mark as Not Sent" : "Mark as Sent") {
+    private func statusContextMenu(for invoice: Entity) -> some View {
+        if !invoice.bool("cancelled") {
+            Button(invoice.bool("sent") ? "Mark as Not Sent" : "Mark as Sent") {
                 viewModel.toggleSent(invoice.id)
             }
-            Button(invoice.paid ? "Mark as Unpaid" : "Mark as Paid") {
+            Button(invoice.bool("paid") ? "Mark as Unpaid" : "Mark as Paid") {
                 viewModel.togglePaid(invoice.id)
             }
         }
-        Button(invoice.cancelled ? "Restore Invoice" : "Cancel Invoice") {
+        Button(invoice.bool("cancelled") ? "Restore Invoice" : "Cancel Invoice") {
             viewModel.toggleCancelled(invoice.id)
         }
     }
@@ -149,45 +149,48 @@ struct InvoicingView: View {
 
     // MARK: - Detail Subviews
 
-    private func invoiceHeader(_ invoice: InvoiceModel) -> some View {
-        HStack(spacing: 12) {
+    private func invoiceHeader(_ invoice: Entity) -> some View {
+        let status = invoice.invoiceStatus
+        return HStack(spacing: 12) {
             Image(systemName: "doc.text")
                 .font(.title2)
-                .foregroundStyle(invoice.status.color)
+                .foregroundStyle(status.color)
                 .frame(width: 48, height: 48)
-                .background(invoice.status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                .background(status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(invoice.number.isEmpty ? "Draft" : invoice.number)
+                Text(invoice.str("number").isEmpty ? "Draft" : invoice.number)
                     .font(.title2)
                     .fontWeight(.bold)
                 HStack(spacing: 6) {
-                    Text(invoice.clientName.isEmpty ? "No client" : invoice.clientName)
+                    Text(invoice.str("client_name").isEmpty ? "No client" : invoice.str("client_name"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    InvoiceStatusBadge(status: invoice.status)
+                    InvoiceStatusBadge(status: status)
                 }
             }
             Spacer()
         }
     }
 
-    private func invoiceAmounts(_ invoice: InvoiceModel) -> some View {
-        HStack(spacing: 12) {
-            AmountCard(label: "Subtotal", value: invoice.subtotalFormatted, color: .secondary)
-            AmountCard(label: "VAT", value: invoice.vatTotalFormatted, color: .orange)
-            AmountCard(label: "Total", value: invoice.totalFormatted, color: invoice.status.color, isProminent: true)
+    private func invoiceAmounts(_ invoice: Entity) -> some View {
+        let status = invoice.invoiceStatus
+        return HStack(spacing: 12) {
+            AmountCard(label: "Subtotal", value: invoice.str("sum_formatted"), color: .secondary)
+            AmountCard(label: "VAT", value: invoice.str("vat_total_formatted"), color: .orange)
+            AmountCard(label: "Total", value: invoice.str("total_formatted"), color: status.color, isProminent: true)
         }
     }
 
     @ViewBuilder
-    private func invoiceItems(_ invoice: InvoiceModel) -> some View {
-        if !invoice.items.isEmpty {
+    private func invoiceItems(_ invoice: Entity) -> some View {
+        let items = invoice.list("items")
+        if !items.isEmpty {
             DetailSection(title: "Line Items") {
                 VStack(spacing: 0) {
-                    ForEach(invoice.items) { item in
+                    ForEach(items) { item in
                         InvoiceItemRow(item: item)
-                        if item.id != invoice.items.last?.id {
+                        if item.id != items.last?.id {
                             Divider().padding(.vertical, 4)
                         }
                     }
@@ -196,44 +199,46 @@ struct InvoicingView: View {
         }
     }
 
-    private func invoiceDetails(_ invoice: InvoiceModel) -> some View {
-        DetailSection(title: "Details") {
-            DetailRow(label: "Date", value: invoice.dateFormatted, icon: "calendar")
-            if let due = invoice.dueDateFormatted {
-                DetailRow(label: "Due", value: due, icon: "clock")
+    private func invoiceDetails(_ invoice: Entity) -> some View {
+        let dateStr = invoice.str("date")
+        let dueDateStr = invoice.optStr("due_date")
+        return DetailSection(title: "Details") {
+            DetailRow(label: "Date", value: Entity.formatDateStr(dateStr), icon: "calendar")
+            if let due = dueDateStr, !due.isEmpty {
+                DetailRow(label: "Due", value: Entity.formatDateStr(due), icon: "clock")
             }
-            DetailRow(label: "Project", value: invoice.projectTitle, icon: "folder")
-            DetailRow(label: "Contract", value: invoice.contractTitle, icon: "signature")
-            DetailRow(label: "Currency", value: invoice.currency, icon: "banknote")
+            DetailRow(label: "Project", value: invoice.str("project_title"), icon: "folder")
+            DetailRow(label: "Contract", value: invoice.str("contract_title"), icon: "signature")
+            DetailRow(label: "Currency", value: invoice.str("currency"), icon: "banknote")
         }
     }
 
-    private func invoiceActions(_ invoice: InvoiceModel) -> some View {
+    private func invoiceActions(_ invoice: Entity) -> some View {
         DetailSection(title: "Actions") {
             HStack(spacing: 10) {
-                if !invoice.cancelled {
+                if !invoice.bool("cancelled") {
                     ActionButton(
-                        label: invoice.sent ? "Unsend" : "Mark Sent",
+                        label: invoice.bool("sent") ? "Unsend" : "Mark Sent",
                         icon: "paperplane",
                         color: .blue,
-                        isActive: invoice.sent
+                        isActive: invoice.bool("sent")
                     ) {
                         viewModel.toggleSent(invoice.id)
                     }
                     ActionButton(
-                        label: invoice.paid ? "Unpay" : "Mark Paid",
+                        label: invoice.bool("paid") ? "Unpay" : "Mark Paid",
                         icon: "checkmark.circle",
                         color: .green,
-                        isActive: invoice.paid
+                        isActive: invoice.bool("paid")
                     ) {
                         viewModel.togglePaid(invoice.id)
                     }
                 }
                 ActionButton(
-                    label: invoice.cancelled ? "Restore" : "Cancel",
-                    icon: invoice.cancelled ? "arrow.uturn.left" : "xmark.circle",
+                    label: invoice.bool("cancelled") ? "Restore" : "Cancel",
+                    icon: invoice.bool("cancelled") ? "arrow.uturn.left" : "xmark.circle",
                     color: .orange,
-                    isActive: invoice.cancelled
+                    isActive: invoice.bool("cancelled")
                 ) {
                     viewModel.toggleCancelled(invoice.id)
                 }
@@ -245,33 +250,34 @@ struct InvoicingView: View {
 // MARK: - Invoice Row
 
 struct InvoiceRow: View {
-    let invoice: InvoiceModel
+    let invoice: Entity
 
     var body: some View {
+        let status = invoice.invoiceStatus
         HStack(spacing: 12) {
             Image(systemName: "doc.text")
                 .font(.body)
-                .foregroundStyle(invoice.status.color)
+                .foregroundStyle(status.color)
                 .frame(width: 34, height: 34)
-                .background(invoice.status.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+                .background(status.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(invoice.number.isEmpty ? "Draft" : invoice.number)
+                    Text(invoice.str("number").isEmpty ? "Draft" : invoice.number)
                         .font(.body)
                         .fontWeight(.medium)
-                    Text(invoice.dateFormatted)
+                    Text(Entity.formatDateStr(invoice.str("date")))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 HStack(spacing: 4) {
-                    Text(invoice.clientName.isEmpty ? "No client" : invoice.clientName)
+                    Text(invoice.str("client_name").isEmpty ? "No client" : invoice.str("client_name"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if !invoice.projectTitle.isEmpty {
+                    if !invoice.str("project_title").isEmpty {
                         Text("·")
                             .foregroundStyle(.quaternary)
-                        Text(invoice.projectTitle)
+                        Text(invoice.str("project_title"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -281,11 +287,11 @@ struct InvoiceRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(invoice.totalFormatted)
+                Text(invoice.str("total_formatted"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .monospacedDigit()
-                InvoiceStatusBadge(status: invoice.status)
+                InvoiceStatusBadge(status: status)
             }
         }
         .padding(.vertical, 4)
@@ -345,7 +351,7 @@ struct AmountCard: View {
 // MARK: - Invoice Item Row
 
 struct InvoiceItemRow: View {
-    let item: InvoiceItemModel
+    let item: Entity
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -354,18 +360,20 @@ struct InvoiceItemRow: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                 Spacer()
-                Text(item.subtotalFormatted)
+                Text(item.str("subtotal_formatted"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .monospacedDigit()
             }
             HStack(spacing: 12) {
-                Label(String(format: "%.1f %@", item.quantity, item.unit), systemImage: "number")
-                Label(item.unitPriceFormatted + "/" + item.unit, systemImage: "banknote")
+                let unit = item.str("unit").isEmpty ? "hour" : item.str("unit")
+                Label(String(format: "%.1f %@", item.num("quantity"), unit), systemImage: "number")
+                Label(item.str("unit_price_formatted") + "/" + unit, systemImage: "banknote")
                 Label(item.vatPercent + " VAT", systemImage: "percent")
                 Spacer()
-                if !item.dateRange.isEmpty {
-                    Text(item.dateRange)
+                let itemDateRange = item.dateRange
+                if !itemDateRange.isEmpty {
+                    Text(itemDateRange)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -403,5 +411,17 @@ struct ActionButton: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Entity date formatting helper
+
+extension Entity {
+    static func formatDateStr(_ iso: String) -> String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        guard let d = fmt.date(from: iso) else { return iso }
+        fmt.dateFormat = "MMM d, yyyy"
+        return fmt.string(from: d)
     }
 }
