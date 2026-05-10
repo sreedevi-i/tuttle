@@ -146,6 +146,22 @@ final class BusinessViewModel {
         })
     }
 
+    func setProjectStatus(_ id: Int, completed: Bool) {
+        PythonBridge.shared.run({
+            let intent = PythonBridge.shared.projects!
+            let result = intent.get_by_id(id)
+            guard PythonBridge.isOk(result) else { return false }
+            let project = result.data
+            let isCompleted = Bool(project.is_completed) ?? false
+            if isCompleted != completed {
+                return PythonBridge.isOk(intent.toggle_project_completed_status(project))
+            }
+            return true
+        }, completion: { [self] (ok: Bool) in
+            if ok { self.loadAll() }
+        })
+    }
+
     // MARK: - Save (create or update)
 
     func saveContact(

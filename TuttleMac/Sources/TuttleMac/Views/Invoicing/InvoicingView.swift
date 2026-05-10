@@ -5,6 +5,12 @@ struct InvoicingView: View {
     @State private var selectedInvoice: Entity?
     @State private var statusFilter: InvoiceStatus = .all
     @State private var searchText = ""
+    @State private var viewMode: ViewMode = .list
+
+    @State private var stageStore = StageStore<InvoiceColumn>(
+        key: "invoice",
+        defaultColumn: InvoiceColumn.defaultColumn
+    )
 
     private var filtered: [Entity] {
         viewModel.invoices.filter { inv in
@@ -16,22 +22,125 @@ struct InvoicingView: View {
         }
     }
 
+    private var boardFiltered: [Entity] {
+        viewModel.invoices.filter { inv in
+            searchText.isEmpty
+            || inv.str("number").localizedCaseInsensitiveContains(searchText)
+            || inv.str("client_name").localizedCaseInsensitiveContains(searchText)
+            || inv.str("project_title").localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
     private var totalFiltered: Double {
         filtered.reduce(0) { $0 + $1.num("total_value") }
     }
 
     var body: some View {
+        Group {
+            switch viewMode {
+            case .list:
+                listLayout
+            case .board:
+                boardLayout
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle("Invoicing")
+        .searchable(text: $searchText, prompt: "Search invoices…")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                viewModeToggle
+            }
+        }
+        .onAppear { viewModel.loadInvoices() }
+        .refreshable { viewModel.loadInvoices() }
+    }
+
+    // MARK: - View Mode Toggle
+
+    private var viewModeToggle: some View {
+        Picker("View", selection: $viewMode) {
+            Image(systemName: "list.bullet").tag(ViewMode.list)
+            Image(systemName: "rectangle.3.group").tag(ViewMode.board)
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 80)
+    }
+
+    // MARK: - List Layout
+
+    private var listLayout: some View {
         HStack(spacing: 0) {
             invoiceList
             Divider()
             detailPane
                 .frame(minWidth: 320, maxWidth: 420)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("Invoicing")
-        .searchable(text: $searchText, prompt: "Search invoices…")
-        .onAppear { viewModel.loadInvoices() }
-        .refreshable { viewModel.loadInvoices() }
+    }
+
+    // MARK: - Board Layout
+
+    private var boardLayout: some View {
+        KanbanBoardView(
+            entities: boardFiltered,
+            stageStore: stageStore,
+            searchText: searchText,
+            onMove: { id, col in moveInvoice(id, to: col) },
+            onTap: { invoice in
+                selectedInvoice = invoice
+            },
+            onDelete: { invoice in
+                stageStore.removeEntity(invoice.id)
+                viewModel.deleteInvoice(invoice.id)
+            }
+        ) { invoice, _ in
+            InvoiceCardContent(invoice: invoice)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onReceive(NotificationCenter.default.publisher(for: .kanbanMove)) { note in
+            guard viewMode == .board,
+                  let info = note.userInfo,
+                  let entityId = info["entityId"] as? Int,
+                  let raw = info["column"] as? String,
+                  let col = InvoiceColumn(rawValue: raw)
+            else { return }
+            moveInvoice(entityId, to: col)
+        }
+    }
+
+    private func moveInvoice(_ invoiceId: Int, to column: InvoiceColumn) {
+        guard let invoice = viewModel.invoices.first(where: { $0.id == invoiceId }) else { return }
+        let current = stageStore.column(for: invoice)
+        if current == column { return }
+
+        withAnimation(.easeInOut(duration: 0.25)) {
+            stageStore.setColumn(column, for: invoiceId)
+        }
+
+        let isSent = invoice.bool("sent")
+        let isPaid = invoice.bool("paid")
+        let isCancelled = invoice.bool("cancelled")
+
+        switch column {
+        case .draft:
+            if isSent { viewModel.toggleSent(invoiceId) }
+            if isPaid { viewModel.togglePaid(invoiceId) }
+            if isCancelled { viewModel.toggleCancelled(invoiceId) }
+        case .sent:
+            if isCancelled { viewModel.toggleCancelled(invoiceId) }
+            if isPaid { viewModel.togglePaid(invoiceId) }
+            if !isSent { viewModel.toggleSent(invoiceId) }
+        case .paid:
+            if isCancelled { viewModel.toggleCancelled(invoiceId) }
+            if !isSent { viewModel.toggleSent(invoiceId) }
+            if !isPaid { viewModel.togglePaid(invoiceId) }
+        case .overdue:
+            if isCancelled { viewModel.toggleCancelled(invoiceId) }
+            if !isSent { viewModel.toggleSent(invoiceId) }
+            if isPaid { viewModel.togglePaid(invoiceId) }
+        case .cancelled:
+            if !isCancelled { viewModel.toggleCancelled(invoiceId) }
+        }
     }
 
     // MARK: - List

@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - View Mode
+
+enum ViewMode: String {
+    case list, board
+}
+
+// MARK: - Projects View
+
 struct ProjectsView: View {
     @State private var viewModel = BusinessViewModel()
     @State private var selectedProject: Entity?
@@ -7,6 +15,12 @@ struct ProjectsView: View {
     @State private var searchText = ""
     @State private var showingForm = false
     @State private var editingEntity: Entity?
+    @State private var viewMode: ViewMode = .list
+
+    @State private var stageStore = StageStore<ProjectColumn>(
+        key: "project",
+        defaultColumn: ProjectColumn.defaultColumn
+    )
 
     private var filtered: [Entity] {
         viewModel.projects.filter { p in
@@ -18,20 +32,34 @@ struct ProjectsView: View {
         }
     }
 
+    private var boardFiltered: [Entity] {
+        viewModel.projects.filter { p in
+            searchText.isEmpty
+            || p.str("title").localizedCaseInsensitiveContains(searchText)
+            || p.str("client_name").localizedCaseInsensitiveContains(searchText)
+            || p.str("tag").localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            projectList
-            Divider()
-            detailPane
-                .frame(minWidth: 280, maxWidth: 380)
+        Group {
+            switch viewMode {
+            case .list:
+                listLayout
+            case .board:
+                boardLayout
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Projects")
         .searchable(text: $searchText, prompt: "Search projects…")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { editingEntity = nil; showingForm = true } label: {
-                    Label("Add Project", systemImage: "plus")
+                HStack(spacing: 8) {
+                    viewModeToggle
+                    Button { editingEntity = nil; showingForm = true } label: {
+                        Label("Add Project", systemImage: "plus")
+                    }
                 }
             }
         }
@@ -40,6 +68,72 @@ struct ProjectsView: View {
         }
         .onAppear { viewModel.loadAll() }
         .refreshable { viewModel.loadAll() }
+    }
+
+    // MARK: - View Mode Toggle
+
+    private var viewModeToggle: some View {
+        Picker("View", selection: $viewMode) {
+            Image(systemName: "list.bullet").tag(ViewMode.list)
+            Image(systemName: "rectangle.3.group").tag(ViewMode.board)
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 80)
+    }
+
+    // MARK: - List Layout
+
+    private var listLayout: some View {
+        HStack(spacing: 0) {
+            projectList
+            Divider()
+            detailPane
+                .frame(minWidth: 280, maxWidth: 380)
+        }
+    }
+
+    // MARK: - Board Layout
+
+    private var boardLayout: some View {
+        KanbanBoardView(
+            entities: boardFiltered,
+            stageStore: stageStore,
+            searchText: searchText,
+            onMove: { id, col in moveProject(id, to: col) },
+            onTap: { project in
+                selectedProject = project
+            },
+            onDelete: { project in
+                stageStore.removeEntity(project.id)
+                viewModel.deleteProject(project.id)
+            }
+        ) { project, _ in
+            ProjectCardContent(project: project)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onReceive(NotificationCenter.default.publisher(for: .kanbanMove)) { note in
+            guard viewMode == .board,
+                  let info = note.userInfo,
+                  let entityId = info["entityId"] as? Int,
+                  let raw = info["column"] as? String,
+                  let col = ProjectColumn(rawValue: raw)
+            else { return }
+            moveProject(entityId, to: col)
+        }
+    }
+
+    private func moveProject(_ projectId: Int, to column: ProjectColumn) {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            stageStore.setColumn(column, for: projectId)
+        }
+        if column == .completed {
+            viewModel.setProjectStatus(projectId, completed: true)
+        } else {
+            let project = viewModel.projects.first { $0.id == projectId }
+            if project?.entityStatus == .completed {
+                viewModel.setProjectStatus(projectId, completed: false)
+            }
+        }
     }
 
     // MARK: - List
