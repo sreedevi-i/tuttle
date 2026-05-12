@@ -4,8 +4,6 @@ Sizes tuned for macOS native feel — slightly larger body text
 for readability, semi-bold headings for clear hierarchy.
 """
 
-from flet import FontWeight
-
 DEFAULT_FONT = "body"
 HEADLINE_FONT = "headline"
 MONOSPACE_FONT = "monospace"
@@ -13,7 +11,6 @@ MONOSPACE_FONT = "monospace"
 APP_FONTS = {
     DEFAULT_FONT: "/fonts/SF-Pro-Display-Regular.otf",
     HEADLINE_FONT: "/fonts/SF-Pro-Display-Regular.otf",
-    # MONOSPACE_FONT: "/fonts/SFMono-Regular.otf",  # add when available
 }
 
 
@@ -33,5 +30,5 @@ CAPTION_SIZE = 11  # captions, helper text
 STATUS_BAR_SIZE = 11  # status bar text
 
 # ── Font weights ─────────────────────────────────────────────
-BOLD_FONT = FontWeight.W_600  # semi-bold for crisper hierarchy
-BOLDER_FONT = FontWeight.BOLD
+BOLD_FONT = 600  # semi-bold for crisper hierarchy
+BOLDER_FONT = 700  # bold

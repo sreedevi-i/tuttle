@@ -33,7 +33,7 @@ CATEGORY_COLORS = {
     CATEGORY_GOAL: colors.goal_purple,
 }
 
-# Icon codepoints (Material Symbols) -- same values as flet.Icons members.
+# Icon codepoints (Material Symbols).
 ICON_RECEIPT_OUTLINED = 71694
 ICON_HANDSHAKE_OUTLINED = 69034
 ICON_WORK_OUTLINE = 74308

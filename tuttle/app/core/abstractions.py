@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Type
+from typing import Any, Callable, List, Mapping, Optional, Type
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 import functools
 
@@ -14,10 +13,6 @@ from sqlmodel import pool
 from loguru import logger
 
 from .intent_result import IntentResult
-
-if TYPE_CHECKING:
-    from flet import AlertDialog
-    from .utils import AlertDialogControls
 
 
 class DatabaseStorage(ABC):
@@ -91,112 +86,6 @@ class ClientStorage(ABC):
     ):
         """Deletes all of preferences permanently"""
         pass
-
-
-@dataclass
-class TViewParams:
-    """Parameters for TViews"""
-
-    navigate_to_route: Callable
-    show_snack: Callable
-    dialog_controller: Callable
-    pick_file_callback: Callable
-    client_storage: ClientStorage
-    keep_back_stack: bool = True
-    on_navigate_back: Optional[Callable] = None
-    vertical_alignment_in_parent: Any = None
-    horizontal_alignment_in_parent: Any = None
-    page_scroll_type: Any = None
-
-    def __post_init__(self):
-        from .utils import AUTO_SCROLL, START_ALIGNMENT, CROSS_START
-
-        if self.vertical_alignment_in_parent is None:
-            self.vertical_alignment_in_parent = START_ALIGNMENT
-        if self.horizontal_alignment_in_parent is None:
-            self.horizontal_alignment_in_parent = CROSS_START
-        if self.page_scroll_type is None:
-            self.page_scroll_type = AUTO_SCROLL
-
-
-class TView(ABC):
-    """Abstract class for all UI screens"""
-
-    def __init__(self, params: TViewParams):
-        super().__init__()
-        self.navigate_to_route = params.navigate_to_route
-        self.show_snack: Callable[[str, bool], None] = params.show_snack
-        self.dialog_controller = params.dialog_controller
-        self.vertical_alignment_in_parent = params.vertical_alignment_in_parent
-        self.horizontal_alignment_in_parent = params.horizontal_alignment_in_parent
-        self.keep_back_stack = params.keep_back_stack
-        self.navigate_back = params.on_navigate_back
-        self.page_scroll_type = params.page_scroll_type
-        self.pick_file_callback = params.pick_file_callback
-        self.client_storage = params.client_storage
-        self.mounted = False
-
-    def get_toolbar_items(self) -> list:
-        """Return toolbar controls for this view (icon buttons, dropdowns, etc.).
-        Override in subclasses. The shell renders these on the left side of the toolbar."""
-        return []
-
-    def parent_intent_listener(self, intent: str, data: any):
-        """listens for an intent from parent view"""
-        return
-
-    def on_resume_after_back_pressed(
-        self,
-    ):
-        """listener for when a view has been resumed after user pressed back from another view
-        used by views whose self.keep_back_stack parameter is set to True
-        """
-        return
-
-    def on_window_resized_listener(self, width, height):
-        """sets the page width and height"""
-        self.page_width = width
-        self.page_height = height
-
-    def update_self(
-        self,
-    ):
-        """Triggers an update to the view only if the view is mounted"""
-        try:
-            if self.mounted:
-                self.update()
-        except Exception as e:
-            logger.error(
-                f"A view update caused an exception to be thrown {e.__class__.__name__}"
-            )
-            logger.exception(e)
-
-
-class DialogHandler(ABC):
-    """Used by views to set, open, and dismiss dialogs"""
-
-    def __init__(
-        self,
-        dialog: AlertDialog,
-        dialog_controller: Callable[[any, AlertDialogControls], None],
-    ):
-        super().__init__()
-        self.dialog_controller = dialog_controller
-        self.dialog = dialog
-
-    def close_dialog(self, e: Optional[any] = None):
-        from .utils import AlertDialogControls
-
-        self.dialog_controller(self.dialog, AlertDialogControls.CLOSE)
-
-    def open_dialog(self, e: Optional[any] = None):
-        from .utils import AlertDialogControls
-
-        self.dialog_controller(self.dialog, AlertDialogControls.ADD_AND_OPEN)
-
-    def dimiss_open_dialogs(self):
-        if self.dialog is not None and self.dialog.open:
-            self.close_dialog()
 
 
 # ---------------------------------------------------------------------------

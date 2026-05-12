@@ -23,7 +23,6 @@ classifiers = [
 dependencies = [
     "pytest",
     "pandas",
-    "matplotlib",
     "altair",
     "pydantic",
     "sqlmodel",
@@ -36,14 +35,15 @@ dependencies = [
     "faker",
     "PyPDF2",
     "pymupdf",
-    "flet>=0.81.0,<0.82.0",
     "pycountry",
     "icloudpy",
     "alembic>=1.18.4",
-    "flet-charts>=0.81.0",
     "llama-index-core",
     "llama-index-llms-ollama",
 ]
+
+[project.scripts]
+tuttle-rpc = "tuttle.rpc_server:main"
 
 [project.urls]
 Homepage = "https://github.com/tuttle-dev/tuttle"
@@ -74,8 +74,7 @@ packages = ["tuttle"]
 
 [tool.pytest.ini_options]
 collect_ignore = ["setup.py"]
-markers = ["gui: tests that open a GUI window (deselected by default)"]
-addopts = "-m 'not gui'"
+addopts = ""
 
 [tool.flake8]
 exclude = ["docs", ".venv"]
@@ -86,9 +85,8 @@ use_parentheses = true
 multi_line_output = 1
 default_section = "THIRDPARTY"
 known_first_party = ["tuttle"]
-known_flet = ["flet"]
 known_typing = ["typing"]
-sections = ["FUTURE", "TYPING", "STDLIB", "FLET", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+sections = ["FUTURE", "TYPING", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.bumpversion]
 current_version = "2.1.0a1"

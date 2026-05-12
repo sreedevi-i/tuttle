@@ -73,12 +73,22 @@ Track regular expenses, taxes and social security contributions. Estimate them f
 Calculate your effective income and see how much you can spend without risking your financial security.
 
 
+## Architecture
+
+Tuttle is a desktop application with a Python core and an Electron UI shell.
+
+- **Python core** (`tuttle/`): Business logic, data models, invoicing, tax calculations, and a JSON-RPC server (`tuttle/rpc_server.py`) that exposes the core as a stdio service.
+- **Electron shell** (`tuttle-electron/`): React + TypeScript desktop UI that communicates with the Python core via JSON-RPC over stdio.
+- **TuttleMac** (`TuttleMac/`): Experimental native macOS client built with SwiftUI.
+
+
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- Node.js 22 or newer
 
 ### Installation
 
@@ -89,28 +99,40 @@ git clone https://github.com/tuttle-dev/tuttle.git
 cd tuttle
 ```
 
-2. Install dependencies (this creates a virtual environment automatically):
+2. Install Python dependencies:
 
 ```shell
 uv sync
 ```
 
-### Running the App
+3. Install Electron dependencies:
 
 ```shell
-uv run app.py
+cd tuttle-electron
+npm install
 ```
+
+### Running the App (Development)
+
+```shell
+cd tuttle-electron
+npm run dev
+```
+
+This starts the Electron app in development mode. The Python RPC sidecar is spawned automatically.
+
+### Building for Production
+
+```shell
+make pack
+```
+
+This builds the Python sidecar with PyInstaller and packages the Electron app with electron-builder.
 
 ### Running the Tests
 
 ```shell
 uv run pytest
-```
-
-To include GUI tests (requires a display):
-
-```shell
-uv run pytest -m gui
 ```
 
 

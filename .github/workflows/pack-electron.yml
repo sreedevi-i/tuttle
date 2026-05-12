@@ -1,4 +1,4 @@
-name: Pack App
+name: Pack Electron App
 
 on:
   push:
@@ -26,32 +26,41 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    # Python sidecar
     - name: Install uv
       uses: astral-sh/setup-uv@v4
       with:
         version: "latest"
     - name: Set up Python
       run: uv python install 3.13
-    - name: Install dependencies
+    - name: Install Python dependencies
       run: uv sync --all-groups
-    - name: Build app bundle
-      run: uv run python scripts/pack_app.py
-    - name: Create zip archive (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        cd dist
-        zip -r ../Tuttle-${{ github.ref_name }}-${{ matrix.platform }}.zip .
-    - name: Create zip archive (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Compress-Archive -Path dist\* -DestinationPath Tuttle-${{ github.ref_name }}-${{ matrix.platform }}.zip
+    - name: Build Python sidecar (PyInstaller)
+      run: uv run pyinstaller --clean --noconfirm tuttle-rpc.spec
+
+    # Electron app
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+    - name: Install Electron dependencies
+      run: npm ci
+      working-directory: tuttle-electron
+    - name: Build Electron app
+      run: npm run build
+      working-directory: tuttle-electron
+    - name: Package Electron app (electron-builder)
+      run: npm run dist
+      working-directory: tuttle-electron
+
+    # Artifacts
     - uses: actions/upload-artifact@v4
       with:
         name: Tuttle-${{ github.ref_name }}-${{ matrix.platform }}
-        path: dist/
+        path: tuttle-electron/release/
     - name: Upload release asset
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        files: Tuttle-${{ github.ref_name }}-${{ matrix.platform }}.zip
+        files: tuttle-electron/release/*
