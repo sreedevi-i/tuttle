@@ -65,6 +65,14 @@ def _get_intent(name: str):
             from tuttle.app.timeline.intent import TimelineIntent
 
             _intents[name] = TimelineIntent()
+        elif name == "tax":
+            from tuttle.app.tax.intent import TaxIntent
+
+            _intents[name] = TaxIntent()
+        elif name == "salary":
+            from tuttle.app.salary.intent import SalaryIntent
+
+            _intents[name] = SalaryIntent()
         else:
             raise ValueError(f"Unknown intent domain: {name}")
     return _intents[name]
@@ -719,6 +727,48 @@ def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         return _unwrap_intent_result(
             _get_intent("timeline").get_timeline_events(category_filter=cat)
         )
+
+    # -- Tax & Reserves -----------------------------------------------------
+    if method == "tax.get_spendable_income":
+        return _unwrap_intent_result(_get_intent("tax").get_spendable_income())
+
+    if method == "tax.get_income_tax_estimate":
+        return _unwrap_intent_result(_get_intent("tax").get_income_tax_estimate())
+
+    if method == "tax.get_quarterly_vat":
+        year = params.get("year")
+        return _unwrap_intent_result(_get_intent("tax").get_quarterly_vat(year=year))
+
+    # -- Salary -------------------------------------------------------------
+    if method == "salary.get_effective_salary":
+        return _unwrap_intent_result(_get_intent("salary").get_effective_salary())
+
+    if method == "salary.get_expenses":
+        return _unwrap_intent_result(_get_intent("salary").get_expenses())
+
+    if method == "salary.save_expense":
+        from tuttle.model import RecurringExpense
+
+        data = params["expense"]
+        expense_id = data.get("id")
+        if expense_id:
+            result = _get_intent("salary").get_expenses()
+            if result.was_intent_successful and result.data:
+                existing = next((e for e in result.data if e.id == expense_id), None)
+                if existing:
+                    for k, v in data.items():
+                        if k != "id" and not k.startswith("_"):
+                            setattr(existing, k, v)
+                    return _unwrap_intent_result(
+                        _get_intent("salary").save_expense(existing)
+                    )
+        clean = {k: v for k, v in data.items() if k != "id" and not k.startswith("_")}
+        return _unwrap_intent_result(
+            _get_intent("salary").save_expense(RecurringExpense(**clean))
+        )
+
+    if method == "salary.delete_expense":
+        return _unwrap_intent_result(_get_intent("salary").delete_expense(params["id"]))
 
     # -- LLM ---------------------------------------------------------------
     if method == "llm.get_config":
