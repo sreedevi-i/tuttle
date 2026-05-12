@@ -12,6 +12,7 @@ class ClientsIntent(CrudIntent):
     deletion_guards = [
         ("contracts", "contracts", lambda c: c.title),
     ]
+    __save_skip__ = {"contracts"}
 
     def __init__(self):
         super().__init__()
@@ -21,24 +22,10 @@ class ClientsIntent(CrudIntent):
         """Delegate to ContactsIntent for cross-entity lookup."""
         return self._contacts_intent.get_all_as_map()
 
-    def save_client(self, client: Client) -> IntentResult:
-        """Validate and save a client."""
+    def _validated_save(self, client: Client) -> IntentResult:
         if not client.name:
             return IntentResult(
                 was_intent_successful=False,
                 error_msg="Please provide the client's name",
-            )
-        if (
-            not client.invoicing_contact.first_name
-            or not client.invoicing_contact.last_name
-        ):
-            return IntentResult(
-                was_intent_successful=False,
-                error_msg="A contact name is required.",
-            )
-        if client.invoicing_contact.address.is_empty:
-            return IntentResult(
-                was_intent_successful=False,
-                error_msg="Please specify the contact address.",
             )
         return self.save(client)

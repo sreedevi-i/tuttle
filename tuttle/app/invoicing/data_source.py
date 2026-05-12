@@ -39,6 +39,19 @@ class InvoicingDataSource(SQLModelDataSourceMixin):
                 exception=e,
             )
 
+    def get_invoice_by_id(self, invoice_id: int) -> IntentResult[Optional[Invoice]]:
+        """Fetch a single invoice by primary key."""
+        try:
+            invoice = self.query_by_id(Invoice, invoice_id)
+            return IntentResult(was_intent_successful=True, data=invoice)
+        except Exception as ex:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=f"Invoice with id={invoice_id} not found.",
+                log_message=f"InvoicingDataSource.get_invoice_by_id({invoice_id}): {ex}",
+                exception=ex,
+            )
+
     def get_all_invoices(self) -> IntentResult[List[Invoice]]:
         """Get all existing invoices
 

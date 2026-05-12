@@ -1,183 +1,64 @@
-from typing import Optional
-from loguru import logger
+"""Preferences backed by the app-level database.
 
-from ..core.abstractions import ClientStorage, Intent
+Replaces the legacy ClientStorage-based implementation.  Both the
+RPC-facing methods (``get`` / ``save``) and the internal API used by
+other intents (``get_preference_by_key``, ``get_preferred_invoice_template``)
+read from the same ``AppDatabase`` backend.
+"""
+
 from ..core.intent_result import IntentResult
+from ...app_db import AppDatabase
+from .model import PreferencesStorageKeys, DEFAULT_INVOICE_TEMPLATE
 
-from .model import Preferences, PreferencesStorageKeys
 
+class PreferencesIntent:
+    def __init__(self, client_storage=None):
+        self._app_db = AppDatabase()
 
-class PreferencesIntent(Intent):
-    """Handles Preferences intents
+    # -- RPC-facing ------------------------------------------------------------
 
-    Intents handled (Methods)
-    ---------------
-
-    get_preferences_intent
-        fetching a Preferences object
-
-    save_preferences_intent
-        storing a Preferences object
-
-    get_preference_by_key_intent
-        reading a single preference value given it's key
-
-    set_preference_key_value_pair_intent
-        storing a preference item given it's key and value
-    """
-
-    def __init__(
-        self,
-        client_storage: ClientStorage,
-    ):
-        self._client_storage = client_storage
-
-    def get_preferences(self) -> IntentResult:
-        preferences = Preferences()
-        for item in PreferencesStorageKeys:
-            preference_item_result = self.get_preference_by_key(item)
-            if not preference_item_result.data:
-                continue
-            if not preference_item_result.was_intent_successful:
-                preference_item_result.log_message_if_any()
-                return IntentResult(
-                    was_intent_successful=False,
-                    error_msg="Loading preferences failed!",
-                )
-            if item.value == PreferencesStorageKeys.theme_mode_key.value:
-                preferences.theme_mode = preference_item_result.data
-            elif item.value == PreferencesStorageKeys.cloud_acc_id_key.value:
-                preferences.cloud_acc_id = preference_item_result.data
-            elif item.value == PreferencesStorageKeys.cloud_provider_key.value:
-                preferences.cloud_acc_provider = preference_item_result.data
-            elif item.value == PreferencesStorageKeys.language_key.value:
-                preferences.language = preference_item_result.data
-            elif item.value == PreferencesStorageKeys.invoice_template_key.value:
-                preferences.invoice_template = preference_item_result.data
-
+    def get(self) -> IntentResult:
         return IntentResult(
             was_intent_successful=True,
-            data=preferences,
+            data={
+                "invoice_template": self._app_db.get_setting(
+                    PreferencesStorageKeys.invoice_template_key.value,
+                )
+                or DEFAULT_INVOICE_TEMPLATE,
+                "language": self._app_db.get_setting(
+                    PreferencesStorageKeys.language_key.value,
+                )
+                or "en",
+            },
         )
 
-    def save_preferences(self, preferences: Preferences) -> IntentResult:
-        try:
-            self.set_preference_key_value_pair(
-                PreferencesStorageKeys.theme_mode_key, preferences.theme_mode
+    def save(self, invoice_template=None, language=None) -> IntentResult:
+        if invoice_template is not None:
+            self._app_db.set_setting(
+                PreferencesStorageKeys.invoice_template_key.value,
+                invoice_template,
             )
-            self.set_preference_key_value_pair(
-                PreferencesStorageKeys.cloud_acc_id_key, preferences.cloud_acc_id
+        if language is not None:
+            self._app_db.set_setting(
+                PreferencesStorageKeys.language_key.value,
+                language,
             )
-            self.set_preference_key_value_pair(
-                PreferencesStorageKeys.cloud_provider_key,
-                preferences.cloud_acc_provider,
-            )
-            self.set_preference_key_value_pair(
-                PreferencesStorageKeys.language_key,
-                preferences.language,
-            )
-            self.set_preference_key_value_pair(
-                PreferencesStorageKeys.invoice_template_key,
-                preferences.invoice_template,
-            )
-        except Exception as e:
-            result = IntentResult(
-                was_intent_successful=False,
-                exception=e,
-                error_msg="Failed to save preferences",
-                log_message=f"An exception was raised @PreferencesIntent.save_preferences {e.__class__.__name__}",
-            )
-            result.log_message_if_any()
-            return result
+        return IntentResult(was_intent_successful=True, data=None)
 
-    def get_preference_by_key(
-        self, preference_key: PreferencesStorageKeys
-    ) -> IntentResult:
-        try:
-            preference = self._client_storage.get_value(preference_key.value)
-            return IntentResult(was_intent_successful=True, data=preference)
-        except Exception as e:
-            result = IntentResult(
-                was_intent_successful=False,
-                exception=e,
-                error_msg="Failed to load that preference item",
-                log_message=f"Exception was raised @PreferencesIntent.get_preference f{e.__class__.__name__}",
-            )
-            result.log_message_if_any()
-            return result
+    # -- Internal API (used by other intents) ----------------------------------
 
-    def set_preference_key_value_pair(
-        self, preference_key: PreferencesStorageKeys, value: any
-    ) -> IntentResult:
-        try:
-            self._client_storage.set_value(
-                key=preference_key.value,
-                value=value,
-            )
-            return IntentResult(was_intent_successful=True, data=None)
-        except Exception as e:
-            result = IntentResult(
-                was_intent_successful=False,
-                exception=e,
-                error_msg="Saving preferences failed!",
-                log_message=f"Exception was raised @PreferencesIntent.set_preference f{e.__class__.__name__}",
-            )
-            result.log_message_if_any()
-            return result
-
-    def get_preferred_theme(self) -> IntentResult[Optional[str]]:
-        """Returns the preferred theme mode as string"""
-        result: IntentResult = self.get_preference_by_key(
-            preference_key=PreferencesStorageKeys.theme_mode_key
+    def get_preference_by_key(self, key) -> IntentResult:
+        k = key.value if hasattr(key, "value") else key
+        return IntentResult(
+            was_intent_successful=True,
+            data=self._app_db.get_setting(k),
         )
-        if not result.was_intent_successful:
-            result.error_msg = "Failed to load your preferred theme"
-            result.log_message_if_any()
-        return result
 
-    def get_preferred_invoice_template(self) -> IntentResult[Optional[str]]:
-        """Returns the preferred invoice template name as string"""
-        result: IntentResult = self.get_preference_by_key(
-            preference_key=PreferencesStorageKeys.invoice_template_key
+    def get_preferred_invoice_template(self) -> IntentResult:
+        tmpl = (
+            self._app_db.get_setting(
+                PreferencesStorageKeys.invoice_template_key.value,
+            )
+            or DEFAULT_INVOICE_TEMPLATE
         )
-        if not result.was_intent_successful:
-            result.error_msg = "Failed to load your preferred invoice template"
-            result.log_message_if_any()
-        return result
-
-    def clear_preferences(self) -> IntentResult[None]:
-        """Clears all preferences"""
-        try:
-            self._client_storage.clear_preferences()
-            return IntentResult(was_intent_successful=True)
-        except Exception as ex:
-            logger.error(f"Failed to clear preferences: {ex.__class__.__name__}")
-            logger.exception(ex)
-            result = IntentResult(
-                was_intent_successful=False,
-                exception=ex,
-                error_msg=f"Failed to clear preferences: {ex.__class__.__name__}",
-            )
-            result.log_message_if_any()
-            return result
-
-    def reset_app(self) -> IntentResult:
-        """Resets the app to it's default state"""
-        try:
-            logger.info("Resetting the app to default state")
-            logger.info("Clearing all preferences")
-            self._client_storage.clear_preferences()
-            logger.info("Clearing all data")
-            self._page.window.close()
-
-            return IntentResult(
-                was_intent_successful=True,
-            )
-        except Exception as ex:
-            result = IntentResult(
-                was_intent_successful=False,
-                exception=ex,
-                error_msg="Failed to reset app",
-            )
-            result.log_message_if_any()
-            return result
+        return IntentResult(was_intent_successful=True, data=tmpl)

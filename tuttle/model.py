@@ -25,8 +25,53 @@ from pydantic import BaseModel, condecimal, constr, validator
 from sqlmodel import SQLModel, Field, Relationship, Constraint
 
 
+from pathlib import Path
+
+from .app.core.formatting import fmt_currency
 from .dev import deprecated
 from .time import Cycle, TimeUnit
+
+
+class RpcMixin:
+    """Mixin that auto-serialises SQLModel objects for RPC transport.
+
+    Class-level declarations::
+
+        __rpc_relationships__ = ("address",)                       # full dump
+        __rpc_relationships__ = {"projects": ("id", "title")}      # field projection
+        __rpc_computed__      = ("sum", "total", "status")         # @property values
+    """
+
+    __rpc_relationships__: tuple | dict = ()
+    __rpc_computed__: tuple = ()
+
+    def to_rpc_dict(self, _depth: int = 2) -> dict:
+        d = self.model_dump()
+        for prop in self.__rpc_computed__:
+            d[prop] = getattr(self, prop, None)
+        if _depth <= 0:
+            return d
+        rels = self.__rpc_relationships__
+        items = rels.items() if isinstance(rels, dict) else ((r, None) for r in rels)
+        for rel_name, projection in items:
+            value = getattr(self, rel_name, None)
+            if value is None:
+                continue
+            if isinstance(value, list):
+                d[rel_name] = [_project(v, projection, _depth - 1) for v in value]
+            else:
+                d[rel_name] = _project(value, projection, _depth - 1)
+        return d
+
+
+def _project(obj, projection, depth: int):
+    if projection:
+        return {f: getattr(obj, f, None) for f in projection}
+    if hasattr(obj, "to_rpc_dict"):
+        return obj.to_rpc_dict(_depth=depth)
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return obj
 
 
 def help(model_class: Type[BaseModel]):
@@ -59,11 +104,10 @@ def OneToOneRelationship(back_populates):
     )
 
 
-class Address(SQLModel, table=True):
+class Address(RpcMixin, SQLModel, table=True):
     """Postal address."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    # name: str
     street: str = Field(default="")
     number: str = Field(default="")
     city: str = Field(default="")
@@ -104,8 +148,10 @@ class Address(SQLModel, table=True):
         )
 
 
-class User(SQLModel, table=True):
+class User(RpcMixin, SQLModel, table=True):
     """User of the application, a freelancer."""
+
+    __rpc_relationships__ = ("address",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -197,8 +243,10 @@ class BankAccount(SQLModel, table=True):
     user: User = Relationship(back_populates="bank_account")
 
 
-class Contact(SQLModel, table=True):
+class Contact(RpcMixin, SQLModel, table=True):
     """An entry in the address book."""
+
+    __rpc_relationships__ = ("address",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     first_name: Optional[str]
@@ -260,8 +308,10 @@ class Contact(SQLModel, table=True):
         )
 
 
-class Client(SQLModel, table=True):
+class Client(RpcMixin, SQLModel, table=True):
     """A client the freelancer has contracted with."""
+
+    __rpc_relationships__ = ("invoicing_contact",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(
@@ -279,14 +329,19 @@ class Client(SQLModel, table=True):
         back_populates="client",
         sa_relationship_kwargs={"lazy": "subquery", "passive_deletes": "all"},
     )
-    # non-invoice related contact person?
 
 
 CONTRACT_DEFAULT_VAT_RATE = 0.19
 
 
-class Contract(SQLModel, table=True):
+class Contract(RpcMixin, SQLModel, table=True):
     """A contract defines the business conditions of a project"""
+
+    __rpc_relationships__ = {
+        "client": None,
+        "projects": ("id", "title"),
+        "invoices": ("id",),
+    }
 
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(description="Short description of the contract.")
@@ -348,7 +403,6 @@ class Contract(SQLModel, table=True):
         back_populates="contract",
         sa_relationship_kwargs={"lazy": "subquery", "passive_deletes": "all"},
     )
-    # TODO: model contractual promises like "at least 2 days per week"
 
     @property
     def volume_as_time(self):
@@ -382,8 +436,10 @@ class Contract(SQLModel, table=True):
             return default
 
 
-class Project(SQLModel, table=True):
+class Project(RpcMixin, SQLModel, table=True):
     """A project is a group of contract work for a client."""
+
+    __rpc_relationships__ = ("contract",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(
@@ -567,8 +623,22 @@ class Timesheet(SQLModel, table=True):
         return len(self.items) == 0
 
 
-class Invoice(SQLModel, table=True):
+class Invoice(RpcMixin, SQLModel, table=True):
     """An invoice is a bill for a client."""
+
+    __rpc_relationships__ = ("contract", "project", "items")
+    __rpc_computed__ = (
+        "sum",
+        "VAT_total",
+        "total",
+        "due_date",
+        "status",
+        "file_name",
+        "sum_formatted",
+        "vat_total_formatted",
+        "total_formatted",
+        "pdf_path",
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     number: Optional[str] = Field(description="The invoice number. Auto-generated.")
@@ -628,7 +698,6 @@ class Invoice(SQLModel, table=True):
     def __repr__(self):
         return f"Invoice(id={self.id}, number={self.number}, date={self.date})"
 
-    #
     @property
     def sum(self) -> Decimal:
         """Sum over all invoice items."""
@@ -687,8 +756,32 @@ class Invoice(SQLModel, table=True):
         """A string that can be used as a file name."""
         return f"{self.prefix}.pdf"
 
+    @property
+    def sum_formatted(self) -> str:
+        currency = self.contract.currency if self.contract else "EUR"
+        return fmt_currency(self.sum, currency)
 
-class InvoiceItem(SQLModel, table=True):
+    @property
+    def vat_total_formatted(self) -> str:
+        currency = self.contract.currency if self.contract else "EUR"
+        return fmt_currency(self.VAT_total, currency)
+
+    @property
+    def total_formatted(self) -> str:
+        currency = self.contract.currency if self.contract else "EUR"
+        return fmt_currency(self.total, currency)
+
+    @property
+    def pdf_path(self) -> Optional[str]:
+        if not self.rendered:
+            return None
+        p = Path.home() / ".tuttle" / "Invoices" / self.file_name
+        return str(p) if p.exists() else None
+
+
+class InvoiceItem(RpcMixin, SQLModel, table=True):
+    __rpc_computed__ = ("subtotal", "subtotal_formatted", "unit_price_formatted")
+
     id: Optional[int] = Field(default=None, primary_key=True)
     # date and time
     start_date: datetime.date = Field(description="Start date of the invoice item.")
@@ -713,6 +806,14 @@ class InvoiceItem(SQLModel, table=True):
     @property
     def subtotal(self) -> Decimal:
         return Decimal(str(self.quantity)) * self.unit_price
+
+    @property
+    def subtotal_formatted(self) -> str:
+        return fmt_currency(self.subtotal)
+
+    @property
+    def unit_price_formatted(self) -> str:
+        return fmt_currency(self.unit_price)
 
     @property
     def VAT(self) -> Decimal:

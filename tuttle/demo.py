@@ -652,3 +652,5 @@ def install_demo_data(
         for goal in goals:
             session.add(goal)
         session.commit()
+
+    db_engine.dispose()

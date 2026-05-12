@@ -72,4 +72,4 @@ deps-all: deps deps-node
 
 # Reset the demo user data
 demo-reset:
-    {{python}} -c "from tuttle.rpc_server import _dispatch, _ensure_db; _ensure_db(); _dispatch('demo.reset', {}); print('Demo user reset')"
+    {{python}} -c "from tuttle.app.demo.intent import DemoIntent; DemoIntent().reset(); print('Demo user reset')"

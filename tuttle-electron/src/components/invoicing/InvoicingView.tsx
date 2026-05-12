@@ -5,7 +5,7 @@ import {
   Plus, Clock,
 } from "lucide-react";
 import { rpc, readFileAsDataURL } from "../../api/rpc";
-import { str, num, bool, list as entityList, formatDate, invoiceStatus } from "../../api/entity";
+import { str, num, bool, list as entityList, formatDate, invoiceStatus, deepStr } from "../../api/entity";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ViewModeToggle } from "../shared/ViewModeToggle";
 import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBoard";
@@ -56,8 +56,8 @@ export function InvoicingView() {
     if (!search) return true;
     const q = search.toLowerCase();
     return str(inv, "number").toLowerCase().includes(q)
-      || str(inv, "client_name").toLowerCase().includes(q)
-      || str(inv, "project_title").toLowerCase().includes(q);
+      || deepStr(inv, "contract.client.name").toLowerCase().includes(q)
+      || deepStr(inv, "project.title").toLowerCase().includes(q);
   }
 
   const filtered = invoices.filter((inv) =>
@@ -325,10 +325,10 @@ function InvoiceRow({ invoice, isSelected, isHighlighted, onSelect }: { invoice:
         </div>
       </div>
       <div className="flex items-center gap-1.5 mt-1 text-secondary">
-        <span className="text-xs truncate">{str(invoice, "client_name") || "No client"}</span>
-        {str(invoice, "project_title") && (
+        <span className="text-xs truncate">{deepStr(invoice, "contract.client.name") || "No client"}</span>
+        {deepStr(invoice, "project.title") && (
           <><span className="text-tertiary">·</span>
-          <span className="text-xs text-tertiary truncate">{str(invoice, "project_title")}</span></>
+          <span className="text-xs text-tertiary truncate">{deepStr(invoice, "project.title")}</span></>
         )}
       </div>
     </button>
@@ -342,16 +342,16 @@ function InvoiceCard({ invoice }: { invoice: Entity; color: string }) {
         <span className="text-sm font-semibold">{str(invoice, "number") || "Draft"}</span>
         <span className="text-sm font-bold tabular-nums">{str(invoice, "total_formatted")}</span>
       </div>
-      {str(invoice, "client_name") && (
+      {deepStr(invoice, "contract.client.name") && (
         <div className="flex items-center gap-1 text-secondary">
           <Building2 size={12} className="text-tertiary" />
-          <span className="text-xs truncate">{str(invoice, "client_name")}</span>
+          <span className="text-xs truncate">{deepStr(invoice, "contract.client.name")}</span>
         </div>
       )}
-      {str(invoice, "project_title") && (
+      {deepStr(invoice, "project.title") && (
         <div className="flex items-center gap-1 text-secondary">
           <FolderKanban size={12} className="text-tertiary" />
-          <span className="text-xs truncate">{str(invoice, "project_title")}</span>
+          <span className="text-xs truncate">{deepStr(invoice, "project.title")}</span>
         </div>
       )}
       <div className="flex items-center gap-1 text-tertiary">
@@ -398,7 +398,7 @@ function InvoiceDetail({ invoice, onToggleSent, onTogglePaid, onToggleCancelled 
           <div>
             <h1 className="text-lg font-semibold">{str(invoice, "number") || "Draft"}</h1>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-secondary">{str(invoice, "client_name") || "No client"}</span>
+              <span className="text-sm text-secondary">{deepStr(invoice, "contract.client.name") || "No client"}</span>
               <StatusBadge status={status} />
             </div>
           </div>
@@ -458,8 +458,8 @@ function InvoiceDetail({ invoice, onToggleSent, onTogglePaid, onToggleCancelled 
           <Section title="Details">
             <div className="grid grid-cols-2 gap-3">
               <DRow icon={<Calendar size={14} />} label="Date" value={formatDate(str(invoice, "date"))} />
-              <DRow icon={<FolderKanban size={14} />} label="Project" value={str(invoice, "project_title") || "—"} />
-              <DRow icon={<FileText size={14} />} label="Contract" value={str(invoice, "contract_title") || "—"} />
+              <DRow icon={<FolderKanban size={14} />} label="Project" value={deepStr(invoice, "project.title") || "—"} />
+              <DRow icon={<FileText size={14} />} label="Contract" value={deepStr(invoice, "contract.title") || "—"} />
               <DRow icon={<Banknote size={14} />} label="Currency" value={str(invoice, "currency") || "EUR"} />
             </div>
           </Section>

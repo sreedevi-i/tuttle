@@ -72,6 +72,21 @@ class SalaryIntent(SQLModelDataSourceMixin, Intent):
         """Persist a new or updated recurring expense."""
         return self._data_source.save_expense(expense)
 
+    def save_expense_from_dict(self, data: dict) -> IntentResult:
+        """Create or update a recurring expense from a plain dict."""
+        expense_id = data.get("id")
+        if expense_id:
+            result = self.get_expenses()
+            if result.was_intent_successful and result.data:
+                existing = next((e for e in result.data if e.id == expense_id), None)
+                if existing:
+                    for k, v in data.items():
+                        if k != "id" and not k.startswith("_"):
+                            setattr(existing, k, v)
+                    return self.save_expense(existing)
+        clean = {k: v for k, v in data.items() if k != "id" and not k.startswith("_")}
+        return self.save_expense(RecurringExpense(**clean))
+
     def delete_expense(self, expense_id: int) -> IntentResult:
         """Remove a recurring expense by id."""
         return self._data_source.delete_expense_by_id(expense_id)

@@ -1,12 +1,13 @@
 """Business logic for the Tax view."""
 
+import datetime
 from decimal import Decimal
 
 from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
 
 from ...model import Invoice, User
-from ...tax import get_tax_system
+from ...tax import get_tax_system, supported_countries
 from ...tax_reserves import (
     compute_spendable_income,
     compute_income_tax_reserve,
@@ -57,8 +58,6 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
     def get_income_tax_estimate(self) -> IntentResult:
         """Get detailed income tax estimate with bracket info."""
         try:
-            import datetime as _dt
-
             invoices = self.query(Invoice)
             country = self._get_country()
             currency = self._get_tax_currency(country)
@@ -66,7 +65,11 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             tax_reserve = compute_income_tax_reserve(spending.net_revenue_ytd, country)
 
             days_elapsed = max(
-                (_dt.date.today() - _dt.date.today().replace(month=1, day=1)).days, 1
+                (
+                    datetime.date.today()
+                    - datetime.date.today().replace(month=1, day=1)
+                ).days,
+                1,
             )
             annualized = float(spending.net_revenue_ytd) * 365 / days_elapsed
 
@@ -130,6 +133,10 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             )
             prev_end = end
         return brackets
+
+    def supported_countries(self) -> IntentResult:
+        """Return list of countries with tax system support."""
+        return IntentResult(was_intent_successful=True, data=supported_countries())
 
     def get_quarterly_vat(self, year: int | None = None) -> IntentResult:
         """Get quarterly VAT breakdown."""

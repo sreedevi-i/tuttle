@@ -16,6 +16,7 @@ class ProjectsIntent(CrudIntent):
         ("invoices", "invoices", lambda i: i.number or f"#{i.id}"),
         ("timesheets", "timesheets", lambda t: t.title),
     ]
+    __save_skip__ = {"contract", "timesheets", "invoices"}
 
     def __init__(self):
         super().__init__()
@@ -32,8 +33,7 @@ class ProjectsIntent(CrudIntent):
 
     # -- Project-specific logic ------------------------------------------------
 
-    def save_project(self, project: Project) -> IntentResult[Optional[Project]]:
-        """Validate and save a project."""
+    def _validated_save(self, project: Project) -> IntentResult[Optional[Project]]:
         is_updating = project.id is not None
         result = self.save(project)
         if not result.was_intent_successful:
@@ -44,8 +44,4 @@ class ProjectsIntent(CrudIntent):
             result.log_message_if_any()
         return result
 
-    def toggle_project_completed_status(
-        self, project: Project
-    ) -> IntentResult[Project]:
-        """Updates the project completed status."""
-        return self.toggle_completed(project)
+    toggle_project_completed_status = CrudIntent.toggle_completed

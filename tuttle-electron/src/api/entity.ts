@@ -38,6 +38,23 @@ export function entity(e: Entity, key: string): Entity | null {
   return null;
 }
 
+/** Traverse a dot-separated path through nested entities, e.g. "contract.client.name" */
+export function deep(e: Entity, path: string): unknown {
+  const parts = path.split(".");
+  let cur: unknown = e;
+  for (const p of parts) {
+    if (cur == null || typeof cur !== "object") return null;
+    cur = (cur as Record<string, unknown>)[p];
+  }
+  return cur;
+}
+
+export function deepStr(e: Entity, path: string): string {
+  const v = deep(e, path);
+  if (v == null) return "";
+  return String(v);
+}
+
 export function list(e: Entity, key: string): Entity[] {
   const v = e[key];
   if (Array.isArray(v)) return v as Entity[];

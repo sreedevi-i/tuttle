@@ -77,7 +77,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
 
     # ── Public API ────────────────────────────────────────────
 
-    def get_timeline_events(
+    def get_events(
         self,
         category_filter: Optional[str] = None,
     ) -> IntentResult:
@@ -104,7 +104,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
             return IntentResult(
                 was_intent_successful=False,
                 error_msg="Failed to load timeline events.",
-                log_message=f"TimelineIntent.get_timeline_events: {e}",
+                log_message=f"TimelineIntent.get_events: {e}",
                 exception=e,
             )
 

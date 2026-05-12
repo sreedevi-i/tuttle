@@ -1,36 +1,195 @@
+import base64
+import datetime
+from pathlib import Path
 from typing import Optional, Type, Union
 
-from pathlib import Path
-
 from loguru import logger
-
-
-from ..core.abstractions import ClientStorage, Intent
-from ..core.intent_result import IntentResult
 from pandas import DataFrame
+
+from ..core.abstractions import Intent
+from ..core.intent_result import IntentResult
 from ..preferences.intent import PreferencesIntent
 from ..preferences.model import PreferencesStorageKeys
+from ..projects.intent import ProjectsIntent
+from ...calendar import Calendar, ICSCalendar
+from ...cloud import CloudConnector, CloudProvider
+from ...eventkit_bridge import (
+    fetch_events,
+    is_available,
+    list_calendars_with_status,
+    open_calendar_privacy_settings,
+)
 
+from .aggregation import (
+    build_calendar_data,
+    build_summary,
+    df_to_records,
+    merge_dataframes,
+)
 from .data_source import (
     TimeTrackingCloudCalendarSource,
     TimeTrackingDataFrameSource,
     TimeTrackingFileCalendarSource,
     TimeTrackingSpreadsheetSource,
 )
-from ...cloud import CloudConnector, CloudProvider
-from ...calendar import Calendar
 
 
 class TimeTrackingIntent(Intent):
-    """Handles time tracking intents"""
+    """Time-tracking data access, import, aggregation."""
 
-    def __init__(self, client_storage: ClientStorage):
-
+    def __init__(self, client_storage=None):
         self._cloud_calendar_source = TimeTrackingCloudCalendarSource()
         self._file_calendar_source = TimeTrackingFileCalendarSource()
         self._spreadsheet_source = TimeTrackingSpreadsheetSource()
         self._timetracking_data_frame_source = TimeTrackingDataFrameSource()
-        self._preferences_intent = PreferencesIntent(client_storage)
+        self._preferences_intent = PreferencesIntent()
+
+    # -- RPC-facing methods ----------------------------------------------------
+
+    def get_events(self, project_tag=None) -> IntentResult:
+        df = self._timetracking_data_frame_source.get_data_frame()
+        if df is None or df.empty:
+            return IntentResult(was_intent_successful=True, data=[])
+        if project_tag:
+            df = df[df["tag"] == project_tag]
+        return IntentResult(was_intent_successful=True, data=df_to_records(df))
+
+    def get_calendar_data(
+        self, year=None, month=None, project_tag=None
+    ) -> IntentResult:
+        df = self._timetracking_data_frame_source.get_data_frame()
+        if df is None or df.empty:
+            return IntentResult(
+                was_intent_successful=True,
+                data={
+                    "events": [],
+                    "projects": [],
+                    "summary": {},
+                },
+            )
+        if year is None:
+            year = datetime.date.today().year
+        if month is None:
+            month = datetime.date.today().month
+        return IntentResult(
+            was_intent_successful=True,
+            data=build_calendar_data(df, year, month, project_tag),
+        )
+
+    def import_ics(self, content: str, name: str = "imported.ics") -> IntentResult:
+        raw = base64.b64decode(content)
+        cal = ICSCalendar(name=name, content=raw)
+        new_df = cal.to_data()
+        ds = self._timetracking_data_frame_source
+        ds.store_data_frame(merge_dataframes(ds.get_data_frame(), new_df))
+        records = df_to_records(new_df)
+        return IntentResult(
+            was_intent_successful=True,
+            data={"imported_count": len(records), "events": records},
+        )
+
+    def clear(self) -> IntentResult:
+        self._timetracking_data_frame_source.store_data_frame(None)
+        return IntentResult(was_intent_successful=True, data=None)
+
+    def list_system_calendars(self, open_settings=False) -> IntentResult:
+        if not is_available():
+            return IntentResult(
+                was_intent_successful=True,
+                data={
+                    "calendars": [],
+                    "auth_status": "not_available",
+                },
+            )
+        if open_settings:
+            open_calendar_privacy_settings()
+            return IntentResult(
+                was_intent_successful=True,
+                data={
+                    "calendars": [],
+                    "auth_status": "pending",
+                },
+            )
+        try:
+            return IntentResult(
+                was_intent_successful=True,
+                data=list_calendars_with_status(),
+            )
+        except Exception as ex:
+            logger.exception(ex)
+            return IntentResult(
+                was_intent_successful=False,
+                data={"calendars": [], "auth_status": "unknown"},
+                error_msg=str(ex),
+            )
+
+    def import_system_calendar(
+        self,
+        calendar_id,
+        from_date=None,
+        to_date=None,
+    ) -> IntentResult:
+        if not is_available():
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="System calendar access is only available on macOS",
+            )
+        if from_date is None:
+            from_date = datetime.date.today() - datetime.timedelta(days=365)
+        elif isinstance(from_date, str):
+            from_date = datetime.date.fromisoformat(from_date)
+        if to_date is None:
+            to_date = datetime.date.today()
+        elif isinstance(to_date, str):
+            to_date = datetime.date.fromisoformat(to_date)
+        try:
+            new_df = fetch_events(calendar_id, from_date, to_date)
+            if new_df.empty:
+                return IntentResult(
+                    was_intent_successful=True,
+                    data={
+                        "imported_count": 0,
+                        "events": [],
+                    },
+                )
+            ds = self._timetracking_data_frame_source
+            ds.store_data_frame(merge_dataframes(ds.get_data_frame(), new_df))
+            records = df_to_records(new_df)
+            return IntentResult(
+                was_intent_successful=True,
+                data={
+                    "imported_count": len(records),
+                    "events": records,
+                },
+            )
+        except Exception as ex:
+            logger.exception(ex)
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=str(ex),
+            )
+
+    def get_summary(self) -> IntentResult:
+        df = self._timetracking_data_frame_source.get_data_frame()
+        if df is None or df.empty:
+            return IntentResult(
+                was_intent_successful=True,
+                data={
+                    "total_events": 0,
+                    "total_hours": 0,
+                    "projects": [],
+                },
+            )
+        proj_result = ProjectsIntent().get_all()
+        tag_to_title = {}
+        if proj_result.was_intent_successful and proj_result.data:
+            tag_to_title = {p.tag: p.title for p in proj_result.data}
+        return IntentResult(
+            was_intent_successful=True,
+            data=build_summary(df, tag_to_title),
+        )
+
+    # -- Legacy internal methods -----------------------------------------------
 
     def get_preferred_cloud_account(self) -> IntentResult[Optional[list]]:
         """

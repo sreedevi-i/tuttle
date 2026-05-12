@@ -1,53 +1,115 @@
-from typing import Mapping, Optional, Type, Union
-
+import datetime as _dt
 import textwrap
 from datetime import date
 from pathlib import Path
+from typing import Mapping, Optional, Type, Union
 
-from ..auth.data_source import UserDataSource
-from ..core.abstractions import ClientStorage, Intent
-from ..core.intent_result import IntentResult
 from loguru import logger
 from pandas import DataFrame
+
+from ..auth.data_source import UserDataSource
+from ..auth.intent import AuthIntent
+from ..core.abstractions import Intent
+from ..core.intent_result import IntentResult
+from ..preferences.intent import PreferencesIntent
+from ..preferences.model import (
+    DEFAULT_INVOICE_TEMPLATE,
+    INVOICE_TEMPLATES,
+    PreferencesStorageKeys,
+    SUPPORTED_INVOICE_LANGUAGES,
+)
 from ..projects.intent import ProjectsIntent
 from ..timetracking.data_source import TimeTrackingDataFrameSource
 from ..timetracking.intent import TimeTrackingIntent
-
+from ...app_db import AppDatabase
 from ... import invoicing, mail, os_functions, rendering, timetracking
 from ...model import Invoice, InvoiceItem, Project, Timesheet, User
 
 from .data_source import InvoicingDataSource
-from ..auth.intent import AuthIntent
-from ..preferences.intent import PreferencesIntent
-from ..preferences.model import DEFAULT_INVOICE_TEMPLATE
 
 
 class InvoicingIntent(Intent):
-    """Handles Invoicing C_R_U_D intents"""
+    """Invoicing CRUD, creation orchestration, and status toggles."""
 
-    def __init__(self, client_storage: ClientStorage):
-        """
-        Attributes
-        ----------
-        _timetracking_intent : TimeTrackingIntent
-            reference to the TimeTrackingIntent for forwarding timetracking related intents
-        _data_source : InvoicingDataSource
-            reference to the invoicing data source
-        _projects_intent : ProjectsIntent
-            reference to the ProjectsIntent for forwarding project related intents
-        _auth_intent : AuthIntent
-            reference to the AuthIntent for forwarding auth related intents
-        _preferences_intent : PreferencesIntent
-            reference to the PreferencesIntent for reading user preferences
-        """
-        self._client_storage = client_storage
-        self._timetracking_intent = TimeTrackingIntent(client_storage=client_storage)
+    def __init__(self, client_storage=None):
         self._projects_intent = ProjectsIntent()
         self._invoicing_data_source = InvoicingDataSource()
         self._timetracking_data_source = TimeTrackingDataFrameSource()
         self._user_data_source = UserDataSource()
         self._auth_intent = AuthIntent()
-        self._preferences_intent = PreferencesIntent(client_storage=client_storage)
+        self._preferences_intent = PreferencesIntent()
+        self._timetracking_intent = TimeTrackingIntent()
+
+    # -- RPC-facing CRUD -------------------------------------------------------
+
+    def get_all(self) -> IntentResult:
+        return self._invoicing_data_source.get_all_invoices()
+
+    def delete(self, id) -> IntentResult:
+        return self.delete_invoice_by_id(id)
+
+    def create(
+        self,
+        project_id,
+        invoice_date,
+        from_date,
+        to_date,
+        render=True,
+        manual_quantity=None,
+    ) -> IntentResult:
+        """Orchestrates invoice creation: resolve project, read prefs, delegate."""
+        proj_result = self._projects_intent.get_by_id(project_id)
+        if not proj_result.was_intent_successful:
+            return proj_result
+        app_db = AppDatabase()
+        language = app_db.get_setting(PreferencesStorageKeys.language_key.value) or "en"
+        template_name = (
+            app_db.get_setting(PreferencesStorageKeys.invoice_template_key.value)
+            or DEFAULT_INVOICE_TEMPLATE
+        )
+
+        def _to_date(v):
+            return v if isinstance(v, date) else _dt.date.fromisoformat(v)
+
+        return self.create_invoice(
+            invoice_date=_to_date(invoice_date),
+            project=proj_result.data,
+            from_date=_to_date(from_date),
+            to_date=_to_date(to_date),
+            render=render,
+            manual_quantity=manual_quantity,
+            language=language,
+            template_name=template_name,
+        )
+
+    # -- Status toggles (accept id, fetch internally) --------------------------
+
+    def _toggle(self, field: str, invoice_id: int) -> IntentResult:
+        result = self._invoicing_data_source.get_invoice_by_id(invoice_id)
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Invoice not found"
+            )
+        return getattr(self, f"toggle_invoice_{field}_status")(result.data)
+
+    def toggle_sent(self, id) -> IntentResult:
+        return self._toggle("sent", id)
+
+    def toggle_paid(self, id) -> IntentResult:
+        return self._toggle("paid", id)
+
+    def toggle_cancelled(self, id) -> IntentResult:
+        return self._toggle("cancelled", id)
+
+    # -- Static data -----------------------------------------------------------
+
+    def available_templates(self) -> IntentResult:
+        return IntentResult(was_intent_successful=True, data=INVOICE_TEMPLATES)
+
+    def available_languages(self) -> IntentResult:
+        return IntentResult(
+            was_intent_successful=True, data=SUPPORTED_INVOICE_LANGUAGES
+        )
 
     def get_user(self) -> IntentResult[User]:
         user = self._user_data_source.get_user()

@@ -8,6 +8,8 @@ from .model import Contract, Invoice, Project, User
 from .tax import get_tax_system
 from .tax_reserves import compute_spendable_income
 
+from .app.core.formatting import fmt_currency
+
 
 class KPISummary(NamedTuple):
     """Snapshot of key business metrics."""
@@ -27,6 +29,27 @@ class KPISummary(NamedTuple):
     income_tax_reserve: Decimal
     spendable_income: Decimal
     tax_currency: str = "EUR"
+
+    def to_rpc_dict(self) -> dict:
+        d = self._asdict()
+        tc = self.tax_currency or "EUR"
+        d["total_revenue_ytd_formatted"] = fmt_currency(self.total_revenue_ytd, tc)
+        d["outstanding_amount_formatted"] = fmt_currency(self.outstanding_amount, tc)
+        d["overdue_amount_formatted"] = fmt_currency(self.overdue_amount, tc)
+        d["vat_reserve_formatted"] = fmt_currency(self.vat_reserve, tc)
+        d["income_tax_reserve_formatted"] = fmt_currency(self.income_tax_reserve, tc)
+        d["spendable_income_formatted"] = fmt_currency(self.spendable_income, tc)
+        d["effective_hourly_rate_formatted"] = (
+            fmt_currency(self.effective_hourly_rate, tc)
+            if self.effective_hourly_rate is not None
+            else "—"
+        )
+        d["utilization_rate_formatted"] = (
+            f"{self.utilization_rate * 100:.0f}%"
+            if self.utilization_rate is not None
+            else "—"
+        )
+        return d
 
 
 def compute_kpis(

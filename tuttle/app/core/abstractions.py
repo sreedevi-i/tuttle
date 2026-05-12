@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from typing import Any, Callable, List, Mapping, Optional, Type
 
 from abc import ABC, abstractmethod
@@ -13,6 +14,21 @@ from sqlmodel import pool
 from loguru import logger
 
 from .intent_result import IntentResult
+
+
+def _coerce_dates(data: dict) -> dict:
+    """Convert ISO date strings to ``datetime.date`` for ``*_date`` keys."""
+    for k in list(data):
+        if k.endswith("_date"):
+            v = data[k]
+            if v == "" or v is None:
+                data[k] = None
+            elif isinstance(v, str) and len(v) >= 10:
+                try:
+                    data[k] = datetime.date.fromisoformat(v[:10])
+                except ValueError:
+                    pass
+    return data
 
 
 class DatabaseStorage(ABC):
@@ -134,10 +150,11 @@ class SQLModelDataSourceMixin:
         )
 
     def query(self, entity_type: Type[sqlmodel.SQLModel]) -> List:
-        """Queries the database for all instances of the given entity type"""
+        """Queries the database for all instances of the given entity type."""
         logger.debug(f"querying {entity_type}")
         with self.create_session() as session:
             entities = session.exec(sqlmodel.select(entity_type)).all()
+            self._hydrate(entities)
         if len(entities) == 0:
             logger.warning(f"No instances of {entity_type} found")
         else:
@@ -149,17 +166,42 @@ class SQLModelDataSourceMixin:
         entity_type: Type[sqlmodel.SQLModel],
         entity_id: int,
     ) -> Optional[sqlmodel.SQLModel]:
-        """Queries the database for an instance of the given entity type with the given id"""
+        """Queries the database for an instance of the given entity type with the given id."""
         logger.debug(f"querying {entity_type} by id={entity_id}")
         with self.create_session() as session:
             entity = session.exec(
                 sqlmodel.select(entity_type).where(entity_type.id == entity_id)
             ).one()
+            self._hydrate([entity])
         if entity is None:
             logger.warning(f"No instance of {entity_type} found with id={entity_id}")
         else:
             logger.info(f"Found instance of {entity_type} with id={entity_id}")
         return entity
+
+    @staticmethod
+    def _hydrate(entities, _depth: int = 2):
+        """Touch relationship attributes while the session is still open.
+
+        This forces SQLAlchemy to load them (via whatever lazy strategy the
+        model declares) so that ``to_rpc_dict()`` can access them after the
+        session closes.
+        """
+        if _depth <= 0 or not entities:
+            return
+        sample = entities[0]
+        rels = getattr(sample, "__rpc_relationships__", None)
+        if not rels:
+            return
+        names = list(rels.keys()) if isinstance(rels, dict) else list(rels)
+        projections = rels if isinstance(rels, dict) else {n: None for n in names}
+        for entity in entities:
+            for name in names:
+                value = getattr(entity, name, None)
+                if value is None or projections[name] is not None:
+                    continue
+                children = value if isinstance(value, list) else [value]
+                SQLModelDataSourceMixin._hydrate(children, _depth - 1)
 
     def query_where(
         self,
@@ -242,20 +284,25 @@ class Intent(ABC):
 class CrudIntent(SQLModelDataSourceMixin, Intent):
     """Generic CRUD intent that combines data access and business logic.
 
-    Subclasses must set `entity_type` to the SQLModel class they manage.
-    Optionally set `entity_name` for human-readable error messages.
+    Subclasses must set ``entity_type`` to the SQLModel class they manage.
 
-    To prevent deletion when related records exist, set ``deletion_guards``
-    to a list of ``(relationship_attr, label, display_func)`` tuples.
-    *relationship_attr* is the attribute name on the entity that holds the
-    referencing collection, *label* is a human-readable noun (plural) for
-    the error message, and *display_func* extracts a short display string
-    from each related object.
+    Declarative hooks for ``save_from_dict``::
+
+        __save_nested__  = {"address": Address}   # nested relationship objects
+        __save_skip__    = {"some_backref"}        # extra fields to ignore
+
+    Override ``_validated_save`` to add validation before the final save.
+
+    ``deletion_guards`` is a list of ``(relationship_attr, label, display_func)``
+    tuples that produce user-friendly messages when related records still
+    reference this entity.
     """
 
     entity_type: Type[sqlmodel.SQLModel]
     entity_name: str = ""
     deletion_guards: List[tuple] = []
+    __save_nested__: dict = {}
+    __save_skip__: set = set()
 
     def __init__(self):
         SQLModelDataSourceMixin.__init__(self)
@@ -372,11 +419,100 @@ class CrudIntent(SQLModelDataSourceMixin, Intent):
 
     # -- Toggle helpers --------------------------------------------------------
 
-    def toggle_completed(self, entity) -> IntentResult:
-        """Toggle is_completed and save. Rolls back on failure."""
+    def toggle_completed(self, entity=None, *, id=None) -> IntentResult:
+        """Toggle is_completed and save. Accepts entity or id."""
+        if entity is None:
+            if id is None:
+                return IntentResult(
+                    was_intent_successful=False, error_msg="No entity or id provided"
+                )
+            result = self.get_by_id(id)
+            if not result.was_intent_successful or not result.data:
+                return result
+            entity = result.data
         entity.is_completed = not entity.is_completed
         result = self.save(entity)
         if not result.was_intent_successful:
             entity.is_completed = not entity.is_completed
         result.data = entity
+        return result
+
+    # -- Generic dict → entity save --------------------------------------------
+
+    def save_from_dict(self, data: dict) -> IntentResult:
+        """Create or update an entity from a plain dict.
+
+        Handles date coercion, FK references (``{rel: {id: N}}``),
+        nested relationships declared in ``__save_nested__``, and
+        create-vs-update branching.  Calls ``_validated_save`` at the end.
+        """
+        data = _coerce_dates(dict(data))
+        entity_id = data.pop("id", None)
+
+        # Resolve FK references: {"rel": {"id": N}} → rel_id = N
+        for k, v in list(data.items()):
+            if isinstance(v, dict) and set(v.keys()) == {"id"}:
+                fk = f"{k}_id"
+                if hasattr(self.entity_type, fk):
+                    data[fk] = v["id"]
+                    del data[k]
+
+        # Extract declared nested relationship data
+        nested_raw: dict[str, dict] = {}
+        for field in self.__save_nested__:
+            nested_raw[field] = data.pop(field, None) or {}
+            data.pop(f"{field}_id", None)
+
+        skip = self.__save_skip__ | set(self.__save_nested__)
+        clean = {
+            k: v for k, v in data.items() if not k.startswith("_") and k not in skip
+        }
+
+        if entity_id:
+            result = self.get_by_id(entity_id)
+            if not result.was_intent_successful or not result.data:
+                return IntentResult(
+                    was_intent_successful=False,
+                    error_msg=f"{self.entity_name} not found",
+                )
+            entity = result.data
+            for k, v in clean.items():
+                setattr(entity, k, v)
+            self._apply_nested(entity, nested_raw)
+        else:
+            children = self._build_nested(nested_raw)
+            entity = self.entity_type(**clean, **children)
+
+        return self._validated_save(entity)
+
+    def _validated_save(self, entity) -> IntentResult:
+        """Hook for subclasses to add domain validation before saving."""
+        return self.save(entity)
+
+    def _apply_nested(self, entity, nested_raw: dict):
+        """Update or create nested relationship objects on an existing entity."""
+        for field, raw in nested_raw.items():
+            if not raw:
+                continue
+            model_cls = self.__save_nested__[field]
+            existing = getattr(entity, field, None)
+            if existing:
+                for k, v in raw.items():
+                    if k != "id" and not k.startswith("_"):
+                        setattr(existing, k, v)
+            else:
+                clean = {
+                    k: v for k, v in raw.items() if k != "id" and not k.startswith("_")
+                }
+                setattr(entity, field, model_cls(**clean))
+
+    def _build_nested(self, nested_raw: dict) -> dict:
+        """Construct nested objects for a new entity."""
+        result = {}
+        for field, raw in nested_raw.items():
+            model_cls = self.__save_nested__[field]
+            clean = {
+                k: v for k, v in raw.items() if k != "id" and not k.startswith("_")
+            }
+            result[field] = model_cls(**clean)
         return result

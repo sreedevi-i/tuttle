@@ -36,15 +36,26 @@ if _rfc_spec and _rfc_spec.submodule_search_locations:
 # ---------------------------------------------------------------------------
 
 hiddenimports = [
-    # Intent classes (loaded on first RPC call)
-    "tuttle.app.contacts.intent",
+    # Intent classes (loaded dynamically by the dispatcher on first RPC call)
+    "tuttle.app.auth.intent",
     "tuttle.app.clients.intent",
+    "tuttle.app.contacts.intent",
     "tuttle.app.contracts.intent",
-    "tuttle.app.projects.intent",
+    "tuttle.app.dashboard.intent",
+    "tuttle.app.db.intent",
+    "tuttle.app.demo.intent",
     "tuttle.app.invoicing.intent",
     "tuttle.app.invoicing.data_source",
-    "tuttle.app.dashboard.intent",
+    "tuttle.app.llm.intent",
+    "tuttle.app.preferences.intent",
+    "tuttle.app.projects.intent",
+    "tuttle.app.salary.intent",
+    "tuttle.app.settings.intent",
+    "tuttle.app.tax.intent",
+    "tuttle.app.timetracking.intent",
     "tuttle.app.timeline.intent",
+    "tuttle.app.users.intent",
+    # Supporting modules
     "tuttle.app.core.database_storage_impl",
     "tuttle.app.core.formatting",
     "tuttle.model",

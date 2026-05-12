@@ -15,6 +15,7 @@ class ContractsIntent(CrudIntent):
         ("projects", "projects", lambda p: p.title),
         ("invoices", "invoices", lambda i: i.number or f"#{i.id}"),
     ]
+    __save_skip__ = {"client", "projects", "invoices"}
 
     def __init__(self):
         super().__init__()
@@ -30,7 +31,7 @@ class ContractsIntent(CrudIntent):
         return self._contacts_intent.get_all_as_map()
 
     def save_client(self, client: Client) -> IntentResult:
-        return self._clients_intent.save_client(client=client)
+        return self._clients_intent._validated_save(client=client)
 
     def get_default_currency(self) -> IntentResult:
         """Derive default contract currency from the user's operating country."""
@@ -39,13 +40,12 @@ class ContractsIntent(CrudIntent):
             country = users[0].operating_country if users else "Germany"
             ts = get_tax_system(country)
             return IntentResult(was_intent_successful=True, data=ts.currency)
-        except Exception as e:
+        except Exception:
             return IntentResult(was_intent_successful=True, data="EUR")
 
     # -- Contract-specific logic -----------------------------------------------
 
-    def save_contract(self, contract: Contract) -> IntentResult:
-        """Validate and save a contract."""
+    def _validated_save(self, contract: Contract) -> IntentResult:
         is_updating = contract.id is not None
         result = self.save(contract)
         if not result.was_intent_successful and is_updating:
@@ -55,6 +55,4 @@ class ContractsIntent(CrudIntent):
             result.log_message_if_any()
         return result
 
-    def toggle_complete_status(self, contract: Contract) -> IntentResult[Contract]:
-        """Toggles the completed status of the contract."""
-        return self.toggle_completed(contract)
+    toggle_complete_status = CrudIntent.toggle_completed
