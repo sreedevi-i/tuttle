@@ -883,6 +883,69 @@ def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         except Exception:
             return {"ok": True, "data": _serialise(reg), "error": None}
 
+    if method == "users.update_profile":
+        from tuttle.app.auth.data_source import UserDataSource
+        from tuttle.app.core.abstractions import get_active_db
+
+        ds = UserDataSource()
+        profile = ds.get_user()
+        if not profile:
+            return {"ok": False, "data": None, "error": "No user profile found"}
+
+        data = params.get("profile", {})
+        for k in (
+            "name",
+            "subtitle",
+            "email",
+            "phone_number",
+            "website",
+            "VAT_number",
+            "operating_country",
+        ):
+            if k in data:
+                setattr(profile, k, data[k])
+
+        addr = data.get("address")
+        if addr:
+            if profile.address:
+                for k in ("street", "number", "postal_code", "city", "country"):
+                    if k in addr:
+                        setattr(profile.address, k, addr[k])
+            else:
+                from tuttle.model import Address
+
+                profile.address = Address(
+                    **{
+                        k: v
+                        for k, v in addr.items()
+                        if k != "id" and not k.startswith("_")
+                    }
+                )
+
+        with ds.create_session() as s:
+            s.add(profile)
+            s.commit()
+            s.refresh(profile)
+
+        app_db = _get_app_db()
+        active_file = get_active_db().name
+        reg = app_db.get_user_by_db_file(active_file)
+        if reg and (
+            reg.name != profile.name or reg.subtitle != (profile.subtitle or "")
+        ):
+            with app_db._session() as s:
+                db_reg = s.get(type(reg), reg.id)
+                if db_reg:
+                    db_reg.name = profile.name
+                    db_reg.subtitle = profile.subtitle or ""
+                    s.add(db_reg)
+                    s.commit()
+
+        result = _serialise(profile)
+        if profile.address:
+            result["address"] = _serialise(profile.address)
+        return {"ok": True, "data": result, "error": None}
+
     if method == "users.ensure_demo":
         _ensure_demo_user()
         app_db = _get_app_db()
