@@ -330,9 +330,11 @@ def create_fake_invoice(
     )
     for desc, unit in used_items:
         unit_price = abs(round(numpy.random.normal(75, 20), 2))
+        item_end = inv_date - timedelta(days=random.randint(1, 10))
+        item_start = item_end - timedelta(days=random.randint(5, 25))
         invoice_item = InvoiceItem(
-            start_date=fake.date_this_year(before_today=True),
-            end_date=fake.date_this_year(before_today=True),
+            start_date=item_start,
+            end_date=item_end,
             quantity=fake.random_int(min=1, max=8),
             unit=unit,
             unit_price=Decimal(unit_price),
@@ -400,8 +402,8 @@ def create_heating_data(
         contract = Contract(
             title=f"{title} – {client.name}",
             client=client,
-            signature_date=fake.date_between(start_date="-1y", end_date="-3M"),
-            start_date=fake.date_between(start_date="-3M", end_date="today"),
+            signature_date=fake.date_between(start_date="-30M", end_date="-24M"),
+            start_date=fake.date_between(start_date="-24M", end_date="-20M"),
             rate=rate,
             currency="EUR",
             VAT_rate=Decimal("0.19"),
@@ -423,7 +425,7 @@ def create_heating_data(
             description=description,
             is_completed=False,
             start_date=contract.start_date,
-            end_date=contract.start_date + datetime.timedelta(days=90),
+            end_date=datetime.date.today() + datetime.timedelta(days=180),
             contract=contract,
         )
         projects.append(project)
@@ -506,18 +508,13 @@ def create_fake_calendar(project_list: List[Project]) -> ics.Calendar:
     def random_duration():
         return timedelta(hours=random.randint(1, 8))
 
-    # create a new calendar
     calendar = ics.Calendar()
 
-    # get the last month's date range
-    # get todays date
     now = datetime.datetime.now()
-    month_ago = now - timedelta(days=30)
+    month_ago = now - timedelta(days=730)
 
-    # populate the calendar with events
     for project in project_list:
-        # create 1-5 events for each project
-        for _ in range(random.randint(1, 5)):
+        for _ in range(random.randint(20, 40)):
             # create a new event
             event = ics.Event()
             event.name = f"Meeting for {project.tag}"
@@ -535,6 +532,8 @@ def install_demo_data(
     n_projects: int,
     db_path: str,
     on_cache_timetracking_dataframe: Optional[Callable] = None,
+    invoice_language: str = "en",
+    invoice_template: str = "invoice-modern",
 ):
     """
     Install demo data in the database.
@@ -574,7 +573,12 @@ def install_demo_data(
 
     # add fake invoices
     logger.info("Adding fake invoices...")
-    with Session(db_engine) as session:
+    from .rendering import render_invoice
+    from pathlib import Path
+
+    out_dir = Path.home() / ".tuttle" / "Invoices"
+
+    with Session(db_engine, expire_on_commit=False) as session:
         for invoice in invoices:
             session.add(invoice)
         session.commit()
@@ -584,7 +588,7 @@ def install_demo_data(
         locales = ["de_DE", "en_US", "en_GB", "fr_FR"]
         fake = faker.Faker(locale=locales)
         historical_invoices = create_historical_invoices(
-            fake, projects, user, n_months=11
+            fake, projects, user, n_months=24
         )
         for invoice in historical_invoices:
             session.add(invoice)
@@ -595,6 +599,22 @@ def install_demo_data(
         for project in projects:
             session.merge(project)
         session.commit()
+
+        # render all invoices to PDF while objects are still session-bound
+        logger.info("Rendering demo invoices...")
+        all_invoices = invoices + historical_invoices
+        for inv in all_invoices:
+            try:
+                render_invoice(
+                    user=user,
+                    invoice=inv,
+                    out_dir=out_dir,
+                    template_name=invoice_template,
+                    only_final=True,
+                    language=invoice_language,
+                )
+            except Exception as ex:
+                logger.warning(f"Could not render demo invoice {inv.number}: {ex}")
 
     logger.info("Adding financial goals...")
     with Session(db_engine) as session:

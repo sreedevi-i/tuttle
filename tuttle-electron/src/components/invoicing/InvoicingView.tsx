@@ -315,9 +315,9 @@ function InvoiceDetail({ invoice, onToggleSent, onTogglePaid, onToggleCancelled 
             <div className="flex gap-2">
               {!isCancelled && (
                 <>
-                  <ActionBtn label={bool(invoice, "sent") ? "Unsend" : "Mark Sent"} icon={<Send size={16} />}
+                  <ActionBtn label={bool(invoice, "sent") ? "Sent" : "Mark Sent"} icon={<Send size={16} />}
                     color="#3b82f6" active={bool(invoice, "sent")} onClick={onToggleSent} />
-                  <ActionBtn label={bool(invoice, "paid") ? "Unpay" : "Mark Paid"} icon={<CheckCircle size={16} />}
+                  <ActionBtn label={bool(invoice, "paid") ? "Paid" : "Mark Paid"} icon={<CheckCircle size={16} />}
                     color="#22c55e" active={bool(invoice, "paid")} onClick={onTogglePaid} />
                 </>
               )}

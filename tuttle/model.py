@@ -75,23 +75,19 @@ class Address(SQLModel, table=True):
     @property
     def printed(self):
         """Print address in common format."""
-        return textwrap.dedent(
-            f"""
-        {self.street} {self.number}
-        {self.postal_code} {self.city}
-        {self.country}
-        """
+        return (
+            f"{self.street} {self.number}\n"
+            f"{self.postal_code} {self.city}\n"
+            f"{self.country}"
         )
 
     @property
     def html(self):
         """Print address in common format."""
-        return textwrap.dedent(
-            f"""
-        {self.street} {self.number}<br>
-        {self.postal_code} {self.city}<br>
-        {self.country}
-        """
+        return (
+            f"{self.street} {self.number}<br>"
+            f"{self.postal_code} {self.city}<br>"
+            f"{self.country}"
         )
 
     @property

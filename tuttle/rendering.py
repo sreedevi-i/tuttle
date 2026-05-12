@@ -7,6 +7,7 @@ import shutil
 import glob
 import jinja2
 from babel.numbers import format_currency
+from babel.dates import format_date
 import pandas
 from loguru import logger
 import base64
@@ -16,6 +17,72 @@ import PIL
 
 
 from .model import User, Invoice, Timesheet, Project
+
+LANGUAGE_TO_LOCALE = {
+    "en": "en_US",
+    "de": "de_DE",
+    "es": "es_ES",
+}
+
+INVOICE_LABELS = {
+    "en": {
+        "invoice": "Invoice",
+        "invoice_no": "Invoice No.",
+        "date": "Date",
+        "due_date": "Due Date",
+        "bill_to": "Bill To",
+        "from": "From",
+        "billed_to": "Billed to",
+        "qty": "Qty",
+        "unit": "Unit",
+        "unit_price": "Unit Price",
+        "vat": "VAT",
+        "subtotal": "Subtotal",
+        "total_due": "Total Due",
+        "payment": "Payment",
+        "payment_details": "Payment Details",
+        "description": "Description",
+        "closing": "Thank you for your business.",
+    },
+    "de": {
+        "invoice": "Rechnung",
+        "invoice_no": "Rechnungsnr.",
+        "date": "Datum",
+        "due_date": "Fälligkeitsdatum",
+        "bill_to": "Rechnungsempfänger",
+        "from": "Von",
+        "billed_to": "Rechnungsempfänger",
+        "qty": "Menge",
+        "unit": "Einheit",
+        "unit_price": "Einzelpreis",
+        "vat": "MwSt.",
+        "subtotal": "Zwischensumme",
+        "total_due": "Gesamtbetrag",
+        "payment": "Zahlung",
+        "payment_details": "Zahlungsdetails",
+        "description": "Beschreibung",
+        "closing": "Vielen Dank für Ihren Auftrag.",
+    },
+    "es": {
+        "invoice": "Factura",
+        "invoice_no": "N.º de factura",
+        "date": "Fecha",
+        "due_date": "Fecha de vencimiento",
+        "bill_to": "Facturar a",
+        "from": "De",
+        "billed_to": "Facturar a",
+        "qty": "Cant.",
+        "unit": "Unidad",
+        "unit_price": "Precio unit.",
+        "vat": "IVA",
+        "subtotal": "Subtotal",
+        "total_due": "Total a pagar",
+        "payment": "Pago",
+        "payment_details": "Datos de pago",
+        "description": "Descripción",
+        "closing": "Gracias por su confianza.",
+    },
+}
 
 
 def get_template_path(template_name) -> str:
@@ -136,6 +203,7 @@ def render_invoice(
     document_format: str = "pdf",
     template_name: str = "invoice-modern",
     only_final: bool = False,
+    language: str = "en",
 ):
     """Render an Invoice using an HTML template.
 
@@ -146,12 +214,25 @@ def render_invoice(
         document_format: "pdf" or "html".
         template_name: Directory name under templates/ (e.g. "invoice-modern").
         only_final: Keep only the final output file and remove intermediates.
+        language: Language code for labels and date/currency formatting ("en", "de", "es").
     """
+    babel_locale = LANGUAGE_TO_LOCALE.get(language, "en_US")
+    labels = INVOICE_LABELS.get(language, INVOICE_LABELS["en"])
 
     def as_currency(number):
         return format_currency(
-            number, currency=invoice.contract.currency, locale="en_US"
+            number, currency=invoice.contract.currency, locale=babel_locale
         )
+
+    def as_date(d):
+        if d is None:
+            return ""
+        return format_date(d, format="long", locale=babel_locale)
+
+    def as_date_short(d):
+        if d is None:
+            return ""
+        return format_date(d, format="medium", locale=babel_locale)
 
     def as_percentage(number):
         return f"{number * 100:.1f} %"
@@ -160,12 +241,15 @@ def render_invoice(
     template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
 
     template_env.filters["as_currency"] = as_currency
+    template_env.filters["as_date"] = as_date
+    template_env.filters["as_date_short"] = as_date_short
     template_env.filters["as_percentage"] = as_percentage
 
     invoice_template = template_env.get_template("invoice.html")
     html = invoice_template.render(
         user=user,
         invoice=invoice,
+        l=labels,
     )
     if out_dir is None:
         return html

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot } from "lucide-react";
+import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import type { Entity } from "../../api/types";
 import { str } from "../../api/entity";
@@ -45,10 +45,21 @@ const EMPTY_PROFILE: ProfileForm = {
   street: "", number: "", postal_code: "", city: "", country: "Germany",
 };
 
-type Tab = "profile" | "llm";
+interface InvoicingPrefs {
+  invoice_template: string;
+  language: string;
+}
+
+const DEFAULT_INVOICING: InvoicingPrefs = {
+  invoice_template: "invoice-modern",
+  language: "en",
+};
+
+type Tab = "profile" | "invoicing" | "llm";
 
 const TABS: { id: Tab; label: string; icon: typeof User }[] = [
   { id: "profile", label: "Profile", icon: User },
+  { id: "invoicing", label: "Invoicing", icon: FileText },
   { id: "llm", label: "AI / LLM", icon: Bot },
 ];
 
@@ -71,8 +82,16 @@ export function SettingsView() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileStatus, setProfileStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [isDemoUser, setIsDemoUser] = useState(false);
+  const [resettingDemo, setResettingDemo] = useState(false);
+  const [supportedCountries, setSupportedCountries] = useState<string[]>([]);
 
-  useEffect(() => { loadConfig(); loadProfile(); }, []);
+  const [invoicing, setInvoicing] = useState<InvoicingPrefs>({ ...DEFAULT_INVOICING });
+  const [availableTemplates, setAvailableTemplates] = useState<Record<string, string>>({});
+  const [availableLanguages, setAvailableLanguages] = useState<Record<string, string>>({});
+  const [invoicingSaving, setInvoicingSaving] = useState(false);
+  const [invoicingStatus, setInvoicingStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  useEffect(() => { loadConfig(); loadProfile(); loadInvoicingPrefs(); loadSupportedCountries(); }, []);
 
   // -- LLM config ----------------------------------------------------------
 
@@ -111,6 +130,11 @@ export function SettingsView() {
   }
 
   // -- Profile -------------------------------------------------------------
+
+  async function loadSupportedCountries() {
+    const res = await rpc<string[]>("tax.supported_countries");
+    if (res.ok && res.data) setSupportedCountries(res.data);
+  }
 
   async function loadProfile() {
     setProfileLoading(true);
@@ -166,8 +190,46 @@ export function SettingsView() {
     setProfileSaving(false);
   }
 
+  async function handleResetDemo() {
+    if (!confirm("This will delete all demo data and recreate it from scratch. Continue?")) return;
+    setResettingDemo(true);
+    setProfileStatus(null);
+    const res = await rpc("demo.reset");
+    if (res.ok) {
+      setProfileStatus({ type: "success", msg: "Demo data has been reset." });
+      await loadProfile();
+    } else {
+      setProfileStatus({ type: "error", msg: res.error || "Failed to reset demo data." });
+    }
+    setResettingDemo(false);
+  }
+
   function pset<K extends keyof ProfileForm>(key: K) {
-    return (e: React.ChangeEvent<HTMLInputElement>) => setProfile((p) => ({ ...p, [key]: e.target.value }));
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setProfile((p) => ({ ...p, [key]: e.target.value }));
+  }
+
+  // -- Invoicing preferences -----------------------------------------------
+
+  async function loadInvoicingPrefs() {
+    const [prefsRes, tmplRes, langRes] = await Promise.all([
+      rpc<InvoicingPrefs>("preferences.get"),
+      rpc<Record<string, string>>("invoicing.available_templates"),
+      rpc<Record<string, string>>("invoicing.available_languages"),
+    ]);
+    if (prefsRes.ok && prefsRes.data) setInvoicing(prefsRes.data);
+    if (tmplRes.ok && tmplRes.data) setAvailableTemplates(tmplRes.data);
+    if (langRes.ok && langRes.data) setAvailableLanguages(langRes.data);
+  }
+
+  async function handleSaveInvoicing() {
+    setInvoicingSaving(true);
+    setInvoicingStatus(null);
+    const res = await rpc("preferences.save", {
+      invoice_template: invoicing.invoice_template,
+      language: invoicing.language,
+    });
+    setInvoicingStatus(res.ok ? { type: "success", msg: "Invoicing preferences saved." } : { type: "error", msg: res.error || "Failed to save." });
+    setInvoicingSaving(false);
   }
 
   // -- Render --------------------------------------------------------------
@@ -210,9 +272,19 @@ export function SettingsView() {
       {tab === "profile" && (
         <section className="space-y-4">
           {isDemoUser && (
-            <span className="inline-block text-[10px] text-muted bg-bg-hover px-2 py-0.5 rounded-full">
-              demo user
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="inline-block text-[10px] text-muted bg-bg-hover px-2 py-0.5 rounded-full">
+                demo user
+              </span>
+              <button
+                onClick={handleResetDemo}
+                disabled={resettingDemo}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs text-secondary hover:text-primary border border-border-subtle hover:bg-bg-hover transition-colors disabled:opacity-40"
+              >
+                <RotateCcw size={12} className={resettingDemo ? "animate-spin" : ""} />
+                {resettingDemo ? "Resetting…" : "Reset demo data"}
+              </button>
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -274,8 +346,15 @@ export function SettingsView() {
               <input className={inputCls} value={profile.VAT_number} onChange={pset("VAT_number")} placeholder="DE123456789" />
             </div>
             <div>
-              <label className={labelCls}>Operating country (for tax)</label>
-              <input className={inputCls} value={profile.operating_country} onChange={pset("operating_country")} />
+              <label className={labelCls}>Operating country</label>
+              <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
+                {supportedCountries.length > 0 ? (
+                  supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
+                ) : (
+                  <option value={profile.operating_country}>{profile.operating_country}</option>
+                )}
+              </select>
+              <p className="mt-1 text-xs text-muted">Determines tax rules and default currency.</p>
             </div>
           </div>
 
@@ -293,6 +372,54 @@ export function SettingsView() {
           >
             <Save size={14} />
             {profileSaving ? "Saving…" : "Save Profile"}
+          </button>
+        </section>
+      )}
+
+      {tab === "invoicing" && (
+        <section className="space-y-4">
+          <div>
+            <label className={labelCls}>Invoice template</label>
+            <select
+              className={inputCls}
+              value={invoicing.invoice_template}
+              onChange={(e) => setInvoicing((p) => ({ ...p, invoice_template: e.target.value }))}
+            >
+              {Object.entries(availableTemplates).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted">Visual style of generated invoices.</p>
+          </div>
+
+          <div>
+            <label className={labelCls}>Invoice language</label>
+            <select
+              className={inputCls}
+              value={invoicing.language}
+              onChange={(e) => setInvoicing((p) => ({ ...p, language: e.target.value }))}
+            >
+              {Object.entries(availableLanguages).map(([code, label]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted">Language for invoice labels, dates, and currency formatting.</p>
+          </div>
+
+          {invoicingStatus && (
+            <div className={`flex items-center gap-2 text-sm ${invoicingStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+              {invoicingStatus.type === "success" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+              <span>{invoicingStatus.msg}</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveInvoicing}
+            disabled={invoicingSaving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-accent/10 text-accent hover:bg-accent/20 border border-accent/30 transition-colors disabled:opacity-40"
+          >
+            <Save size={14} />
+            {invoicingSaving ? "Saving…" : "Save Invoicing Preferences"}
           </button>
         </section>
       )}

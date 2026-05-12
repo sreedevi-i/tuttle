@@ -25,68 +25,100 @@ body {
   margin: 0 auto;
 }
 
-/* ── Header ────────────────────────────────────── */
+/* ── DIN 5008 Top Zone ────────────────────────── */
 
-.header {
+.top-zone {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  min-height: 75pt;
   margin-bottom: 0;
 }
 
-.sender-name {
-  font-size: 20pt;
-  font-weight: 600;
-  color: #111;
-  letter-spacing: -0.4pt;
+/* Left: address window (DIN 5008 position) */
+.address-window {
+  width: 240pt;
+  padding-top: 10pt;
 }
 
-.sender-detail {
-  margin-top: 6pt;
-  font-size: 8.5pt;
-  line-height: 1.7;
-  color: #666;
-}
-
-.header-right {
-  text-align: right;
-  padding-top: 2pt;
-}
-
-.inv-number {
-  font-size: 14pt;
-  font-weight: 700;
-  color: #2563eb;
-}
-
-.inv-date {
-  font-size: 9pt;
+.return-line {
+  font-size: 6.5pt;
   color: #888;
-  margin-top: 2pt;
+  border-bottom: 0.25pt solid #2563eb;
+  padding-bottom: 3pt;
+  margin-bottom: 6pt;
+  letter-spacing: 0.2pt;
 }
 
-/* ── Accent Rule ───────────────────────────────── */
+.recipient {
+  font-size: 9pt;
+  line-height: 1.65;
+  color: #333;
+}
+
+/* Right: sender letterhead */
+.letterhead {
+  text-align: right;
+  padding-top: 0;
+}
+
+.lh-name {
+  font-size: 16pt;
+  font-weight: 600;
+  letter-spacing: -0.3pt;
+  color: #111;
+  line-height: 1.2;
+}
+
+.lh-title {
+  font-size: 8pt;
+  color: #888;
+  margin-top: 1pt;
+}
+
+.lh-details {
+  margin-top: 8pt;
+  font-size: 7.5pt;
+  line-height: 1.55;
+  color: #888;
+}
+
+/* ── Accent Rule ──────────────────────────────── */
 
 .accent-rule {
   border-top: 2pt solid #2563eb;
-  margin: 16pt 0 18pt 0;
+  margin: 14pt 0 16pt 0;
 }
 
-/* ── Parties ───────────────────────────────────── */
+/* ── Invoice Meta ─────────────────────────────── */
 
-.parties {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 24pt;
+.meta-table {
+  border-collapse: collapse;
+  margin-bottom: 18pt;
 }
 
-.party {
-  flex: 1;
+.meta-table td {
+  padding: 1.5pt 0;
+  font-size: 9pt;
+  vertical-align: baseline;
 }
 
-.party-right {
-  text-align: right;
+.meta-label {
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2pt;
+  color: #2563eb;
+  padding-right: 14pt;
+  white-space: nowrap;
 }
+
+.meta-value {
+  font-weight: 600;
+  color: #222;
+}
+
+/* ── Label (shared) ───────────────────────────── */
 
 .label {
   display: block;
@@ -98,37 +130,7 @@ body {
   margin-bottom: 4pt;
 }
 
-.party-value {
-  font-size: 9pt;
-  line-height: 1.7;
-  color: #444;
-}
-
-.detail-table {
-  margin-left: auto;
-  border-collapse: collapse;
-}
-
-.detail-table td {
-  padding: 2pt 0;
-  font-size: 9pt;
-  vertical-align: baseline;
-}
-
-.detail-table .label {
-  display: inline;
-  text-align: right;
-  padding-right: 12pt;
-  color: #2563eb;
-}
-
-.detail-val {
-  font-weight: 600;
-  color: #222;
-  text-align: right;
-}
-
-/* ── Items Table ───────────────────────────────── */
+/* ── Items Table ──────────────────────────────── */
 
 .items-table {
   width: 100%;
@@ -174,15 +176,15 @@ body {
   text-align: right;
 }
 
-.col-date { width: 16%; }
-.col-desc { width: 28%; }
+.col-date { width: 22%; }
+.col-desc { width: 22%; }
 .col-qty { width: 7%; }
 .col-unit { width: 8%; }
 .col-price { width: 14%; }
 .col-vat { width: 9%; }
 .col-subtotal { width: 14%; }
 
-/* ── Bottom Section ────────────────────────────── */
+/* ── Bottom Section ───────────────────────────── */
 
 .bottom-section {
   display: flex;
@@ -240,7 +242,7 @@ body {
   color: #111;
 }
 
-/* ── Closing ───────────────────────────────────── */
+/* ── Closing ──────────────────────────────────── */
 
 .closing {
   margin-bottom: 40pt;
@@ -258,7 +260,7 @@ body {
   margin-bottom: 4pt;
 }
 
-/* ── Footer ────────────────────────────────────── */
+/* ── Footer ───────────────────────────────────── */
 
 .footer {
   position: running(runningFooter);

@@ -98,6 +98,8 @@ class InvoicingIntent(Intent):
         to_date: date,
         render: bool = True,
         manual_quantity: Optional[float] = None,
+        language: str = "en",
+        template_name: Optional[str] = None,
     ) -> IntentResult[Invoice]:
         """Create a new invoice.
 
@@ -164,18 +166,22 @@ class InvoicingIntent(Intent):
                         )
                         logger.exception(ex)
 
-                template_name = DEFAULT_INVOICE_TEMPLATE
-                tmpl_result = self._preferences_intent.get_preferred_invoice_template()
-                if tmpl_result.was_intent_successful and tmpl_result.data:
-                    template_name = tmpl_result.data
+                resolved_template = template_name or DEFAULT_INVOICE_TEMPLATE
+                if not template_name:
+                    tmpl_result = (
+                        self._preferences_intent.get_preferred_invoice_template()
+                    )
+                    if tmpl_result.was_intent_successful and tmpl_result.data:
+                        resolved_template = tmpl_result.data
 
                 try:
                     rendering.render_invoice(
                         user=user,
                         invoice=invoice,
                         out_dir=Path.home() / ".tuttle" / "Invoices",
-                        template_name=template_name,
+                        template_name=resolved_template,
                         only_final=True,
+                        language=language,
                     )
                 except Exception as ex:
                     logger.error(f"Error rendering invoice for {project.title}: {ex}")

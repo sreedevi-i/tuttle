@@ -213,7 +213,10 @@ def _switch_to_user_db(db_file: str):
     logger.info(f"Switched to user DB: {db_file}")
 
 
-def _ensure_demo_user():
+def _ensure_demo_user(
+    invoice_language: str = "en",
+    invoice_template: str = "invoice-modern",
+):
     """Ensure the Harry Tuttle demo user is registered (does not install data)."""
     from tuttle.demo import install_demo_data
     from tuttle.migrations.run import run_migrations
@@ -235,6 +238,8 @@ def _ensure_demo_user():
         n_projects=4,
         db_path=str(db_path),
         on_cache_timetracking_dataframe=lambda _: None,
+        invoice_language=invoice_language,
+        invoice_template=invoice_template,
     )
     logger.info("Demo user Harry Tuttle created with heating-repair data")
 
@@ -640,6 +645,17 @@ def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         from_date = datetime.date.fromisoformat(params["from_date"])
         to_date = datetime.date.fromisoformat(params["to_date"])
         manual_qty = params.get("manual_quantity")
+        app_db = _get_app_db()
+        from tuttle.app.preferences.model import (
+            PreferencesStorageKeys,
+            DEFAULT_INVOICE_TEMPLATE,
+        )
+
+        language = app_db.get_setting(PreferencesStorageKeys.language_key.value) or "en"
+        template_name = (
+            app_db.get_setting(PreferencesStorageKeys.invoice_template_key.value)
+            or DEFAULT_INVOICE_TEMPLATE
+        )
         return _unwrap_intent_result(
             intent.create_invoice(
                 invoice_date=invoice_date,
@@ -648,6 +664,8 @@ def _dispatch(method: str, params: Dict[str, Any]) -> Any:
                 to_date=to_date,
                 render=params.get("render", True),
                 manual_quantity=manual_qty,
+                language=language,
+                template_name=template_name,
             )
         )
     if method == "invoicing.toggle_sent":
@@ -952,6 +970,56 @@ def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         reg = app_db.get_user_by_db_file("harry-tuttle.db")
         return {"ok": True, "data": _serialise(reg) if reg else None, "error": None}
 
+    # -- Preferences -------------------------------------------------------
+    if method == "preferences.get":
+        app_db = _get_app_db()
+        from tuttle.app.preferences.model import (
+            PreferencesStorageKeys,
+            DEFAULT_INVOICE_TEMPLATE,
+        )
+
+        data = {
+            "invoice_template": (
+                app_db.get_setting(PreferencesStorageKeys.invoice_template_key.value)
+                or DEFAULT_INVOICE_TEMPLATE
+            ),
+            "language": (
+                app_db.get_setting(PreferencesStorageKeys.language_key.value) or "en"
+            ),
+        }
+        return {"ok": True, "data": data, "error": None}
+
+    if method == "preferences.save":
+        app_db = _get_app_db()
+        from tuttle.app.preferences.model import PreferencesStorageKeys
+
+        if "invoice_template" in params:
+            app_db.set_setting(
+                PreferencesStorageKeys.invoice_template_key.value,
+                params["invoice_template"],
+            )
+        if "language" in params:
+            app_db.set_setting(
+                PreferencesStorageKeys.language_key.value,
+                params["language"],
+            )
+        return {"ok": True, "data": None, "error": None}
+
+    if method == "tax.supported_countries":
+        from tuttle.tax import supported_countries
+
+        return {"ok": True, "data": supported_countries(), "error": None}
+
+    if method == "invoicing.available_templates":
+        from tuttle.app.preferences.model import INVOICE_TEMPLATES
+
+        return {"ok": True, "data": INVOICE_TEMPLATES, "error": None}
+
+    if method == "invoicing.available_languages":
+        from tuttle.app.preferences.model import SUPPORTED_INVOICE_LANGUAGES
+
+        return {"ok": True, "data": SUPPORTED_INVOICE_LANGUAGES, "error": None}
+
     # -- Settings -----------------------------------------------------------
     if method == "settings.get":
         app_db = _get_app_db()
@@ -969,13 +1037,29 @@ def _dispatch(method: str, params: Dict[str, Any]) -> Any:
         data = app_db.get_all_settings(prefix=prefix)
         return {"ok": True, "data": data, "error": None}
 
-    # -- Demo (legacy, now wraps users.ensure_demo) -------------------------
+    # -- Demo ---------------------------------------------------------------
     if method == "demo.install":
         result = _dispatch("users.ensure_demo", {})
         if result.get("ok") and result.get("data"):
             db_file = result["data"].get("db_file", "harry-tuttle.db")
             _switch_to_user_db(db_file)
         return result
+
+    if method == "demo.reset":
+        app_db = _get_app_db()
+        from tuttle.app.preferences.model import (
+            PreferencesStorageKeys as _PK,
+            DEFAULT_INVOICE_TEMPLATE as _DIT,
+        )
+
+        lang = app_db.get_setting(_PK.language_key.value) or "en"
+        tmpl = app_db.get_setting(_PK.invoice_template_key.value) or _DIT
+        app_db.remove_user("harry-tuttle.db")
+        _reset_intents()
+        _ensure_demo_user(invoice_language=lang, invoice_template=tmpl)
+        _switch_to_user_db("harry-tuttle.db")
+        reg = app_db.get_user_by_db_file("harry-tuttle.db")
+        return {"ok": True, "data": _serialise(reg) if reg else None, "error": None}
 
     # -- DB lifecycle -------------------------------------------------------
     if method == "db.ensure":

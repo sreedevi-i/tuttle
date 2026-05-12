@@ -4,9 +4,13 @@ from enum import Enum
 
 INVOICE_TEMPLATES = {
     "invoice-modern": "Modern",
-    "invoice-classic": "Classic",
     "invoice-minimal": "Minimal",
-    "invoice-anvil": "Legacy (Anvil)",
+}
+
+SUPPORTED_INVOICE_LANGUAGES = {
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
 }
 
 DEFAULT_INVOICE_TEMPLATE = "invoice-modern"

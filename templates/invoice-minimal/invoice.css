@@ -1,6 +1,6 @@
 @page {
   size: A4;
-  margin: 22mm 20mm 25mm 20mm;
+  margin: 20mm 20mm 25mm 20mm;
   @bottom-center {
     content: element(runningFooter);
   }
@@ -25,33 +25,71 @@ body {
   margin: 0 auto;
 }
 
-/* ── Header ────────────────────────────────────── */
+/* ── DIN 5008 Top Zone ────────────────────────── */
 
-.header {
+.top-zone {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  min-height: 75pt;
+  margin-bottom: 0;
+}
+
+/* Left: address window (DIN 5008 position) */
+.address-window {
+  width: 240pt;
+  padding-top: 10pt;
+}
+
+.return-line {
+  font-size: 6.5pt;
+  color: #999;
+  border-bottom: 0.25pt solid #ccc;
+  padding-bottom: 3pt;
   margin-bottom: 6pt;
+  letter-spacing: 0.2pt;
 }
 
-.sender-name {
-  font-size: 20pt;
+.recipient {
+  font-size: 9pt;
+  line-height: 1.65;
+  color: #222;
+}
+
+/* Right: sender letterhead */
+.letterhead {
+  text-align: right;
+  padding-top: 0;
+}
+
+.lh-name {
+  font-size: 16pt;
   font-weight: 600;
-  letter-spacing: -0.5pt;
+  letter-spacing: -0.3pt;
   color: #111;
+  line-height: 1.2;
 }
 
-.sender-detail {
-  margin-top: 6pt;
-  font-size: 8.5pt;
-  line-height: 1.7;
-  color: #666;
+.lh-title {
+  font-size: 8pt;
+  color: #888;
+  margin-top: 1pt;
 }
 
-/* ── Dividers ──────────────────────────────────── */
+.lh-details {
+  margin-top: 8pt;
+  font-size: 7.5pt;
+  line-height: 1.55;
+  color: #999;
+}
+
+/* ── Dividers ─────────────────────────────────── */
 
 .divider {
   height: 0;
   border: none;
   border-top: 1pt solid #222;
-  margin: 16pt 0;
+  margin: 14pt 0;
 }
 
 .divider.thin {
@@ -59,60 +97,35 @@ body {
   border-top-color: #ccc;
 }
 
-/* ── Addresses ─────────────────────────────────── */
+/* ── Invoice Meta ─────────────────────────────── */
 
-.addresses {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6pt;
+.meta-table {
+  border-collapse: collapse;
+  margin-bottom: 14pt;
 }
 
-.address-block {
-  flex: 1;
-}
-
-.address-value {
-  margin-top: 4pt;
+.meta-table td {
+  padding: 1.5pt 0;
   font-size: 9pt;
-  line-height: 1.7;
+  vertical-align: baseline;
 }
 
-.field-label {
-  display: block;
+.meta-label {
   font-size: 7pt;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 1.5pt;
   color: #999;
+  padding-right: 14pt;
+  white-space: nowrap;
 }
 
-.invoice-details {
-  text-align: right;
-}
-
-.details-table {
-  margin-left: auto;
-  border-collapse: collapse;
-}
-
-.details-table td {
-  padding: 2pt 0 2pt 16pt;
-  font-size: 9pt;
-  vertical-align: baseline;
-}
-
-.details-table .field-label {
-  display: inline;
-  text-align: right;
-  padding-right: 12pt;
-}
-
-.detail-value {
+.meta-value {
   font-weight: 500;
   color: #111;
 }
 
-/* ── Items Table ───────────────────────────────── */
+/* ── Items Table ──────────────────────────────── */
 
 .items-table {
   width: 100%;
@@ -160,15 +173,15 @@ body {
   text-align: right;
 }
 
-.col-date { width: 16%; }
-.col-desc { width: 28%; }
+.col-date { width: 22%; }
+.col-desc { width: 22%; }
 .col-qty { width: 7%; }
 .col-unit { width: 8%; }
 .col-price { width: 14%; }
 .col-vat { width: 9%; }
 .col-subtotal { width: 14%; }
 
-/* ── Totals ────────────────────────────────────── */
+/* ── Totals ───────────────────────────────────── */
 
 .totals-section {
   display: flex;
@@ -218,10 +231,19 @@ body {
   font-weight: 600;
 }
 
-/* ── Payment ───────────────────────────────────── */
+/* ── Payment ──────────────────────────────────── */
 
 .payment {
   margin-bottom: 30pt;
+}
+
+.field-label {
+  display: block;
+  font-size: 7pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5pt;
+  color: #999;
 }
 
 .payment-value {
@@ -230,7 +252,7 @@ body {
   color: #444;
 }
 
-/* ── Closing ───────────────────────────────────── */
+/* ── Closing ──────────────────────────────────── */
 
 .closing {
   margin-bottom: 40pt;
@@ -248,7 +270,7 @@ body {
   margin-bottom: 4pt;
 }
 
-/* ── Footer ────────────────────────────────────── */
+/* ── Footer ───────────────────────────────────── */
 
 .footer {
   position: running(runningFooter);
