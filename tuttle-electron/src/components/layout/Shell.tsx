@@ -8,6 +8,7 @@ import { ContractsView } from "../business/ContractsView";
 import { InvoicingView } from "../invoicing/InvoicingView";
 import { ContactsView } from "../contacts/ContactsView";
 import { SettingsView } from "../settings/SettingsView";
+import { TimelineView } from "../timeline/TimelineView";
 import { PlaceholderView } from "../shared/PlaceholderView";
 import { NavigationContext, type NavigationFilter } from "../shared/NavigationContext";
 import { rpc } from "../../api/rpc";
@@ -195,6 +196,7 @@ export function Shell() {
 function DetailView({ id }: { id: string }) {
   switch (id) {
     case "dashboard": return <DashboardView />;
+    case "timeline": return <TimelineView />;
     case "clients": return <ClientsView />;
     case "contracts": return <ContractsView />;
     case "projects": return <ProjectsView />;
