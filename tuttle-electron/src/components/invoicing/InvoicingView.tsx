@@ -37,6 +37,7 @@ export function InvoicingView() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [newlyCreatedId, setNewlyCreatedId] = useState<number | null>(null);
 
   const defaultColumn = useCallback(
     (e: { id: number; [k: string]: unknown }) => invoiceStatus(e as Entity), [],
@@ -50,9 +51,10 @@ export function InvoicingView() {
     const res = await rpc<Entity[]>("invoicing.get_all");
     if (res.ok && res.data) {
       setInvoices(res.data);
-      if (selectId != null) {
-        const match = res.data.find((i) => i.id === selectId);
-        if (match) setSelected(match);
+      const refreshId = selectId ?? selected?.id;
+      if (refreshId != null) {
+        const match = res.data.find((i) => i.id === refreshId);
+        setSelected(match ?? null);
       }
     }
     setLoading(false);
@@ -136,8 +138,8 @@ export function InvoicingView() {
                 ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No invoices."}</div>
                 : filtered.map((inv) => {
                   const isSelected = selected?.id === inv.id;
-                  const isHighlighted = !isSelected && navFilter.contractId != null && num(inv, "contract_id") === navFilter.contractId;
-                  return <InvoiceRow key={inv.id} invoice={inv} isSelected={isSelected} isHighlighted={isHighlighted} onSelect={() => setSelected(inv)} />;
+                  const isHighlighted = !isSelected && (inv.id === newlyCreatedId || (navFilter.contractId != null && num(inv, "contract_id") === navFilter.contractId));
+                  return <InvoiceRow key={inv.id} invoice={inv} isSelected={isSelected} isHighlighted={isHighlighted} onSelect={() => { setNewlyCreatedId(null); setSelected(inv); }} />;
                 })}
             </div>
             <div className="px-4 py-2 text-xs text-tertiary border-t border-border-subtle">
@@ -167,7 +169,7 @@ export function InvoicingView() {
       {createOpen && (
         <CreateInvoiceDialog
           onClose={() => setCreateOpen(false)}
-          onCreated={async (newId) => { await load(newId); setCreateOpen(false); }}
+          onCreated={async (newId) => { setNewlyCreatedId(newId ?? null); await load(newId); setCreateOpen(false); }}
         />
       )}
     </div>
