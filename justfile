@@ -11,16 +11,13 @@ app      := electron / "release/mac-arm64/Tuttle.app"
 # ── Development ─────────────────────────────────────────────────────────────
 
 # Electron + Vite dev server (hot reload, live Python from .venv)
+# vite-plugin-electron auto-launches Electron when Vite starts in dev mode.
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{electron}}"
     npm run build
-    npx vite &
-    VITE_PID=$!
-    sleep 2
-    VITE_DEV_SERVER_URL=http://localhost:5173 npx electron .
-    kill $VITE_PID 2>/dev/null || true
+    VITE_DEV_SERVER_URL=http://localhost:5173 npx vite
 
 # ── Build ───────────────────────────────────────────────────────────────────
 

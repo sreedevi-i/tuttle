@@ -11,7 +11,7 @@ from ...tax import get_tax_system, supported_countries
 from ...tax_reserves import (
     compute_spendable_income,
     compute_income_tax_reserve,
-    quarterly_vat_breakdown,
+    monthly_vat_breakdown,
 )
 
 
@@ -38,13 +38,15 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         except NotImplementedError:
             return "EUR"
 
-    def get_spendable_income(self) -> IntentResult:
+    def get_spendable_income(self, year: int | None = None) -> IntentResult:
         """Compute spendable income breakdown."""
         try:
             invoices = self.query(Invoice)
             country = self._get_country()
             currency = self._get_tax_currency(country)
-            spending = compute_spendable_income(invoices, country, currency=currency)
+            spending = compute_spendable_income(
+                invoices, country, currency=currency, year=year
+            )
             data = {"spending": spending, "currency": currency}
             return IntentResult(was_intent_successful=True, data=data)
         except Exception as e:
@@ -55,26 +57,31 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
                 exception=e,
             )
 
-    def get_income_tax_estimate(self) -> IntentResult:
+    def get_income_tax_estimate(self, year: int | None = None) -> IntentResult:
         """Get detailed income tax estimate with bracket info."""
         try:
+            today = datetime.date.today()
+            is_past_year = year is not None and year < today.year
+
             invoices = self.query(Invoice)
             country = self._get_country()
             currency = self._get_tax_currency(country)
-            spending = compute_spendable_income(invoices, country, currency=currency)
-            tax_reserve = compute_income_tax_reserve(spending.net_revenue_ytd, country)
-
-            days_elapsed = max(
-                (
-                    datetime.date.today()
-                    - datetime.date.today().replace(month=1, day=1)
-                ).days,
-                1,
+            spending = compute_spendable_income(
+                invoices, country, currency=currency, year=year
             )
-            annualized = float(spending.net_revenue_ytd) * 365 / days_elapsed
+            tax_reserve = compute_income_tax_reserve(
+                spending.net_revenue_ytd, country, year=year
+            )
 
+            if is_past_year:
+                annualized = float(spending.net_revenue_ytd)
+            else:
+                days_elapsed = max((today - today.replace(month=1, day=1)).days, 1)
+                annualized = float(spending.net_revenue_ytd) * 365 / days_elapsed
+
+            ref_date = datetime.date(year, 7, 1) if year else today
             try:
-                tax_system = get_tax_system(country)
+                tax_system = get_tax_system(country, date=ref_date)
                 bracket_data = self._compute_bracket_data(
                     tax_system, Decimal(str(annualized))
                 )
@@ -134,23 +141,40 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             prev_end = end
         return brackets
 
+    def get_available_years(self) -> IntentResult:
+        """Return distinct years (descending) that have invoice data."""
+        try:
+            invoices = self.query(Invoice)
+            years = sorted(
+                {inv.date.year for inv in invoices if not inv.cancelled},
+                reverse=True,
+            )
+            return IntentResult(was_intent_successful=True, data=years)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to get available years.",
+                log_message=f"TaxIntent.get_available_years: {e}",
+                exception=e,
+            )
+
     def supported_countries(self) -> IntentResult:
         """Return list of countries with tax system support."""
         return IntentResult(was_intent_successful=True, data=supported_countries())
 
-    def get_quarterly_vat(self, year: int | None = None) -> IntentResult:
-        """Get quarterly VAT breakdown."""
+    def get_monthly_vat(self, year: int | None = None) -> IntentResult:
+        """Get monthly VAT breakdown."""
         try:
             invoices = self.query(Invoice)
             country = self._get_country()
             currency = self._get_tax_currency(country)
-            quarters = quarterly_vat_breakdown(invoices, year=year, currency=currency)
-            data = {"quarters": quarters, "currency": currency}
+            months = monthly_vat_breakdown(invoices, year=year, currency=currency)
+            data = {"months": months, "currency": currency}
             return IntentResult(was_intent_successful=True, data=data)
         except Exception as e:
             return IntentResult(
                 was_intent_successful=False,
-                error_msg="Failed to compute quarterly VAT.",
-                log_message=f"TaxIntent.get_quarterly_vat: {e}",
+                error_msg="Failed to compute monthly VAT.",
+                log_message=f"TaxIntent.get_monthly_vat: {e}",
                 exception=e,
             )

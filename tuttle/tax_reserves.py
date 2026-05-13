@@ -4,6 +4,7 @@ Computes how much of the freelancer's revenue must be set aside for
 VAT payments and estimated income tax, yielding the actual spendable income.
 """
 
+import calendar
 import datetime
 import logging
 from decimal import Decimal
@@ -93,48 +94,58 @@ def compute_income_tax_reserve(
     net_revenue_ytd: Decimal,
     country: str,
     deductions: Decimal = Decimal(0),
+    year: Optional[int] = None,
 ) -> IncomeTaxReserve:
     """Estimate income tax reserve based on year-to-date net revenue.
 
-    Annualizes the YTD net revenue, computes the tax on that projected
-    annual income, then prorates back to the current date.
+    For the current year: annualizes YTD net revenue, computes the tax on
+    that projected annual income, then prorates back to the current date.
+
+    For a past year (*year* given and < current year): treats *net_revenue_ytd*
+    as the full-year amount -- no annualization or proration.
     """
     today = datetime.date.today()
-    try:
-        tax_system = get_tax_system(country, date=today)
-    except NotImplementedError:
-        return IncomeTaxReserve(
-            estimated_annual_tax=Decimal(0),
-            solidarity_surcharge=Decimal(0),
-            total_annual_reserve=Decimal(0),
-            ytd_reserve=Decimal(0),
-            effective_rate=Decimal(0),
-        )
-    year_start = today.replace(month=1, day=1)
-    days_elapsed = max((today - year_start).days, 1)
-    days_in_year = 365
+    _zero = IncomeTaxReserve(
+        estimated_annual_tax=Decimal(0),
+        solidarity_surcharge=Decimal(0),
+        total_annual_reserve=Decimal(0),
+        ytd_reserve=Decimal(0),
+        effective_rate=Decimal(0),
+    )
 
-    # Annualize: project YTD revenue to full year
-    annualized_income = (net_revenue_ytd - deductions) * days_in_year / days_elapsed
+    ref_date = datetime.date(year, 7, 1) if year is not None else today
+    is_past_year = year is not None and year < today.year
+
+    try:
+        tax_system = get_tax_system(country, date=ref_date)
+    except NotImplementedError:
+        return _zero
+
+    if is_past_year:
+        annualized_income = net_revenue_ytd - deductions
+    else:
+        year_start = today.replace(month=1, day=1)
+        days_elapsed = max((today - year_start).days, 1)
+        days_in_year = 365
+        annualized_income = (net_revenue_ytd - deductions) * days_in_year / days_elapsed
 
     if annualized_income <= 0:
-        return IncomeTaxReserve(
-            estimated_annual_tax=Decimal(0),
-            solidarity_surcharge=Decimal(0),
-            total_annual_reserve=Decimal(0),
-            ytd_reserve=Decimal(0),
-            effective_rate=Decimal(0),
-        )
+        return _zero
 
-    # Compute annual tax
     annual_tax = tax_system.income_tax(annualized_income)
     annual_soli = tax_system.solidarity_surcharge(annual_tax)
     total_annual = annual_tax + annual_soli
 
-    # Prorate to current date
-    ytd_reserve = (total_annual * days_elapsed / days_in_year).quantize(Decimal("0.01"))
+    if is_past_year:
+        ytd_reserve = total_annual.quantize(Decimal("0.01"))
+    else:
+        year_start = today.replace(month=1, day=1)
+        days_elapsed = max((today - year_start).days, 1)
+        days_in_year = 365
+        ytd_reserve = (total_annual * days_elapsed / days_in_year).quantize(
+            Decimal("0.01")
+        )
 
-    # Effective rate
     effective_rate = (
         (total_annual / annualized_income) if annualized_income > 0 else Decimal(0)
     )
@@ -153,21 +164,34 @@ def compute_spendable_income(
     country: str,
     deductions: Decimal = Decimal(0),
     currency: Optional[str] = None,
+    year: Optional[int] = None,
 ) -> SpendableIncome:
     """Compute spendable income: what's left after VAT and income tax reserves.
 
     This answers the freelancer's core question: "How much of this money is mine?"
+
+    If *year* is given (and is a past year), the full calendar year is used
+    without annualization. Otherwise the current YTD is used.
 
     If *currency* is given (the tax system's native currency), only invoices
     denominated in that currency are counted.  If not given, the currency is
     resolved automatically from the tax system for *country*.
     """
     today = datetime.date.today()
-    year_start = today.replace(month=1, day=1)
+    is_past_year = year is not None and year < today.year
+
+    if year is not None and is_past_year:
+        year_start = datetime.date(year, 1, 1)
+        year_end = datetime.date(year, 12, 31)
+    else:
+        year_start = today.replace(month=1, day=1)
+        year_end = today
+
+    ref_date = datetime.date(year, 7, 1) if year is not None else today
 
     if currency is None:
         try:
-            tax_system = get_tax_system(country, date=today)
+            tax_system = get_tax_system(country, date=ref_date)
             currency = tax_system.currency
         except NotImplementedError:
             pass
@@ -179,7 +203,7 @@ def compute_spendable_income(
     for inv in invoices:
         if inv.cancelled:
             continue
-        if inv.date >= year_start:
+        if year_start <= inv.date <= year_end:
             if currency and _invoice_currency(inv) not in (currency, None):
                 skipped += 1
                 continue
@@ -195,7 +219,7 @@ def compute_spendable_income(
 
     net_ytd = gross_ytd - vat_ytd
 
-    tax_reserve = compute_income_tax_reserve(net_ytd, country, deductions)
+    tax_reserve = compute_income_tax_reserve(net_ytd, country, deductions, year=year)
 
     spendable = net_ytd - tax_reserve.ytd_reserve
 
@@ -339,40 +363,37 @@ def compute_effective_salary(
     )
 
 
-def quarterly_vat_breakdown(
+def monthly_vat_breakdown(
     invoices: List[Invoice],
     year: Optional[int] = None,
     currency: Optional[str] = None,
 ) -> list:
-    """VAT breakdown by quarter for the given year.
+    """VAT breakdown by month for the given year.
 
-    Returns list of dicts: quarter, vat_collected, invoice_count, period_start, period_end.
+    Returns list of dicts: month, vat_collected, invoice_count, period_start, period_end.
     """
     if year is None:
         year = datetime.date.today().year
 
-    quarters = []
-    for q in range(1, 5):
-        start_month = (q - 1) * 3 + 1
-        end_month = q * 3
-        period_start = datetime.date(year, start_month, 1)
-        if end_month == 12:
+    month_names = [calendar.month_abbr[m] for m in range(1, 13)]
+    months = []
+    for m in range(1, 13):
+        period_start = datetime.date(year, m, 1)
+        if m == 12:
             period_end = datetime.date(year, 12, 31)
         else:
-            period_end = datetime.date(year, end_month + 1, 1) - datetime.timedelta(
-                days=1
-            )
+            period_end = datetime.date(year, m + 1, 1) - datetime.timedelta(days=1)
 
         reserve = compute_vat_reserves(
             invoices, period_start, period_end, currency=currency
         )
-        quarters.append(
+        months.append(
             {
-                "quarter": f"Q{q}",
+                "month": month_names[m - 1],
                 "vat_collected": reserve.vat_collected,
                 "invoice_count": reserve.invoice_count,
                 "period_start": period_start,
                 "period_end": period_end,
             }
         )
-    return quarters
+    return months

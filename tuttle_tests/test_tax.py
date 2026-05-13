@@ -11,7 +11,7 @@ from tuttle.tax_reserves import (
     compute_income_tax_reserve,
     compute_spendable_income,
     compute_vat_reserves,
-    quarterly_vat_breakdown,
+    monthly_vat_breakdown,
 )
 from tuttle.kpi import monthly_spendable_breakdown
 from tuttle.model import (
@@ -372,30 +372,30 @@ class TestSpendableIncome:
         )
 
 
-# ── Quarterly VAT breakdown ──────────────────────────────────
+# ── Monthly VAT breakdown ─────────────────────────────────────
 
 
-class TestQuarterlyVAT:
-    def test_four_quarters(self):
+class TestMonthlyVAT:
+    def test_twelve_months(self):
         invoices = [
             _make_invoice(datetime.date(2026, 1, 15), [(10, 100, 0.19)]),
             _make_invoice(datetime.date(2026, 5, 15), [(20, 100, 0.19)]),
             _make_invoice(datetime.date(2026, 9, 15), [(30, 100, 0.19)]),
         ]
-        result = quarterly_vat_breakdown(invoices, year=2026)
-        assert len(result) == 4
-        assert result[0]["quarter"] == "Q1"
+        result = monthly_vat_breakdown(invoices, year=2026)
+        assert len(result) == 12
+        assert result[0]["month"] == "Jan"
         assert result[0]["invoice_count"] == 1
-        assert result[1]["quarter"] == "Q2"
-        assert result[1]["invoice_count"] == 1
-        assert result[2]["quarter"] == "Q3"
-        assert result[2]["invoice_count"] == 1
-        assert result[3]["quarter"] == "Q4"
-        assert result[3]["invoice_count"] == 0
+        assert result[4]["month"] == "May"
+        assert result[4]["invoice_count"] == 1
+        assert result[8]["month"] == "Sep"
+        assert result[8]["invoice_count"] == 1
+        assert result[11]["month"] == "Dec"
+        assert result[11]["invoice_count"] == 0
 
     def test_defaults_to_current_year(self):
-        result = quarterly_vat_breakdown([], year=None)
-        assert len(result) == 4
+        result = monthly_vat_breakdown([], year=None)
+        assert len(result) == 12
         assert result[0]["period_start"].year == datetime.date.today().year
 
 

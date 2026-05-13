@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Receipt, Calculator } from "lucide-react";
+import { BarChart3, Receipt, Calculator, ChevronDown } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import type { Entity } from "../../api/types";
 import { str, num, bool } from "../../api/entity";
@@ -17,18 +17,34 @@ function fmtPct(value: number): string {
 export function TaxReservesView() {
   const [spending, setSpending] = useState<Entity | null>(null);
   const [taxEstimate, setTaxEstimate] = useState<Entity | null>(null);
-  const [quarters, setQuarters] = useState<Entity[]>([]);
+  const [months, setMonths] = useState<Entity[]>([]);
   const [currency, setCurrency] = useState("EUR");
   const [loading, setLoading] = useState(true);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    rpc<number[]>("tax.get_available_years").then((res) => {
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        setAvailableYears(res.data);
+        if (!res.data.includes(selectedYear)) {
+          setSelectedYear(res.data[0]);
+        }
+      } else {
+        setAvailableYears([new Date().getFullYear()]);
+      }
+    });
+  }, []);
 
-  async function load() {
+  useEffect(() => { load(selectedYear); }, [selectedYear]);
+
+  async function load(year: number) {
     setLoading(true);
+    const params = { year };
     const [spRes, taxRes, vatRes] = await Promise.all([
-      rpc<Entity>("tax.get_spendable_income"),
-      rpc<Entity>("tax.get_income_tax_estimate"),
-      rpc<Entity>("tax.get_quarterly_vat"),
+      rpc<Entity>("tax.get_spendable_income", params),
+      rpc<Entity>("tax.get_income_tax_estimate", params),
+      rpc<Entity>("tax.get_monthly_vat", params),
     ]);
     if (spRes.ok && spRes.data) {
       setSpending(spRes.data as Entity);
@@ -37,7 +53,7 @@ export function TaxReservesView() {
     if (taxRes.ok && taxRes.data) setTaxEstimate(taxRes.data as Entity);
     if (vatRes.ok && vatRes.data) {
       const d = vatRes.data as Entity;
-      setQuarters((d.quarters as Entity[]) || []);
+      setMonths((d.months as Entity[]) || []);
       if (str(d, "currency")) setCurrency(str(d, "currency"));
     }
     setLoading(false);
@@ -47,16 +63,27 @@ export function TaxReservesView() {
 
   const sp = spending?.spending as Entity | undefined;
   const hasData = sp && num(sp, "gross_revenue_ytd") > 0;
+  const isCurrentYear = selectedYear === new Date().getFullYear();
+  const periodLabel = isCurrentYear ? "YTD" : `${selectedYear}`;
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-xl font-bold">Tax &amp; Reserves</h1>
-        <p className="text-sm text-muted mt-1">How much of your revenue can you actually spend?</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">Tax &amp; Reserves</h1>
+          <p className="text-sm text-muted mt-1">How much of your revenue can you actually spend?</p>
+        </div>
+        {availableYears.length > 1 && (
+          <YearSelector
+            years={availableYears}
+            selected={selectedYear}
+            onChange={setSelectedYear}
+          />
+        )}
       </div>
 
       {/* Revenue Waterfall */}
-      <Section title="Revenue Breakdown (YTD)" icon={<BarChart3 size={16} />}>
+      <Section title={`Revenue Breakdown (${periodLabel})`} icon={<BarChart3 size={16} />}>
         {!hasData ? (
           <p className="text-sm text-muted">No revenue data yet.</p>
         ) : (
@@ -75,30 +102,29 @@ export function TaxReservesView() {
         )}
       </Section>
 
-      {/* Quarterly VAT */}
-      <Section title="Quarterly VAT" icon={<Receipt size={16} />}>
-        {quarters.length === 0 ? (
+      {/* Monthly VAT */}
+      <Section title="Monthly VAT" icon={<Receipt size={16} />}>
+        {months.length === 0 ? (
           <p className="text-sm text-muted">No VAT data available.</p>
         ) : (
           <div>
-            <div className="grid grid-cols-4 gap-2 text-[11px] font-semibold text-muted uppercase tracking-wide pb-2 border-b border-border-subtle">
-              <span>Quarter</span><span>Period</span><span className="text-right">Invoices</span><span className="text-right">VAT Collected</span>
+            <div className="grid grid-cols-3 gap-2 text-[11px] font-semibold text-muted uppercase tracking-wide pb-2 border-b border-border-subtle">
+              <span>Month</span><span className="text-right">Invoices</span><span className="text-right">VAT Collected</span>
             </div>
-            {quarters.map((q, i) => {
-              const vat = num(q, "vat_collected");
+            {months.map((m, i) => {
+              const vat = num(m, "vat_collected");
               return (
-                <div key={i} className="grid grid-cols-4 gap-2 py-1.5 text-sm border-b border-border-subtle/50 last:border-0">
-                  <span className="font-semibold">{str(q, "quarter")}</span>
-                  <span className="text-secondary text-xs">{fmtPeriod(str(q, "period_start"), str(q, "period_end"))}</span>
-                  <span className="text-right">{num(q, "invoice_count")}</span>
+                <div key={i} className="grid grid-cols-3 gap-2 py-1.5 text-sm border-b border-border-subtle/50 last:border-0">
+                  <span className="font-semibold">{str(m, "month")}</span>
+                  <span className="text-right">{num(m, "invoice_count")}</span>
                   <span className={`text-right font-medium ${vat > 0 ? "text-yellow-400" : "text-muted"}`}>{fmt(vat, currency)}</span>
                 </div>
               );
             })}
             <div className="flex justify-between pt-2 mt-1 border-t border-border-subtle font-semibold text-sm">
               <span>Total</span>
-              <span className={quarters.reduce((s, q) => s + num(q, "vat_collected"), 0) > 0 ? "text-yellow-400" : "text-muted"}>
-                {fmt(quarters.reduce((s, q) => s + num(q, "vat_collected"), 0), currency)}
+              <span className={months.reduce((s, m) => s + num(m, "vat_collected"), 0) > 0 ? "text-yellow-400" : "text-muted"}>
+                {fmt(months.reduce((s, m) => s + num(m, "vat_collected"), 0), currency)}
               </span>
             </div>
           </div>
@@ -107,6 +133,25 @@ export function TaxReservesView() {
 
       {/* Income Tax Estimate */}
       {taxEstimate && <IncomeTaxSection data={taxEstimate} currency={currency} />}
+    </div>
+  );
+}
+
+function YearSelector({ years, selected, onChange }: {
+  years: number[]; selected: number; onChange: (y: number) => void;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={selected}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="appearance-none bg-[#ffffff08] border border-border-subtle rounded-md px-3 py-1.5 pr-8 text-sm font-medium text-primary cursor-pointer hover:bg-[#ffffff12] transition-colors"
+      >
+        {years.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
     </div>
   );
 }
@@ -131,7 +176,7 @@ function IncomeTaxSection({ data, currency }: { data: Entity; currency: string }
         )}
         {brackets.length > 0 && (
           <div className="mt-4">
-            <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">Tax Brackets</div>
+            <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">Tax Brackets (marginal rates)</div>
             <div className="space-y-1">
               {brackets.map((b, i) => {
                 const current = bool(b, "is_current");
@@ -200,12 +245,4 @@ function SummaryRow({ label, value, color, bold }: { label: string; value: strin
       <span className={bold ? "font-semibold" : ""} style={color ? { color } : undefined}>{value}</span>
     </div>
   );
-}
-
-function fmtPeriod(start: string, end: string): string {
-  try {
-    const s = new Date(start).toLocaleDateString("en-US", { month: "short" });
-    const e = new Date(end).toLocaleDateString("en-US", { month: "short" });
-    return `${s} – ${e}`;
-  } catch { return ""; }
 }
