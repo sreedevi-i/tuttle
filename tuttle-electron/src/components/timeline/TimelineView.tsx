@@ -102,6 +102,18 @@ export function TimelineView() {
 
   const todayISO = new Date().toISOString().slice(0, 10);
 
+  const todayPosition = useMemo<{ group: number; event: number } | null>(() => {
+    for (let gi = 0; gi < groups.length; gi++) {
+      for (let ei = 0; ei < groups[gi].events.length; ei++) {
+        const ev = groups[gi].events[ei];
+        if (!bool(ev, "is_future") && str(ev, "date") <= todayISO) {
+          return { group: gi, event: ei };
+        }
+      }
+    }
+    return null;
+  }, [groups, todayISO]);
+
   if (loading) return <div className="flex items-center justify-center h-full text-secondary">Loading timeline…</div>;
 
   if (!events.length) {
@@ -157,9 +169,7 @@ export function TimelineView() {
 
       {/* Timeline */}
       <div className="relative">
-        {groups.map((group, gi) => {
-          let todayInserted = false;
-          return (
+        {groups.map((group, gi) => (
             <div key={group.key}>
               {/* Month header */}
               <div className="flex items-center h-9" style={{ paddingTop: gi > 0 ? 8 : 0 }}>
@@ -173,23 +183,19 @@ export function TimelineView() {
 
               {group.events.map((ev, ei) => {
                 const isLast = gi === groups.length - 1 && ei === group.events.length - 1;
-                const evDate = str(ev, "date");
-                const isFuture = bool(ev, "is_future");
-                const showToday = !todayInserted && !isFuture && evDate <= todayISO;
-                if (showToday) todayInserted = true;
+                const showToday = todayPosition?.group === gi && todayPosition?.event === ei;
 
                 return (
-                  <div key={`${str(ev, "category")}-${ei}-${evDate}`}>
+                  <div key={`${str(ev, "category")}-${ei}-${str(ev, "date")}`}>
                     {showToday && <TodayMarker />}
                     <EventCard event={ev} isLast={isLast} />
                   </div>
                 );
               })}
 
-              {gi === groups.length - 1 && !todayInserted && <TodayMarker />}
+              {gi === groups.length - 1 && !todayPosition && <TodayMarker />}
             </div>
-          );
-        })}
+          ))}
       </div>
     </div>
   );
