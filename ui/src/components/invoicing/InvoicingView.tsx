@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  FileText, Send, CheckCircle, XCircle,
+  FileText, Send, CheckCircle, XCircle, Mail,
   Building2, FolderKanban, Calendar, Banknote, Eye, Search,
   Plus, Clock,
 } from "lucide-react";
@@ -75,6 +75,10 @@ export function InvoicingView() {
   async function toggleSent(id: number) { await rpc("invoicing.toggle_sent", { id }); load(); }
   async function togglePaid(id: number) { await rpc("invoicing.toggle_paid", { id }); load(); }
   async function toggleCancelled(id: number) { await rpc("invoicing.toggle_cancelled", { id }); load(); }
+  async function sendMail(id: number) {
+    const res = await rpc<void>("invoicing.send_mail", { id });
+    if (!res.ok) alert(res.error || "Failed to send invoice");
+  }
 
   async function moveToColumn(id: number, colId: string) {
     const inv = invoices.find((i) => i.id === id);
@@ -150,7 +154,8 @@ export function InvoicingView() {
           <div className="flex-1 overflow-y-auto">
             {selected ? (
               <InvoiceDetail invoice={selected} onToggleSent={() => toggleSent(selected.id)}
-                onTogglePaid={() => togglePaid(selected.id)} onToggleCancelled={() => toggleCancelled(selected.id)} />
+                onTogglePaid={() => togglePaid(selected.id)} onToggleCancelled={() => toggleCancelled(selected.id)}
+                onSendMail={() => sendMail(selected.id)} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary">
                 <FileText size={36} strokeWidth={1.2} /><span className="text-sm">Select an invoice</span>
@@ -372,8 +377,8 @@ function InvoiceCard({ invoice }: { invoice: Entity; color: string }) {
   );
 }
 
-function InvoiceDetail({ invoice, onToggleSent, onTogglePaid, onToggleCancelled }: {
-  invoice: Entity; onToggleSent: () => void; onTogglePaid: () => void; onToggleCancelled: () => void;
+function InvoiceDetail({ invoice, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail }: {
+  invoice: Entity; onToggleSent: () => void; onTogglePaid: () => void; onToggleCancelled: () => void; onSendMail: () => void;
 }) {
   const status = invoiceStatus(invoice);
   const items = entityList(invoice, "items");
@@ -476,6 +481,14 @@ function InvoiceDetail({ invoice, onToggleSent, onTogglePaid, onToggleCancelled 
           </Section>
 
           <Section title="Actions">
+            {!isCancelled && pdfPath && (
+              <div className="mb-2">
+                <button onClick={onSendMail}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors bg-accent text-white hover:bg-accent/90">
+                  <Mail size={16} /> Send Invoice
+                </button>
+              </div>
+            )}
             <div className="flex gap-2">
               {!isCancelled && (
                 <>

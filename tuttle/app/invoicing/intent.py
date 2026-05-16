@@ -92,6 +92,14 @@ class InvoicingIntent(Intent):
             )
         return getattr(self, f"toggle_invoice_{field}_status")(result.data)
 
+    def send_mail(self, id) -> IntentResult:
+        result = self._invoicing_data_source.get_invoice_by_id(id)
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Invoice not found"
+            )
+        return self.send_invoice_by_mail(result.data)
+
     def toggle_sent(self, id) -> IntentResult:
         return self._toggle("sent", id)
 
@@ -311,25 +319,21 @@ class InvoicingIntent(Intent):
                     error_msg="No contact email available for this client.",
                 )
 
-            email_body = f"""
-            Dear {greeting},
+            email_body = textwrap.dedent(
+                f"""\
+Dear {greeting},
 
-            Please find attached the invoice for {invoice.project.title}.
+Please find attached the invoice for {invoice.project.title}.
 
-            <-- Insert invoice PDF here -->
-
-            Best regards,
-            {user.name}
-            """
-            email_body = textwrap.dedent(email_body)
+Best regards,
+{user.name}"""
+            )
             mail.compose_email(
                 to=recipient,
                 subject=f"Invoice {invoice.number}",
                 body=email_body,
+                attachment_paths=[invoice_path],
             )
-            # open invoice pdf's folder
-
-            os_functions.open_folder(invoice_path.parent)
 
             return IntentResult(
                 was_intent_successful=True,
