@@ -4,8 +4,8 @@ title: Credits
 
 # Development Lead
 
--   Christian Staudt \<<mail@clstaudt.me>\>
+-   Christian Staudt
 
 # Contributors
 
-None yet. Why not be the first?
+- Vladimir Peter

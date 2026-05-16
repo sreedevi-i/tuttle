@@ -1,6 +1,5 @@
 /**
  * Helpers for working with generic Entity dicts from Python.
- * Mirrors Swift's Entity extension methods (str, num, int, bool, etc.)
  */
 
 import type { Entity } from "./types";

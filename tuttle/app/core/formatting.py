@@ -1,4 +1,4 @@
-"""Flet-free formatting utilities."""
+"""Formatting utilities."""
 
 from babel.numbers import format_currency as _babel_format_currency
 

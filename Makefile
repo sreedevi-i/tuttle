@@ -82,7 +82,7 @@ dist: clean ## builds source and wheel package
 	ls -l dist
 
 dev: ## start the Electron app in development mode
-	cd tuttle-electron && npm run dev
+	cd ui && npm run dev
 
 pack: clean-build ## build the Electron app bundle (PyInstaller + electron-builder)
 	uv run python scripts/pack_electron.py

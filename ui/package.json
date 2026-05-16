@@ -1,7 +1,7 @@
 {
-  "name": "tuttle-electron",
+  "name": "tuttle-ui",
   "productName": "Tuttle",
-  "version": "0.1.0",
+  "version": "3.0.0-alpha.1",
   "description": "Cross-platform Electron UI for Tuttle",
   "private": true,
   "type": "module",
@@ -34,8 +34,6 @@
     "mac": {
       "category": "public.app-category.business",
       "target": ["dmg", "dir"],
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
         "NSCalendarsFullAccessUsageDescription": "Tuttle needs access to your calendars to import events for time tracking."
       }

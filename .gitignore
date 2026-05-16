@@ -136,7 +136,6 @@ dmypy.json
 
 
 # temporary
-notebooks/tmp
 tuttle_tests/tmp
 app/tmp
 app/assets/uploads
@@ -145,12 +144,9 @@ app/assets/uploads
 *.code-workspace
 assets/uploads/*
 
-# Swift Package Manager
-TuttleMac/.build/
-TuttleMac/.swiftpm/
 
 # Electron
-tuttle-electron/node_modules/
-tuttle-electron/dist/
-tuttle-electron/dist-electron/
-tuttle-electron/release/
+ui/node_modules/
+ui/dist/
+ui/dist-electron/
+ui/release/

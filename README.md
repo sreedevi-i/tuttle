@@ -78,8 +78,7 @@ Calculate your effective income and see how much you can spend without risking y
 Tuttle is a desktop application with a Python core and an Electron UI shell.
 
 - **Python core** (`tuttle/`): Business logic, data models, invoicing, tax calculations, and a JSON-RPC server (`tuttle/rpc_server.py`) that exposes the core as a stdio service.
-- **Electron shell** (`tuttle-electron/`): React + TypeScript desktop UI that communicates with the Python core via JSON-RPC over stdio.
-- **TuttleMac** (`TuttleMac/`): Experimental native macOS client built with SwiftUI.
+- **Electron shell** (`ui/`): React + TypeScript desktop UI that communicates with the Python core via JSON-RPC over stdio.
 
 
 ## Getting Started
@@ -108,14 +107,14 @@ uv sync
 3. Install Electron dependencies:
 
 ```shell
-cd tuttle-electron
+cd ui
 npm install
 ```
 
 ### Running the App (Development)
 
 ```shell
-cd tuttle-electron
+cd ui
 npm run dev
 ```
 
@@ -124,7 +123,7 @@ This starts the Electron app in development mode. The Python RPC sidecar is spaw
 ### Building for Production
 
 ```shell
-make pack
+just build
 ```
 
 This builds the Python sidecar with PyInstaller and packages the Electron app with electron-builder.
@@ -149,3 +148,8 @@ Your contributions are welcome. Please follow the [guide (CONTRIBUTING.md)](http
 This project has received funding by the [Prototype Fund](https://prototypefund.de) in 2022.
 
 <img src="assets/images/pf_funding_logos.svg" width="512px">
+
+
+## License
+
+Copyright 2022-2026 Christian Staudt and contributors. Licensed under the [GNU General Public License v3.0](LICENSE).

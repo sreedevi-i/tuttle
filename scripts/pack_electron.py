@@ -22,7 +22,7 @@ import typer
 from loguru import logger
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ELECTRON_DIR = REPO_ROOT / "tuttle-electron"
+ELECTRON_DIR = REPO_ROOT / "ui"
 SPEC_FILE = REPO_ROOT / "tuttle-rpc.spec"
 
 

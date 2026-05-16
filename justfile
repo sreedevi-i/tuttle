@@ -3,7 +3,7 @@
 set dotenv-load := false
 
 repo     := justfile_directory()
-electron := repo / "tuttle-electron"
+electron := repo / "ui"
 venv     := repo / ".venv"
 python   := venv / "bin/python"
 app      := electron / "release/mac-arm64/Tuttle.app"

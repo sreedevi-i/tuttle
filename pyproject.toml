@@ -1,12 +1,12 @@
 [project]
 name = "tuttle"
-version = "2.1.0a1"
+version = "3.0.0a1"
 description = "Painless business planning for freelancers."
 readme = "README.md"
 license = "GPL-3.0-only"
 requires-python = ">=3.12"
 authors = [
-    { name = "Christian Staudt", email = "mail@clstaudt.me" },
+    { name = "Christian Staudt" },
     { name = "Vladimir Peter" },
 ]
 keywords = ["tuttle"]
@@ -90,7 +90,7 @@ known_typing = ["typing"]
 sections = ["FUTURE", "TYPING", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 
 [tool.bumpversion]
-current_version = "2.1.0a1"
+current_version = "3.0.0a1"
 commit = true
 tag = true
 
