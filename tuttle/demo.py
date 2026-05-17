@@ -504,9 +504,23 @@ def create_heating_data(
         )
         projects.append(project)
 
-    invoices = [
-        create_fake_invoice(fake, project=project, user=user) for project in projects
-    ]
+    today = datetime.date.today()
+    invoices = []
+    for i, project in enumerate(projects):
+        if i < 2:
+            # First two invoices: sent but unpaid, dated 30+ days ago → overdue
+            inv_date = today - timedelta(days=random.randint(30, 60))
+            inv = create_fake_invoice(
+                fake,
+                project=project,
+                user=user,
+                invoice_date=inv_date,
+                sent=True,
+                paid=False,
+            )
+        else:
+            inv = create_fake_invoice(fake, project=project, user=user)
+        invoices.append(inv)
     return projects, invoices
 
 

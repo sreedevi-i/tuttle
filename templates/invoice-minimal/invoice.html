@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{ l.invoice_no }} {{ invoice.number }}</title>
+  <title>{% if is_reminder %}{{ reminder_title }} – {{ invoice.number }}{% else %}{{ l.invoice_no }} {{ invoice.number }}{% endif %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="./invoice.css">
 </head>
@@ -43,19 +43,28 @@
 
   <div class="divider"></div>
 
-  <!-- Invoice meta -->
+  {% if is_reminder %}
+  <div class="reminder-badge" style="font-size:1.1em; font-weight:700; margin-bottom:.6em;">{{ reminder_title }}</div>
+  {% endif %}
+
   <table class="meta-table">
     <tr>
       <td class="meta-label">{{ l.invoice_no }}</td>
       <td class="meta-value">{{ invoice.number }}</td>
     </tr>
+    {% if is_reminder %}
+    <tr>
+      <td class="meta-label">{{ l.original_invoice }}</td>
+      <td class="meta-value">{{ invoice.number }}</td>
+    </tr>
+    {% endif %}
     <tr>
       <td class="meta-label">{{ l.date }}</td>
       <td class="meta-value">{{ invoice.date | as_date }}</td>
     </tr>
     <tr>
       <td class="meta-label">{{ l.due_date }}</td>
-      <td class="meta-value">{{ invoice.due_date | as_date }}</td>
+      <td class="meta-value">{{ invoice.effective_due_date | as_date }}</td>
     </tr>
   </table>
 
@@ -98,6 +107,12 @@
         <span class="totals-label">{{ l.vat }}</span>
         <span class="totals-value">{{ invoice.VAT_total | as_currency }}</span>
       </div>
+      {% if is_reminder and invoice.reminder_fee %}
+      <div class="totals-line">
+        <span class="totals-label">{{ l.reminder_fee }}</span>
+        <span class="totals-value">{{ invoice.reminder_fee | as_currency }}</span>
+      </div>
+      {% endif %}
       <div class="divider"></div>
       <div class="totals-line total-due">
         <span class="totals-label">{{ l.total_due }}</span>
@@ -114,7 +129,7 @@
   </div>
 
   <div class="closing">
-    <p>{{ l.closing }}</p>
+    <p>{% if is_reminder %}{{ l.reminder_closing }}{% else %}{{ l.closing }}{% endif %}</p>
     <div class="sig-line"></div>
     {{ user.name }}
   </div>

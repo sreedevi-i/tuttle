@@ -43,6 +43,11 @@ INVOICE_LABELS = {
         "payment_details": "Payment Details",
         "description": "Description",
         "closing": "Thank you for your business.",
+        "reminder": "Payment Reminder",
+        "reminder_n": "{n}. Payment Reminder",
+        "reminder_fee": "Reminder Fee",
+        "original_invoice": "Original Invoice",
+        "reminder_closing": "Please settle the outstanding amount by the new due date.",
     },
     "de": {
         "invoice": "Rechnung",
@@ -62,6 +67,11 @@ INVOICE_LABELS = {
         "payment_details": "Zahlungsdetails",
         "description": "Beschreibung",
         "closing": "Vielen Dank für Ihren Auftrag.",
+        "reminder": "Zahlungserinnerung",
+        "reminder_n": "{n}. Mahnung",
+        "reminder_fee": "Mahngebühr",
+        "original_invoice": "Ursprungsrechnung",
+        "reminder_closing": "Bitte begleichen Sie den offenen Betrag bis zum neuen Fälligkeitsdatum.",
     },
     "es": {
         "invoice": "Factura",
@@ -81,6 +91,11 @@ INVOICE_LABELS = {
         "payment_details": "Datos de pago",
         "description": "Descripción",
         "closing": "Gracias por su confianza.",
+        "reminder": "Recordatorio de pago",
+        "reminder_n": "{n}.º recordatorio de pago",
+        "reminder_fee": "Cargo por recordatorio",
+        "original_invoice": "Factura original",
+        "reminder_closing": "Le rogamos abone el importe pendiente antes de la nueva fecha de vencimiento.",
     },
 }
 
@@ -245,11 +260,20 @@ def render_invoice(
     template_env.filters["as_date_short"] = as_date_short
     template_env.filters["as_percentage"] = as_percentage
 
+    is_reminder = getattr(invoice, "is_reminder", False)
+    reminder_title = ""
+    if is_reminder:
+        n = getattr(invoice, "reminder_level", 1)
+        tpl = labels.get("reminder_n", "{n}. Payment Reminder")
+        reminder_title = tpl.format(n=n)
+
     invoice_template = template_env.get_template("invoice.html")
     html = invoice_template.render(
         user=user,
         invoice=invoice,
         l=labels,
+        is_reminder=is_reminder,
+        reminder_title=reminder_title,
     )
     if out_dir is None:
         return html

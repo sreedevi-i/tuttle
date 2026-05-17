@@ -126,8 +126,26 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
             except Exception:
                 amount_str = ""
 
-            label = f"Invoice {inv.number or ''}"
+            if inv.is_reminder:
+                label = f"Reminder {inv.reminder_level} for {inv.number or ''}"
+            else:
+                label = f"Invoice {inv.number or ''}"
             desc = f"{client_name} · {amount_str}" if amount_str else client_name
+
+            # Reminders always get a "sent" event on their date
+            if inv.is_reminder:
+                events.append(
+                    TimelineEvent(
+                        date=inv.date,
+                        title=f"{label} sent",
+                        description=desc,
+                        category=cat,
+                        icon=ICON_WARNING_AMBER_ROUNDED,
+                        color=colors.warning,
+                        is_future=inv.date > today,
+                        entity_id=inv.id,
+                    )
+                )
 
             if inv.cancelled:
                 events.append(
@@ -159,22 +177,21 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                 )
                 continue
 
-            # Unpaid invoice — show creation event
-            events.append(
-                TimelineEvent(
-                    date=inv.date,
-                    title=label,
-                    description=desc,
-                    category=cat,
-                    icon=CATEGORY_ICONS[cat],
-                    color=color,
-                    is_future=inv.date > today,
-                    entity_id=inv.id,
+            if not inv.is_reminder:
+                events.append(
+                    TimelineEvent(
+                        date=inv.date,
+                        title=label,
+                        description=desc,
+                        category=cat,
+                        icon=CATEGORY_ICONS[cat],
+                        color=color,
+                        is_future=inv.date > today,
+                        entity_id=inv.id,
+                    )
                 )
-            )
 
-            # Plus a due/overdue marker if applicable
-            due = inv.due_date
+            due = inv.effective_due_date
             if due:
                 is_overdue = due < today
                 events.append(

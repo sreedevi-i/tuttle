@@ -73,6 +73,9 @@
     <tr>
       <td>
         <br>
+       {% if is_reminder %}
+       <big><strong>{{ reminder_title }}</strong></big><br>
+       {% endif %}
        <big>Invoice Date: <strong>{{ invoice.date }}</strong></big> <br>
        <big>Invoice Number: <strong>{{ invoice.number }}<big></big></strong>
       </td>
@@ -126,7 +129,7 @@
             IBAN: <strong>{{ user.bank_account.IBAN }}</strong><br>
           </div>
         </td>
-        <td class="bold">{{ invoice.due_date }}</td>
+        <td class="bold">{{ invoice.effective_due_date }}</td>
         <td>{{ invoice.VAT_total | as_currency }}</td>
         <td class="bold">{{ invoice.total | as_currency }}</td>
       </tr>
@@ -136,7 +139,7 @@
   <div>
     <p>
       <br>
-    <span>Thank you for your business</span>
+    <span>{% if is_reminder %}Please settle the outstanding amount by the new due date.{% else %}Thank you for your business{% endif %}</span>
    </p>
     <br>
     <br>

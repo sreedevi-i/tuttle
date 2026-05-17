@@ -127,17 +127,37 @@ export function invoiceStatus(e: Entity): string {
   if (bool(e, "cancelled")) return "Cancelled";
   if (bool(e, "paid")) return "Paid";
   if (bool(e, "sent")) {
-    const contract = entity(e, "contract");
-    if (contract) {
-      const termDays = num(contract, "term_of_payment");
-      const dateStr = str(e, "date");
-      if (dateStr && termDays) {
-        const due = new Date(dateStr);
-        due.setDate(due.getDate() + termDays);
-        if (due < new Date()) return "Overdue";
+    // Use effective_due_date (set by reminder) if available, else compute from contract
+    const effectiveDue = str(e, "effective_due_date");
+    if (effectiveDue) {
+      if (new Date(effectiveDue) < new Date()) return "Overdue";
+    } else {
+      const contract = entity(e, "contract");
+      if (contract) {
+        const termDays = num(contract, "term_of_payment");
+        const dateStr = str(e, "date");
+        if (dateStr && termDays) {
+          const due = new Date(dateStr);
+          due.setDate(due.getDate() + termDays);
+          if (due < new Date()) return "Overdue";
+        }
       }
     }
     return "Sent";
   }
   return "Draft";
+}
+
+export function isReminder(e: Entity): boolean {
+  return bool(e, "is_reminder") || str(e, "document_type") === "reminder";
+}
+
+export function reminderLevel(e: Entity): number {
+  return num(e, "reminder_level");
+}
+
+export function reminderChainHeadId(e: Entity): number | null {
+  const v = e.reminder_chain_head_id;
+  if (v == null) return null;
+  return typeof v === "number" ? v : null;
 }

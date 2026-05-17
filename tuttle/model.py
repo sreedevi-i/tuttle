@@ -1,6 +1,6 @@
 """Object model."""
 
-from typing import Optional, List, Dict, Type
+from typing import Literal, Optional, List, Dict, Type
 from pydantic import constr, BaseModel, condecimal
 from enum import Enum
 import datetime
@@ -30,6 +30,8 @@ from pathlib import Path
 from .app.core.formatting import fmt_currency
 from .dev import deprecated
 from .time import Cycle, TimeUnit
+
+DocumentType = Literal["invoice", "reminder"]
 
 
 class RpcMixin:
@@ -651,7 +653,13 @@ class Timesheet(SQLModel, table=True):
 
 
 class Invoice(RpcMixin, SQLModel, table=True):
-    """An invoice is a bill for a client."""
+    """An invoice or payment reminder.
+
+    Reminders reuse the same table (manual STI) with ``document_type``
+    as the discriminator.  A reminder references its predecessor via
+    ``reminder_for_id``, forming a singly-linked chain back to the
+    original invoice.
+    """
 
     __rpc_relationships__ = ("contract", "project", "items")
     __rpc_computed__ = (
@@ -659,22 +667,53 @@ class Invoice(RpcMixin, SQLModel, table=True):
         "VAT_total",
         "total",
         "due_date",
+        "effective_due_date",
         "status",
         "file_name",
         "sum_formatted",
         "vat_total_formatted",
         "total_formatted",
         "pdf_path",
+        "is_reminder",
+        "reminder_chain_head_id",
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     number: Optional[str] = Field(description="The invoice number. Auto-generated.")
-    # date and time
     date: datetime.date = Field(
         description="The date of the invoice",
     )
 
-    # RELATIONSHIPTS
+    # -- Document type discriminator (manual STI) --------------------------
+
+    document_type: str = Field(
+        default="invoice",
+        description="'invoice' for a regular invoice, 'reminder' for a payment reminder.",
+        schema_extra={"enum": ["invoice", "reminder"]},
+    )
+
+    # -- Reminder-specific fields (NULL for regular invoices) --------------
+
+    reminder_for_id: Optional[int] = Field(
+        default=None,
+        foreign_key="invoice.id",
+        description="FK to the predecessor invoice/reminder in a reminder chain.",
+    )
+    reminder_level: int = Field(
+        default=0,
+        description="0 = original invoice, 1 = 1st reminder, 2 = 2nd, etc.",
+    )
+    reminder_fee: Optional[Decimal] = Field(
+        default=None,
+        sa_column=sqlalchemy.Column(sqlalchemy.Numeric(12, 2), nullable=True),
+        description="Optional surcharge added on this reminder.",
+    )
+    reminder_due_date: Optional[datetime.date] = Field(
+        default=None,
+        description="New payment deadline set by this reminder.",
+    )
+
+    # -- Relationships -----------------------------------------------------
 
     # Invoice n:1 Contract
     contract_id: Optional[int] = Field(
@@ -697,24 +736,40 @@ class Invoice(RpcMixin, SQLModel, table=True):
         back_populates="invoice",
         sa_relationship_kwargs={
             "lazy": "subquery",
-            "cascade": "all, delete",  # delete all timesheets when invoice is deleted
+            "cascade": "all, delete",
         },
     )
 
-    # status -- corresponds to InvoiceStatus enum above
+    # Self-referencing: reminder chain
+    reminder_for: Optional["Invoice"] = Relationship(
+        back_populates="reminders",
+        sa_relationship_kwargs={
+            "remote_side": "Invoice.id",
+            "foreign_keys": "[Invoice.reminder_for_id]",
+            "lazy": "subquery",
+        },
+    )
+    reminders: List["Invoice"] = Relationship(
+        back_populates="reminder_for",
+        sa_relationship_kwargs={
+            "foreign_keys": "[Invoice.reminder_for_id]",
+            "lazy": "subquery",
+        },
+    )
+
+    # -- Status flags ------------------------------------------------------
+
     sent: Optional[bool] = Field(default=False)
     paid: Optional[bool] = Field(default=False)
     cancelled: Optional[bool] = Field(
         default=False,
         description="If the invoice has been cancelled, e.g. because it was incorrect.",
     )
-    # payment: Optional["Payment"] = Relationship(back_populates="invoice")
-    # invoice items
     items: List["InvoiceItem"] = Relationship(
         back_populates="invoice",
         sa_relationship_kwargs={
             "lazy": "subquery",
-            "cascade": "all, delete",  # delete all invoice items when invoice is deleted
+            "cascade": "all, delete",
         },
     )
     rendered: bool = Field(
@@ -723,7 +778,13 @@ class Invoice(RpcMixin, SQLModel, table=True):
     )
 
     def __repr__(self):
-        return f"Invoice(id={self.id}, number={self.number}, date={self.date})"
+        return f"Invoice(id={self.id}, number={self.number}, date={self.date}, type={self.document_type})"
+
+    # -- Computed properties -----------------------------------------------
+
+    @property
+    def is_reminder(self) -> bool:
+        return self.document_type == "reminder"
 
     @property
     def sum(self) -> Decimal:
@@ -739,17 +800,25 @@ class Invoice(RpcMixin, SQLModel, table=True):
 
     @property
     def total(self) -> Decimal:
-        """Total invoiced amount."""
+        """Total invoiced amount, including reminder fee if present."""
         t = self.sum + self.VAT_total
+        if self.reminder_fee:
+            t += self.reminder_fee
         return Decimal(t)
 
     @property
     def due_date(self) -> Optional[datetime.date]:
-        """Date until which payment is due."""
-        if self.contract.term_of_payment:
+        """Original due date derived from contract payment terms."""
+        if self.contract and self.contract.term_of_payment:
             return self.date + datetime.timedelta(days=self.contract.term_of_payment)
-        else:
-            return None
+        return None
+
+    @property
+    def effective_due_date(self) -> Optional[datetime.date]:
+        """The due date that applies: reminder_due_date if set, else contract-derived."""
+        if self.reminder_due_date:
+            return self.reminder_due_date
+        return self.due_date
 
     @property
     def status(self) -> str:
@@ -759,11 +828,33 @@ class Invoice(RpcMixin, SQLModel, table=True):
         if self.paid:
             return "paid"
         if self.sent:
-            due = self.due_date
+            due = self.effective_due_date
             if due and due < datetime.date.today():
                 return "overdue"
             return "sent"
         return "draft"
+
+    @property
+    def reminder_chain_head_id(self) -> Optional[int]:
+        """Walk reminder_for up to the root invoice and return its id.
+
+        Uses the eagerly-loaded ``reminder_for`` relationship when available,
+        but falls back to ``reminder_for_id`` to avoid DetachedInstanceError.
+        """
+        if not self.is_reminder:
+            return self.id
+        node = self
+        visited: set[int] = set()
+        while node.reminder_for_id and node.reminder_for_id not in visited:
+            visited.add(node.id)
+            try:
+                parent = node.reminder_for
+            except Exception:
+                return node.reminder_for_id
+            if parent is None:
+                return node.reminder_for_id
+            node = parent
+        return node.id
 
     @property
     def client(self):
@@ -775,8 +866,10 @@ class Invoice(RpcMixin, SQLModel, table=True):
         client_suffix = ""
         if self.client:
             client_suffix = "-".join(self.client.name.lower().split())
-        prefix = f"{self.number}-{client_suffix}"
-        return prefix
+        base = f"{self.number}-{client_suffix}"
+        if self.is_reminder:
+            return f"{base}-M{self.reminder_level}"
+        return base
 
     @property
     def file_name(self):

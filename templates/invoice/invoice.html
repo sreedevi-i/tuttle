@@ -21,7 +21,7 @@
 <body>
   <div class="container" style="width: 80%;margin-left: 1%;">
 
-  <h1>Invoice No. {{ invoice.number }}</h1>
+  <h1>{% if is_reminder %}{{ reminder_title }}{% else %}Invoice No. {{ invoice.number }}{% endif %}</h1>
 
 
   <div>
@@ -94,7 +94,7 @@
     </thead>
     <tbody>
       <tr>
-        <td>{{ invoice.due_date }}</td>
+        <td>{{ invoice.effective_due_date }}</td>
         <td>{{ user.bank_account.IBAN }}</td>
         <td>{{ invoice.total | as_currency }}</td>
       </tr>

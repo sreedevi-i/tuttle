@@ -26,8 +26,10 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function dotColor(event: Entity): string {
   const title = str(event, "title").toLowerCase();
+  if (title.includes("reminder") && title.includes("sent")) return "#F59E0B";
   if (title.includes("paid") || title.includes("completed") || title.includes("reached")) return "#30D158";
   if (title.includes("overdue") || title.includes("cancelled")) return "#FF453A";
+  if (title.includes("reminder")) return "#F59E0B";
   if (title.includes("due")) return CATEGORY_COLORS[str(event, "category")] || "#0A84FF";
   return CATEGORY_COLORS[str(event, "category")] || "#0A84FF";
 }

@@ -16,7 +16,7 @@
       <div class="sender-detail">{{ user.subtitle }}</div>
     </div>
     <div class="header-right">
-      <div class="doc-title">Invoice</div>
+      <div class="doc-title">{% if is_reminder %}{{ reminder_title }}{% else %}Invoice{% endif %}</div>
       <table class="meta-table">
         <tr>
           <td class="meta-label">Number</td>
@@ -28,7 +28,7 @@
         </tr>
         <tr>
           <td class="meta-label">Due</td>
-          <td class="meta-value">{{ invoice.due_date }}</td>
+          <td class="meta-value">{{ invoice.effective_due_date }}</td>
         </tr>
       </table>
     </div>
@@ -105,6 +105,12 @@
         <span class="totals-label">VAT</span>
         <span class="totals-amount">{{ invoice.VAT_total | as_currency }}</span>
       </div>
+      {% if is_reminder and invoice.reminder_fee %}
+      <div class="totals-line">
+        <span class="totals-label">Reminder Fee</span>
+        <span class="totals-amount">{{ invoice.reminder_fee | as_currency }}</span>
+      </div>
+      {% endif %}
       <div class="totals-rule"></div>
       <div class="totals-line total-due">
         <span class="totals-label">Total Due</span>
@@ -114,7 +120,7 @@
   </div>
 
   <div class="closing">
-    <p>Thank you for your business.</p>
+    <p>{% if is_reminder %}Please settle the outstanding amount by the new due date.{% else %}Thank you for your business.{% endif %}</p>
     <div class="sig-line"></div>
     {{ user.name }}
   </div>

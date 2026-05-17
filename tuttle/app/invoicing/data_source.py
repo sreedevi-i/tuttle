@@ -115,6 +115,65 @@ class InvoicingDataSource(SQLModelDataSourceMixin):
         timesheet = invoice.timesheets[0]
         return timesheet
 
+    def get_reminder_chain(self, invoice_id: int) -> IntentResult[List[Invoice]]:
+        """Return the full reminder chain for an invoice (root + all reminders), sorted by level."""
+        try:
+            # Walk up to root using FK ids to avoid detached-session lazy loads
+            root_result = self.get_invoice_by_id(invoice_id)
+            if not root_result.was_intent_successful or not root_result.data:
+                return root_result
+            root = root_result.data
+            visited = {root.id}
+            while root.reminder_for_id and root.reminder_for_id not in visited:
+                visited.add(root.reminder_for_id)
+                parent_result = self.get_invoice_by_id(root.reminder_for_id)
+                if not parent_result.was_intent_successful or not parent_result.data:
+                    break
+                root = parent_result.data
+
+            # Now find all invoices that belong to this chain via DB query
+            root_id = root.id
+            with self.create_session() as session:
+                all_invoices = session.exec(sqlmodel.select(Invoice)).all()
+            chain = [root]
+            # Collect all reminders whose chain head is this root
+            for inv in all_invoices:
+                if inv.id == root_id:
+                    continue
+                # Walk this invoice's reminder_for_id chain to see if it leads to root
+                node_id = inv.reminder_for_id
+                seen = set()
+                leads_to_root = False
+                while node_id and node_id not in seen:
+                    if node_id == root_id:
+                        leads_to_root = True
+                        break
+                    seen.add(node_id)
+                    parent = next((i for i in all_invoices if i.id == node_id), None)
+                    node_id = parent.reminder_for_id if parent else None
+                if leads_to_root:
+                    chain.append(inv)
+
+            chain.sort(key=lambda inv: inv.reminder_level)
+            return IntentResult(was_intent_successful=True, data=chain)
+        except Exception as ex:
+            return IntentResult(
+                was_intent_successful=False,
+                log_message=f"InvoicingDataSource.get_reminder_chain({invoice_id}): {ex}",
+                exception=ex,
+            )
+
+    def get_all_reminders_for_invoice(self, invoice_id: int) -> List[Invoice]:
+        """Return only the reminders (not the root) for a given root invoice id."""
+        with self.create_session() as session:
+            return list(
+                session.exec(
+                    sqlmodel.select(Invoice).where(
+                        Invoice.reminder_for_id == invoice_id
+                    )
+                ).all()
+            )
+
     def generate_invoice_number(
         self, date: datetime.date, scheme: str = "daily"
     ) -> str:

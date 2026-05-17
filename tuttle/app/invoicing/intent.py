@@ -1,6 +1,7 @@
 import datetime as _dt
 import textwrap
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from typing import Mapping, Optional, Type, Union
 
@@ -107,7 +108,38 @@ class InvoicingIntent(Intent):
             return IntentResult(
                 was_intent_successful=False, error_msg="Invoice not found"
             )
-        return self.send_invoice_by_mail(result.data)
+        invoice = result.data
+        if invoice.is_reminder:
+            return self.send_reminder_by_mail(invoice)
+        return self.send_invoice_by_mail(invoice)
+
+    def create_reminder(
+        self,
+        invoice_id,
+        reminder_date,
+        new_due_date,
+        reminder_fee=None,
+    ) -> IntentResult:
+        """RPC entry-point for creating a reminder."""
+
+        def _to_date(v):
+            return v if isinstance(v, date) else _dt.date.fromisoformat(v)
+
+        app_db = AppDatabase()
+        language = app_db.get_setting(PreferencesStorageKeys.language_key.value) or "en"
+        template_name = (
+            app_db.get_setting(PreferencesStorageKeys.invoice_template_key.value)
+            or DEFAULT_INVOICE_TEMPLATE
+        )
+        fee = Decimal(str(reminder_fee)) if reminder_fee else None
+        return self._create_reminder(
+            invoice_id=int(invoice_id),
+            reminder_date=_to_date(reminder_date),
+            new_due_date=_to_date(new_due_date),
+            reminder_fee=fee,
+            language=language,
+            template_name=template_name,
+        )
 
     def toggle_sent(self, id) -> IntentResult:
         return self._toggle("sent", id)
@@ -322,6 +354,171 @@ class InvoicingIntent(Intent):
                 error_msg=error_message,
             )
 
+    def _create_reminder(
+        self,
+        invoice_id: int,
+        reminder_date: date,
+        new_due_date: date,
+        reminder_fee: Optional[Decimal] = None,
+        render: bool = True,
+        language: str = "en",
+        template_name: Optional[str] = None,
+    ) -> IntentResult[Invoice]:
+        """Create a payment reminder for an overdue invoice or previous reminder."""
+        result = self._invoicing_data_source.get_invoice_by_id(invoice_id)
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Invoice not found."
+            )
+        predecessor = result.data
+
+        if predecessor.paid:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Cannot create a reminder for a paid invoice.",
+            )
+        if predecessor.cancelled:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Cannot create a reminder for a cancelled invoice.",
+            )
+
+        try:
+            user = self._user_data_source.get_user()
+            new_level = predecessor.reminder_level + 1
+
+            # Walk to root via explicit queries to avoid DetachedInstanceError
+            root = predecessor
+            while root.reminder_for_id is not None:
+                parent_result = self._invoicing_data_source.get_invoice_by_id(
+                    root.reminder_for_id
+                )
+                if not parent_result.was_intent_successful or not parent_result.data:
+                    break
+                root = parent_result.data
+
+            items = [
+                InvoiceItem(
+                    start_date=item.start_date,
+                    end_date=item.end_date,
+                    quantity=item.quantity,
+                    unit=item.unit,
+                    unit_price=item.unit_price,
+                    description=item.description,
+                    VAT_rate=item.VAT_rate,
+                )
+                for item in root.items
+            ]
+
+            reminder = Invoice(
+                document_type="reminder",
+                date=reminder_date,
+                number=predecessor.number,
+                contract_id=predecessor.contract_id,
+                project_id=predecessor.project_id,
+                reminder_for_id=predecessor.id,
+                reminder_level=new_level,
+                reminder_fee=reminder_fee,
+                reminder_due_date=new_due_date,
+                items=items,
+            )
+
+            # Persist first so the reminder gets an id and relationships resolve
+            self._invoicing_data_source.save_invoice(reminder)
+
+            # Re-load from DB so all relationships (contract, project, etc.) are hydrated
+            reload = self._invoicing_data_source.get_invoice_by_id(reminder.id)
+            if reload.was_intent_successful and reload.data:
+                reminder = reload.data
+
+            if render:
+                resolved_template = template_name or DEFAULT_INVOICE_TEMPLATE
+                if not template_name:
+                    tmpl_result = (
+                        self._preferences_intent.get_preferred_invoice_template()
+                    )
+                    if tmpl_result.was_intent_successful and tmpl_result.data:
+                        resolved_template = tmpl_result.data
+                try:
+                    rendering.render_invoice(
+                        user=user,
+                        invoice=reminder,
+                        out_dir=Path.home() / ".tuttle" / "Invoices",
+                        template_name=resolved_template,
+                        only_final=True,
+                        language=language,
+                    )
+                    self._invoicing_data_source.save_invoice(reminder)
+                except Exception as ex:
+                    logger.error(f"Error rendering reminder: {ex}")
+                    logger.exception(ex)
+
+            # Final re-load for clean RPC serialization
+            final = self._invoicing_data_source.get_invoice_by_id(reminder.id)
+            if final.was_intent_successful and final.data:
+                reminder = final.data
+
+            return IntentResult(was_intent_successful=True, data=reminder)
+        except Exception as ex:
+            logger.error("Failed to create reminder.")
+            logger.exception(ex)
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to create reminder.",
+            )
+
+    def send_reminder_by_mail(self, invoice: Invoice) -> IntentResult[None]:
+        """Compose and open a reminder email in the user's mail client."""
+        invoice_path = Path.home() / ".tuttle" / "Invoices" / invoice.file_name
+        if not invoice.rendered:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="The reminder has not been rendered.",
+            )
+        if not invoice_path.exists():
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=f"The reminder file {invoice_path} does not exist.",
+            )
+        try:
+            user = self._user_data_source.get_user()
+            client = invoice.contract.client
+            contact = client.invoicing_contact if client else None
+            greeting = contact.name if contact and contact.name else client.name
+            recipient = contact.email if contact and contact.email else None
+            if not recipient:
+                return IntentResult(
+                    was_intent_successful=False,
+                    error_msg="No contact email available for this client.",
+                )
+
+            level_label = f"{'2nd ' if invoice.reminder_level == 2 else '3rd ' if invoice.reminder_level >= 3 else ''}reminder"
+            email_body = textwrap.dedent(
+                f"""\
+Dear {greeting},
+
+This is a {level_label} regarding the outstanding invoice {invoice.number} for {invoice.project.title}.
+
+Please find attached the payment reminder.
+
+Best regards,
+{user.name}"""
+            )
+            mail.compose_email(
+                to=recipient,
+                subject=f"Payment Reminder: Invoice {invoice.number}",
+                body=email_body,
+                attachment_paths=[invoice_path],
+            )
+            return IntentResult(was_intent_successful=True)
+        except Exception as ex:
+            logger.error(f"Error sending reminder by mail: {ex}")
+            logger.exception(ex)
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to send the reminder by mail.",
+            )
+
     def update_invoice(
         self,
         invoice: Invoice,
@@ -419,30 +616,32 @@ Best regards,
             )
 
     def toggle_invoice_paid_status(self, invoice: Invoice) -> IntentResult[Invoice]:
-        """
-        Toggles the "paid" status of an invoice and updates it in the data source.
-
-        Parameters:
-            invoice (Invoice):
-                The invoice object whose "paid" status will be toggled.
-
-        Returns:
-            IntentResult[Invoice]:
-                An IntentResult object containing the updated invoice, or old invoice if update was not successful.
-        """
+        """Toggle paid status.  Propagates across the entire reminder chain."""
         try:
-            invoice.paid = not invoice.paid
-            self._invoicing_data_source.save_invoice(invoice)
+            new_paid = not invoice.paid
+            chain_result = self._invoicing_data_source.get_reminder_chain(invoice.id)
+            if chain_result.was_intent_successful and chain_result.data:
+                for inv in chain_result.data:
+                    # Re-load each invoice in its own session to avoid detached errors
+                    fresh = self._invoicing_data_source.get_invoice_by_id(inv.id)
+                    if fresh.was_intent_successful and fresh.data:
+                        fresh.data.paid = new_paid
+                        self._invoicing_data_source.save_invoice(fresh.data)
+            else:
+                invoice.paid = new_paid
+                self._invoicing_data_source.save_invoice(invoice)
+            # Return a fresh copy of the toggled invoice
+            result = self._invoicing_data_source.get_invoice_by_id(invoice.id)
             return IntentResult(
                 was_intent_successful=True,
-                data=invoice,
+                data=result.data if result.was_intent_successful else invoice,
             )
         except Exception as ex:
-            logger.error(f"❌ Error toggling invoice paid status: {ex}")
+            logger.error(f"Error toggling invoice paid status: {ex}")
             logger.exception(ex)
             return IntentResult(
                 was_intent_successful=False,
-                error_msg="Failed to toggle the invoice paid status. ",
+                error_msg="Failed to toggle the invoice paid status.",
             )
 
     def toggle_invoice_cancelled_status(
