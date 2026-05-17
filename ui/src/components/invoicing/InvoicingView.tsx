@@ -186,6 +186,27 @@ export function InvoicingView() {
   );
 }
 
+interface LineItem {
+  description: string;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+}
+
+const UNIT_OPTIONS = ["hour", "day", "piece", "flat"] as const;
+
+function makeDefaultItem(project?: Entity | null): LineItem {
+  const contract = project ? (project as Record<string, unknown>).contract as Record<string, unknown> | undefined : undefined;
+  const unit = contract?.unit as string | undefined;
+  const rate = contract?.rate as number | undefined;
+  return {
+    description: project ? str(project, "title") : "",
+    quantity: "",
+    unit: unit ?? "hour",
+    unitPrice: rate != null ? String(rate) : "",
+  };
+}
+
 function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (newId?: number) => Promise<void> | void }) {
   const [projects, setProjects] = useState<Entity[]>([]);
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -197,10 +218,12 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
     const d = new Date(); d.setDate(0); return d.toISOString().slice(0, 10);
   });
   const [mode, setMode] = useState<"timetracking" | "manual">("timetracking");
-  const [manualQty, setManualQty] = useState("");
+  const [lineItems, setLineItems] = useState<LineItem[]>([makeDefaultItem()]);
   const [hasTimeData, setHasTimeData] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const selectedProject = projects.find((p) => p.id === projectId) ?? null;
 
   useEffect(() => {
     (async () => {
@@ -211,12 +234,41 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
       if (projRes.ok && projRes.data) {
         const active = projRes.data.filter((p) => !bool(p, "is_completed"));
         setProjects(active);
-        if (active.length > 0) setProjectId(active[0].id);
+        if (active.length > 0) {
+          setProjectId(active[0].id);
+          setLineItems([makeDefaultItem(active[0])]);
+        }
       }
       if (ttRes.ok && ttRes.data && ttRes.data.total_events > 0) setHasTimeData(true);
       else setMode("manual");
     })();
   }, []);
+
+  function handleProjectChange(newId: number) {
+    setProjectId(newId);
+    const proj = projects.find((p) => p.id === newId) ?? null;
+    setLineItems([makeDefaultItem(proj)]);
+  }
+
+  function updateItem(idx: number, patch: Partial<LineItem>) {
+    setLineItems((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  }
+
+  function addItem() {
+    setLineItems((prev) => [...prev, makeDefaultItem(selectedProject)]);
+  }
+
+  function removeItem(idx: number) {
+    setLineItems((prev) => prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx));
+  }
+
+  function itemsValid(): boolean {
+    return lineItems.every((it) => {
+      const qty = parseFloat(it.quantity);
+      const price = parseFloat(it.unitPrice);
+      return it.description.trim() && qty > 0 && price >= 0;
+    });
+  }
 
   async function submit() {
     if (!projectId) { setError("Select a project"); return; }
@@ -229,9 +281,13 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
       to_date: toDate,
     };
     if (mode === "manual") {
-      const qty = parseFloat(manualQty);
-      if (!qty || qty <= 0) { setError("Enter a valid quantity"); setSubmitting(false); return; }
-      params.manual_quantity = qty;
+      if (!itemsValid()) { setError("Fill in all line items with valid values"); setSubmitting(false); return; }
+      params.manual_items = lineItems.map((it) => ({
+        description: it.description.trim(),
+        quantity: parseFloat(it.quantity),
+        unit: it.unit,
+        unit_price: parseFloat(it.unitPrice),
+      }));
     }
     const res = await rpc<{ id?: number }>("invoicing.create", params);
     if (res.ok) {
@@ -244,7 +300,7 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-bg-content rounded-xl border border-border-subtle shadow-2xl w-[420px] max-h-[90vh] overflow-y-auto"
+      <div className="bg-bg-content rounded-xl border border-border-subtle shadow-2xl w-[560px] max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-border-subtle">
           <h2 className="text-base font-semibold">Create Invoice</h2>
@@ -253,7 +309,7 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
           {/* Project */}
           <label className="block">
             <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Project</span>
-            <select value={projectId ?? ""} onChange={(e) => setProjectId(Number(e.target.value))}
+            <select value={projectId ?? ""} onChange={(e) => handleProjectChange(Number(e.target.value))}
               className="mt-1 w-full px-3 py-1.5 rounded-md bg-bg-card border border-border-subtle text-sm text-primary">
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{str(p, "title")}</option>
@@ -301,14 +357,47 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
             </label>
           </div>
 
-          {/* Manual quantity */}
+          {/* Line items editor */}
           {mode === "manual" && (
-            <label className="block">
-              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Quantity (hours)</span>
-              <input type="number" min="0" step="0.5" value={manualQty} onChange={(e) => setManualQty(e.target.value)}
-                placeholder="e.g. 40"
-                className="mt-1 w-full px-3 py-1.5 rounded-md bg-bg-card border border-border-subtle text-sm text-primary placeholder:text-muted" />
-            </label>
+            <div>
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Line Items</span>
+              <div className="mt-1 space-y-2">
+                {lineItems.map((item, idx) => (
+                  <div key={idx} className="flex gap-1.5 items-start p-2 rounded-lg bg-bg-card border border-border-subtle">
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <input type="text" placeholder="Description" value={item.description}
+                        onChange={(e) => updateItem(idx, { description: e.target.value })}
+                        className="w-full px-2 py-1 rounded bg-bg-content border border-border-subtle text-xs text-primary placeholder:text-muted" />
+                      <div className="flex gap-1.5">
+                        <input type="number" min="0" step="0.5" placeholder="Qty" value={item.quantity}
+                          onChange={(e) => updateItem(idx, { quantity: e.target.value })}
+                          className="w-20 px-2 py-1 rounded bg-bg-content border border-border-subtle text-xs text-primary placeholder:text-muted tabular-nums" />
+                        <select value={item.unit} onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                          className="w-20 px-1.5 py-1 rounded bg-bg-content border border-border-subtle text-xs text-primary">
+                          {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                        <div className="flex items-center gap-0.5 flex-1 min-w-0">
+                          <span className="text-xs text-muted">@</span>
+                          <input type="number" min="0" step="0.01" placeholder="Unit price" value={item.unitPrice}
+                            onChange={(e) => updateItem(idx, { unitPrice: e.target.value })}
+                            className="flex-1 min-w-0 px-2 py-1 rounded bg-bg-content border border-border-subtle text-xs text-primary placeholder:text-muted tabular-nums" />
+                        </div>
+                      </div>
+                    </div>
+                    {lineItems.length > 1 && (
+                      <button onClick={() => removeItem(idx)} className="mt-1 p-1 rounded text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                        title="Remove item">
+                        <XCircle size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button onClick={addItem}
+                className="mt-2 flex items-center gap-1 text-xs text-accent hover:text-accent/80 transition-colors">
+                <Plus size={12} /> Add item
+              </button>
+            </div>
           )}
 
           {error && <p className="text-xs text-red-400">{error}</p>}

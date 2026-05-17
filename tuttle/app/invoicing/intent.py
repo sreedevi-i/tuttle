@@ -58,6 +58,7 @@ class InvoicingIntent(Intent):
         to_date,
         render=True,
         manual_quantity=None,
+        manual_items=None,
     ) -> IntentResult:
         """Orchestrates invoice creation: resolve project, read prefs, delegate."""
         proj_result = self._projects_intent.get_by_id(project_id)
@@ -84,6 +85,7 @@ class InvoicingIntent(Intent):
             to_date=_to_date(to_date),
             render=render,
             manual_quantity=manual_quantity,
+            manual_items=manual_items,
             language=language,
             template_name=template_name,
             number_scheme=number_scheme,
@@ -178,16 +180,21 @@ class InvoicingIntent(Intent):
         to_date: date,
         render: bool = True,
         manual_quantity: Optional[float] = None,
+        manual_items: Optional[list] = None,
         language: str = "en",
         template_name: Optional[str] = None,
         number_scheme: str = DEFAULT_INVOICE_NUMBER_SCHEME,
     ) -> IntentResult[Invoice]:
         """Create a new invoice.
 
-        When *manual_quantity* is provided the invoice is built directly from
-        the given quantity and the contract rate, without requiring imported
-        time-tracking data.  Otherwise the existing time-tracking flow is
-        used.
+        When *manual_items* is provided, each entry is a dict with keys
+        ``description``, ``quantity``, ``unit``, and ``unit_price``.  The
+        VAT rate is taken from the contract.
+
+        When *manual_quantity* is provided (legacy shorthand) the invoice
+        is built from that single quantity and the contract rate.
+
+        Otherwise the existing time-tracking flow is used.
         """
         logger.info(f"Creating invoice for {project.title}...")
         user = self._user_data_source.get_user()
@@ -196,7 +203,30 @@ class InvoicingIntent(Intent):
                 invoice_date, scheme=number_scheme
             )
 
-            if manual_quantity is not None:
+            if manual_items is not None:
+                contract = project.contract
+                items = [
+                    InvoiceItem(
+                        start_date=from_date,
+                        end_date=to_date,
+                        quantity=float(it["quantity"]),
+                        unit=it.get(
+                            "unit", contract.unit.value if contract.unit else "hour"
+                        ),
+                        unit_price=it["unit_price"],
+                        description=it.get("description", project.title),
+                        VAT_rate=contract.VAT_rate,
+                    )
+                    for it in manual_items
+                ]
+                invoice = Invoice(
+                    date=invoice_date,
+                    number=invoice_number,
+                    contract=contract,
+                    project=project,
+                    items=items,
+                )
+            elif manual_quantity is not None:
                 contract = project.contract
                 item = InvoiceItem(
                     start_date=from_date,

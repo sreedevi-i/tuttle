@@ -111,7 +111,9 @@ def upgrade() -> None:
         "client",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("invoicing_contact_id", sa.Integer(), nullable=False),
+        sa.Column("address_id", sa.Integer(), nullable=True),
+        sa.Column("invoicing_contact_id", sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(["address_id"], ["address.id"]),
         sa.ForeignKeyConstraint(
             ["invoicing_contact_id"], ["contact.id"], ondelete="RESTRICT"
         ),

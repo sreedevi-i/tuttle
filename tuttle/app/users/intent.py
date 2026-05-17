@@ -291,10 +291,9 @@ class UsersIntent:
         return IntentResult(was_intent_successful=True, data=reg)
 
     def ensure_db(self, **_kw) -> IntentResult:
-        """Ensure app.db + demo user + last-active user DB exist and are migrated."""
+        """Ensure app.db exists and switch to last-active user if any."""
         self._app_db.ensure()
         self._app_db.migrate_llm_config_from_json()
-        self.ensure_demo()
 
         last = self._app_db.get_last_active()
         if last:

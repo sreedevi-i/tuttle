@@ -106,3 +106,8 @@ deps-all: deps deps-node
 # Reset the demo user data
 demo-reset:
     {{python}} -c "from tuttle.app.demo.intent import DemoIntent; DemoIntent().reset(); print('Demo user reset')"
+
+# Wipe all app data and start fresh (dev only)
+reset:
+    rm -rf ~/.tuttle
+    @echo "✓ ~/.tuttle removed – next launch will recreate everything from scratch"

@@ -17,6 +17,7 @@ export function ClientsView() {
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<Mode>("view");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [parsedClients, setParsedClients] = useState<ParsedClient[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function ClientsView() {
   function selectClient(c: Entity) { setSelected(c); setMode("view"); setDeleteError(null); }
 
   async function handleSave(data: ClientFormData) {
+    setSaveError(null);
     const client: Record<string, unknown> = {
       name: data.name,
       invoicing_contact: data.contactId
@@ -65,7 +67,8 @@ export function ClientsView() {
       }
     }
     const res = await rpc("clients.save", { client });
-    if (res.ok) { setMode("view"); await load(); }
+    if (res.ok) { setSaveError(null); setMode("view"); await load(); }
+    else setSaveError(res.error || "Failed to save client.");
   }
 
   async function handleDelete(id: number) {
@@ -168,9 +171,9 @@ export function ClientsView() {
               onDiscard={discardClient} onUpdate={updateParsedClient} onClose={() => setMode("view")}
             />
           ) : mode === "create" ? (
-            <ClientForm contacts={contacts} onSave={handleSave} onCancel={() => setMode("view")} />
+            <ClientForm contacts={contacts} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
           ) : mode === "edit" && selected ? (
-            <ClientForm client={selected} contacts={contacts} onSave={handleSave} onCancel={() => setMode("view")} />
+            <ClientForm client={selected} contacts={contacts} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
           ) : selected ? (
             <ClientDetail client={selected} onEdit={() => setMode("edit")}
               onDelete={() => handleDelete(selected.id)} deleteError={deleteError} />
@@ -318,11 +321,12 @@ interface ClientFormData {
   country: string;
 }
 
-function ClientForm({ client, contacts, onSave, onCancel }: {
+function ClientForm({ client, contacts, onSave, onCancel, error }: {
   client?: Entity;
   contacts: Record<string, Entity>;
   onSave: (data: ClientFormData) => void;
   onCancel: () => void;
+  error?: string | null;
 }) {
   const ic = client ? subEntity(client, "invoicing_contact") : null;
   const addr = client ? subEntity(client, "address") : null;
@@ -387,6 +391,8 @@ function ClientForm({ client, contacts, onSave, onCancel }: {
           ))}
         </select>
       </Section>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </form>
   );
 }
