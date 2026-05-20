@@ -26,31 +26,34 @@ def generate_timesheet(
 ) -> Timesheet:
     """Create a timesheet from a dataframe of time tracking data."""
 
-    # string keys for pandas DatetimeIndex slicing
-    start_key = period_start.strftime("%Y-%m-%d")
-    end_key = period_end.strftime("%Y-%m-%d")
-
     tag_query = f"tag == '{project.tag}'"
     timetracking_data = timetracking_data.sort_index()
+
+    # Compare on local dates extracted from the (possibly tz-aware) index so that
+    # an event at 2022-01-31 23:00 UTC -> 2022-02-01 00:00 CET lands in February,
+    # matching what the user sees in their calendar app.
+    index_dates = timetracking_data.index.date
     if period_end:
-        ts_table = (
-            timetracking_data.loc[start_key:end_key].query(tag_query).sort_index()
-        )
+        mask = (index_dates >= period_start) & (index_dates <= period_end)
+        ts_table = timetracking_data[mask].query(tag_query).sort_index()
         if ts_table.empty:
             raise ValueError(
-                f"No time tracking data found for project {project.title} in period {start_key} - {end_key}"
+                f"No time tracking data found for project {project.title} "
+                f"in period {period_start} - {period_end}"
             )
     else:
-        ts_table = timetracking_data.loc[start_key].query(tag_query).sort_index()
-    # convert all-day entries
-    ts_table.loc[ts_table["all_day"], "duration"] = (
-        project.contract.unit.to_timedelta() * project.contract.units_per_workday
-    )
+        mask = index_dates == period_start
+        ts_table = timetracking_data[mask].query(tag_query).sort_index()
+
+    # All-day events represent one workday of effort, independent of contract.unit.
+    # units_per_workday is documented as hours per workday, so always expand to hours.
+    workday = datetime.timedelta(hours=1) * project.contract.units_per_workday
+    ts_table.loc[ts_table["all_day"], "duration"] = workday
     if item_description:
         # TODO: extract item description from calendar
         ts_table["description"] = item_description
 
-    period_str = f"{start_key} - {end_key}"
+    period_str = f"{period_start} - {period_end}"
     ts = Timesheet(
         title=f"{project.title} - {period_str}",
         period_start=period_start,

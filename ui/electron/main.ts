@@ -85,7 +85,6 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  pythonBridge?.kill();
   if (process.platform !== "darwin") app.quit();
 });
 

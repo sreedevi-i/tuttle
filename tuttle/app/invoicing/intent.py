@@ -60,6 +60,7 @@ class InvoicingIntent(Intent):
         render=True,
         manual_quantity=None,
         manual_items=None,
+        with_timesheet=True,
     ) -> IntentResult:
         """Orchestrates invoice creation: resolve project, read prefs, delegate."""
         proj_result = self._projects_intent.get_by_id(project_id)
@@ -90,6 +91,7 @@ class InvoicingIntent(Intent):
             language=language,
             template_name=template_name,
             number_scheme=number_scheme,
+            with_timesheet=with_timesheet,
         )
 
     # -- Status toggles (accept id, fetch internally) --------------------------
@@ -216,6 +218,7 @@ class InvoicingIntent(Intent):
         language: str = "en",
         template_name: Optional[str] = None,
         number_scheme: str = DEFAULT_INVOICE_NUMBER_SCHEME,
+        with_timesheet: bool = True,
     ) -> IntentResult[Invoice]:
         """Create a new invoice.
 
@@ -295,7 +298,12 @@ class InvoicingIntent(Intent):
                 timesheet.invoice = invoice
 
             if render:
-                if manual_quantity is None and "timesheet" in locals():
+                if (
+                    manual_quantity is None
+                    and manual_items is None
+                    and with_timesheet
+                    and "timesheet" in locals()
+                ):
                     try:
                         rendering.render_timesheet(
                             user=user,
@@ -697,8 +705,14 @@ Best regards,
                 error_msg=error_message,
             )
 
-    def view_timesheet_for_invoice(self, invoice: Invoice) -> IntentResult[Path]:
+    def view_timesheet_for_invoice(self, id) -> IntentResult[Path]:
         """Resolve the PDF path for the timesheet belonging to an invoice."""
+        result = self._invoicing_data_source.get_invoice_by_id(int(id))
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Invoice not found"
+            )
+        invoice = result.data
         try:
             timesheet = self._invoicing_data_source.get_timesheet_for_invoice(invoice)
             timesheet_path = (
@@ -711,7 +725,7 @@ Best regards,
                 )
             return IntentResult(was_intent_successful=True, data=timesheet_path)
         except ValueError as ve:
-            logger.error(f"❌ Error getting timesheet for invoice: {ve}")
+            logger.error(f"Error getting timesheet for invoice: {ve}")
             logger.exception(ve)
             return IntentResult(was_intent_successful=False, error_msg=str(ve))
         except Exception as ex:
@@ -721,6 +735,52 @@ Best regards,
             return IntentResult(
                 was_intent_successful=False,
                 error_msg=error_message,
+            )
+
+    def render_timesheet_for_invoice(self, id) -> IntentResult[Invoice]:
+        """Post-hoc render of the timesheet PDF for an existing invoice.
+
+        Used when the user opted out of timesheet rendering at create time
+        and later requests it from the Timesheet tab.  Fails gracefully for
+        manual invoices (no linked timesheet) and for reminders.
+        """
+        result = self._invoicing_data_source.get_invoice_by_id(int(id))
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Invoice not found"
+            )
+        invoice = result.data
+        if invoice.is_reminder:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Reminders do not have timesheets.",
+            )
+        if not invoice.timesheets:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="This invoice has no linked timesheet.",
+            )
+        try:
+            user = self._user_data_source.get_user()
+            timesheet = invoice.timesheets[0]
+            rendering.render_timesheet(
+                user=user,
+                timesheet=timesheet,
+                out_dir=Path.home() / ".tuttle" / "Timesheets",
+                only_final=True,
+            )
+            self._invoicing_data_source.save_timesheet(timesheet)
+            reload = self._invoicing_data_source.get_invoice_by_id(invoice.id)
+            return IntentResult(
+                was_intent_successful=True,
+                data=reload.data if reload.was_intent_successful else invoice,
+            )
+        except Exception as ex:
+            logger.error(f"Error rendering timesheet for invoice {id}: {ex}")
+            logger.exception(ex)
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to render the timesheet.",
             )
 
     def get_time_tracking_data_as_dataframe(self) -> Optional[DataFrame]:

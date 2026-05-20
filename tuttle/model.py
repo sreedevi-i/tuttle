@@ -439,6 +439,21 @@ class Contract(RpcMixin, SQLModel, table=True):
     def volume_as_time(self):
         return self.volume * self.unit.to_timedelta()
 
+    @property
+    def unit_duration(self) -> datetime.timedelta:
+        """Real-world duration of one contractual billing unit.
+
+        For ``unit=hour`` this is 1 hour. For ``unit=day`` it is
+        ``units_per_workday`` hours — a contractual "day" is a *work* day,
+        not a calendar day.  Used by ``invoicing.generate_invoice`` to
+        convert tracked time to billable quantity.
+        """
+        if self.unit == TimeUnit.hour:
+            return datetime.timedelta(hours=1)
+        if self.unit == TimeUnit.day:
+            return datetime.timedelta(hours=self.units_per_workday)
+        raise ValueError(f"Unsupported contract unit: {self.unit}")
+
     def is_active(self) -> bool:
         """Check if contract is active.A contract is active if it is not completed and the end date is in the future."""
         if self.is_completed:
@@ -678,6 +693,8 @@ class Invoice(RpcMixin, SQLModel, table=True):
         "pdf_path",
         "is_reminder",
         "reminder_chain_head_id",
+        "has_timesheet",
+        "timesheet_pdf_path",
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -898,6 +915,22 @@ class Invoice(RpcMixin, SQLModel, table=True):
         if not self.rendered:
             return None
         p = Path.home() / ".tuttle" / "Invoices" / self.file_name
+        return str(p) if p.exists() else None
+
+    @property
+    def has_timesheet(self) -> bool:
+        """True iff the invoice was created from time-tracking data."""
+        return bool(self.timesheets)
+
+    @property
+    def timesheet_pdf_path(self) -> Optional[str]:
+        """Filesystem path of the timesheet PDF, if it has been rendered."""
+        if not self.timesheets:
+            return None
+        ts = self.timesheets[0]
+        if not ts.rendered:
+            return None
+        p = Path.home() / ".tuttle" / "Timesheets" / f"{ts.prefix}.pdf"
         return str(p) if p.exists() else None
 
 

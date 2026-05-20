@@ -1,10 +1,11 @@
 /*
-  Common invoice styles. These styles will work in a browser or using the HTML
-  to PDF anvil endpoint.
+  Timesheet styles — anvil. Designed to render cleanly in a browser and via
+  the Anvil HTML-to-PDF endpoint.
 */
 
 body {
   font-size: 14px;
+  color: #222;
 }
 
 table {
@@ -12,113 +13,145 @@ table {
   border-collapse: collapse;
 }
 
-table tr td {
-  padding: 0;
-}
-
-table tr td:last-child {
-  text-align: right;
-}
-
-.bold {
-  font-weight: bold;
-}
-
-.right {
-  text-align: right;
-}
-
-.large {
-  font-size: 1.75em;
-}
-
-.total {
-  font-weight: bold;
-  color: #fb7578;
-}
-
 .logo-container {
-  margin: 20px 0 70px 0;
+  margin: 20px 0 40px 0;
 }
 
-.invoice-info-container {
+/* ────────── Header (client + user) ────────── */
+
+.ts-header {
+  margin-top: 20px;
   font-size: 0.875em;
-}
-.invoice-info-container td {
-  padding: 4px 0;
+  table-layout: fixed;
 }
 
-.client-name {
-  font-size: 1.5em;
+.ts-header td {
+  vertical-align: top;
+  padding: 0 10px 0 0;
+  width: 50%;
+}
+
+.ts-header-label {
+  font-size: 0.7em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.ts-header-value {
+  font-size: 1.1em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ts-header-sub {
+  font-weight: 400;
+  font-size: 0.9em;
+  color: #555;
+  margin-top: 2px;
+}
+
+/* ────────── Meta strip (project / period / issued) ────────── */
+
+.ts-meta {
+  margin: 32px 0;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+}
+
+.ts-meta td {
+  padding: 14px 10px 14px 0;
+  width: 33%;
   vertical-align: top;
 }
 
-.line-items-container {
-  margin: 70px 0;
+.ts-meta-value {
+  font-size: 0.95em;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* ────────── Entries table ────────── */
+
+.ts-entries {
+  margin: 24px 0;
   font-size: 0.875em;
 }
 
-.line-items-container th {
+.ts-entries th {
   text-align: left;
   color: #999;
   border-bottom: 2px solid #ddd;
-  padding: 10px 0 15px 0;
+  padding: 10px 0 12px 0;
   font-size: 0.75em;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
 }
 
-.line-items-container th:last-child {
+.ts-entries tbody td {
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.ts-entries tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ts-entries tbody tr:first-child td {
+  padding-top: 18px;
+}
+
+/* Column sizing */
+
+.ts-entries .col-date  { width: 110px; white-space: nowrap; }
+.ts-entries .col-time  { width: 140px; white-space: nowrap; color: #555; }
+.ts-entries .col-task  { /* flexes to fill */ }
+.ts-entries .col-hours { width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Footer / total row */
+
+.ts-entries tfoot th {
+  text-align: left;
+  border-top: 2px solid #ddd;
+  border-bottom: none;
+  padding: 14px 0;
+  text-transform: none;
+  font-size: 0.95em;
+  letter-spacing: 0;
+  color: #222;
+  font-weight: 700;
+}
+
+.ts-entries tfoot .col-hours {
   text-align: right;
+  font-size: 1em;
+  font-variant-numeric: tabular-nums;
 }
 
-.line-items-container td {
-  padding: 15px 0;
-}
-
-.line-items-container tbody tr:first-child td {
-  padding-top: 25px;
-}
-
-.line-items-container.has-bottom-border tbody tr:last-child td {
-  padding-bottom: 25px;
+.ts-entries.has-bottom-border tfoot th {
   border-bottom: 2px solid #ddd;
 }
 
-.line-items-container.has-bottom-border {
-  margin-bottom: 0;
+/* ────────── Comment block ────────── */
+
+.ts-comment {
+  margin-top: 24px;
+  font-size: 0.875em;
+  color: #444;
 }
 
-.line-items-container th.heading-quantity {
-  width: 50px;
-}
-.line-items-container th.heading-price {
-  text-align: right;
-  width: 100px;
-}
-.line-items-container th.heading-subtotal {
-  width: 100px;
-}
-
-.payment-info {
-  width: 38%;
-  font-size: 0.75em;
+.ts-comment p {
+  margin: 4px 0 0 0;
   line-height: 1.5;
 }
 
+/* ────────── Footer ────────── */
+
 .footer {
-  margin-top: 100px;
-}
-
-.footer-thanks {
-  font-size: 1.125em;
-}
-
-.footer-thanks img {
-  display: inline-block;
-  position: relative;
-  top: 1px;
-  width: 16px;
-  margin-right: 4px;
+  margin-top: 80px;
 }
 
 .footer-info {
@@ -126,15 +159,6 @@ table tr td:last-child {
   margin-top: 5px;
   font-size: 0.75em;
   color: #ccc;
-}
-
-.footer-info span {
-  padding: 0 5px;
-  color: black;
-}
-
-.footer-info span:last-child {
-  padding-right: 0;
 }
 
 .page-container {

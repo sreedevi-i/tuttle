@@ -13,7 +13,10 @@ Usage::
 """
 
 import json
+import os
+import signal
 import sys
+import threading
 import traceback
 from typing import Any, Dict
 
@@ -23,9 +26,30 @@ logger.remove()
 logger.add(sys.stderr, level="DEBUG")
 
 
+def _start_parent_watchdog(interval: float = 2.0):
+    """Exit if the parent process (Electron) disappears.
+
+    Polls os.getppid(); when it changes to 1 (re-parented to init/launchd)
+    the parent has died and we must not linger as an orphan.
+    """
+    parent_pid = os.getppid()
+
+    def _watch():
+        while True:
+            if os.getppid() != parent_pid:
+                logger.warning("Parent process gone — shutting down")
+                os.kill(os.getpid(), signal.SIGTERM)
+                return
+            threading.Event().wait(interval)
+
+    t = threading.Thread(target=_watch, daemon=True)
+    t.start()
+
+
 def main():
     from tuttle.app.core.dispatch import dispatch
 
+    _start_parent_watchdog()
     logger.info("Tuttle RPC server starting…")
 
     for line in sys.stdin:

@@ -123,7 +123,13 @@ export class PythonBridge {
 
   kill() {
     this.rl?.close();
-    this.process?.kill();
+    if (this.process) {
+      this.process.kill("SIGTERM");
+      const proc = this.process;
+      setTimeout(() => {
+        if (!proc.killed) proc.kill("SIGKILL");
+      }, 3000);
+    }
     this.process = null;
   }
 }
