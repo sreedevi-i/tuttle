@@ -366,7 +366,7 @@ function ClientForm({ client, contacts, onSave, onCancel, error }: {
       </div>
 
       <Section title="Client">
-        <FormField label="Name" value={name} onChange={setName} autoFocus required />
+        <FormField label="Name *" value={name} onChange={setName} autoFocus required />
       </Section>
 
       <Section title="Address">

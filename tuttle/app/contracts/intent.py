@@ -48,11 +48,27 @@ class ContractsIntent(CrudIntent):
     def _validated_save(self, contract: Contract) -> IntentResult:
         is_updating = contract.id is not None
         result = self.save(contract)
-        if not result.was_intent_successful and is_updating:
-            old = self.get_by_id(contract.id)
-            result.data = old.data if old.was_intent_successful else None
-            result.error_msg = "Failed to save the contract. Verify the info and retry."
+        if not result.was_intent_successful:
+            if is_updating:
+                old = self.get_by_id(contract.id)
+                result.data = old.data if old.was_intent_successful else None
+            result.error_msg = self._describe_save_error(result.exception)
             result.log_message_if_any()
         return result
+
+    @staticmethod
+    def _describe_save_error(exc) -> str:
+        if exc is None:
+            return "Failed to save the contract."
+        detail = str(getattr(exc, "orig", exc))
+        if "UNIQUE" in detail or "duplicate" in detail.lower():
+            if "title" in detail:
+                return "A contract with this title already exists."
+            return "A contract with these details already exists."
+        if "NOT NULL" in detail:
+            return "A required field is missing."
+        if "FOREIGN KEY" in detail or "foreign key" in detail:
+            return "The selected client is invalid."
+        return "Failed to save the contract."
 
     toggle_complete_status = CrudIntent.toggle_completed

@@ -330,7 +330,7 @@ export function SettingsView() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className={labelCls}>Full name</label>
+              <label className={labelCls}>Full name <span className="text-accent">*</span></label>
               <input className={inputCls} value={profile.name} onChange={pset("name")} />
             </div>
             <div className="col-span-2">
@@ -341,7 +341,7 @@ export function SettingsView() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Email</label>
+              <label className={labelCls}>Email <span className="text-accent">*</span></label>
               <input className={inputCls} type="email" value={profile.email} onChange={pset("email")} />
             </div>
             <div>
@@ -356,7 +356,7 @@ export function SettingsView() {
           </div>
 
           <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
-            <legend className="text-xs font-medium text-secondary px-1">Address</legend>
+            <legend className="text-xs font-medium text-secondary px-1">Address <span className="text-accent">*</span></legend>
             <div className="grid grid-cols-4 gap-3 mt-1">
               <div className="col-span-3">
                 <label className={labelCls}>Street</label>
@@ -383,11 +383,11 @@ export function SettingsView() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>VAT number</label>
+              <label className={labelCls}>VAT number <span className="text-accent">*</span></label>
               <input className={inputCls} value={profile.VAT_number} onChange={pset("VAT_number")} placeholder="DE123456789" />
             </div>
             <div>
-              <label className={labelCls}>Operating country</label>
+              <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
               <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
                 {supportedCountries.length > 0 ? (
                   supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)

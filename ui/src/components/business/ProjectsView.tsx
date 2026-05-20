@@ -48,6 +48,7 @@ export function ProjectsView() {
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<Mode>("view");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [parsedProjects, setParsedProjects] = useState<ParsedProject[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export function ProjectsView() {
   function selectProject(p: Entity) { setSelected(p); setMode("view"); setDeleteError(null); }
 
   async function handleSave(data: ProjectFormData) {
+    setSaveError(null);
     const project: Record<string, unknown> = {
       title: data.title,
       tag: data.tag,
@@ -104,6 +106,7 @@ export function ProjectsView() {
     if (mode === "edit" && selected) project.id = selected.id;
     const res = await rpc("projects.save", { project });
     if (res.ok) { setMode("view"); await load(); }
+    else setSaveError(res.error || "Failed to save project.");
   }
 
   async function handleDelete(id: number) {
@@ -259,9 +262,9 @@ export function ProjectsView() {
                 onDiscard={discardProject} onUpdate={updateParsedProject} onClose={() => setMode("view")}
               />
             ) : mode === "create" ? (
-              <ProjectForm contracts={contractsMap} onSave={handleSave} onCancel={() => setMode("view")} />
+              <ProjectForm contracts={contractsMap} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
             ) : mode === "edit" && selected ? (
-              <ProjectForm project={selected} contracts={contractsMap} onSave={handleSave} onCancel={() => setMode("view")} />
+              <ProjectForm project={selected} contracts={contractsMap} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
             ) : selected ? (
               <div className="p-6 max-w-2xl space-y-5">
                 <div className="flex items-center gap-3">
@@ -394,11 +397,12 @@ interface ProjectFormData {
   contractId: number | null;
 }
 
-function ProjectForm({ project, contracts, onSave, onCancel }: {
+function ProjectForm({ project, contracts, onSave, onCancel, error }: {
   project?: Entity;
   contracts: Record<string, Entity>;
   onSave: (data: ProjectFormData) => void;
   onCancel: () => void;
+  error?: string | null;
 }) {
   const existingContract = project ? entity(project, "contract") : null;
   const [form, setForm] = useState<ProjectFormData>(() => {
@@ -447,8 +451,8 @@ function ProjectForm({ project, contracts, onSave, onCancel }: {
         </div>
       </div>
 
-      {validationError && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">{validationError}</div>
+      {(validationError || error) && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">{validationError || error}</div>
       )}
 
       <Section title="Project">
@@ -466,12 +470,12 @@ function ProjectForm({ project, contracts, onSave, onCancel }: {
       <Section title="Dates">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-tertiary mb-1">Start Date</label>
+            <label className="block text-xs text-tertiary mb-1">Start Date <span className="text-accent">*</span></label>
             <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)}
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">End Date</label>
+            <label className="block text-xs text-tertiary mb-1">End Date <span className="text-accent">*</span></label>
             <input type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)}
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>

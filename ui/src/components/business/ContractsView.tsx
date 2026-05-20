@@ -31,6 +31,7 @@ export function ContractsView() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [mode, setMode] = useState<Mode>("view");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [defaultCurrency, setDefaultCurrency] = useState("EUR");
   const [parsedContracts, setParsedContracts] = useState<ParsedContract[]>([]);
   const [parsing, setParsing] = useState(false);
@@ -65,6 +66,7 @@ export function ContractsView() {
   function selectContract(c: Entity) { setSelected(c); setMode("view"); setDeleteError(null); }
 
   async function handleSave(data: ContractFormData) {
+    setSaveError(null);
     const contract: Record<string, unknown> = {
       title: data.title,
       client_id: data.clientId,
@@ -83,6 +85,7 @@ export function ContractsView() {
     if (mode === "edit" && selected) contract.id = selected.id;
     const res = await rpc("contracts.save", { contract });
     if (res.ok) { setMode("view"); await load(); }
+    else setSaveError(res.error || "Failed to save contract.");
   }
 
   async function handleDelete(id: number) {
@@ -200,9 +203,9 @@ export function ContractsView() {
               onDiscard={discardContract} onUpdate={updateParsedContract} onClose={() => setMode("view")}
             />
           ) : mode === "create" ? (
-            <ContractForm clients={clients} defaultCurrency={defaultCurrency} onSave={handleSave} onCancel={() => setMode("view")} />
+            <ContractForm clients={clients} defaultCurrency={defaultCurrency} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
           ) : mode === "edit" && selected ? (
-            <ContractForm contract={selected} clients={clients} defaultCurrency={defaultCurrency} onSave={handleSave} onCancel={() => setMode("view")} />
+            <ContractForm contract={selected} clients={clients} defaultCurrency={defaultCurrency} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
           ) : selected ? (
             <ContractDetail contract={selected}
               onEdit={() => setMode("edit")}
@@ -409,12 +412,13 @@ interface ContractFormData {
   unitsPerWorkday: number;
 }
 
-function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel }: {
+function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, error }: {
   contract?: Entity;
   clients: Record<string, Entity>;
   defaultCurrency: string;
   onSave: (data: ContractFormData) => void;
   onCancel: () => void;
+  error?: string | null;
 }) {
   const cl = contract ? subEntity(contract, "client") : null;
   const [form, setForm] = useState<ContractFormData>(() => {
@@ -478,8 +482,8 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel }: 
         </div>
       </div>
 
-      {validationError && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">{validationError}</div>
+      {(validationError || error) && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">{validationError || error}</div>
       )}
 
       <Section title="Basic">
@@ -552,7 +556,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel }: 
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">Start Date</label>
+            <label className="block text-xs text-tertiary mb-1">Start Date <span className="text-accent">*</span></label>
             <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)}
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>

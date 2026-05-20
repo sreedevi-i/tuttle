@@ -40,8 +40,25 @@ class ProjectsIntent(CrudIntent):
             if is_updating:
                 old = self.get_by_id(project.id)
                 result.data = old.data if old.was_intent_successful else None
-            result.error_msg = "Failed to save the project."
+            result.error_msg = self._describe_save_error(result.exception)
             result.log_message_if_any()
         return result
+
+    @staticmethod
+    def _describe_save_error(exc: Optional[Exception]) -> str:
+        if exc is None:
+            return "Failed to save the project."
+        detail = str(getattr(exc, "orig", exc))
+        if "UNIQUE" in detail or "duplicate" in detail.lower():
+            if "title" in detail:
+                return "A project with this title already exists."
+            if "tag" in detail:
+                return "A project with this tag already exists."
+            return "A project with these details already exists."
+        if "NOT NULL" in detail:
+            return "A required field is missing."
+        if "FOREIGN KEY" in detail or "foreign key" in detail:
+            return "The selected contract is invalid."
+        return "Failed to save the project."
 
     toggle_project_completed_status = CrudIntent.toggle_completed
