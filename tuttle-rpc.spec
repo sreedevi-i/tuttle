@@ -22,7 +22,6 @@ block_cipher = None
 
 datas = [
     ("templates", "templates"),
-    ("tuttle/migrations", "tuttle/migrations"),
     ("tuttle/tax_data", "tuttle/tax_data"),
 ]
 
@@ -60,14 +59,12 @@ hiddenimports = [
     "tuttle.app.core.formatting",
     "tuttle.model",
     "tuttle.demo",
-    "tuttle.migrations.run",
-    # Alembic internals
-    "alembic",
-    "alembic.config",
-    "alembic.command",
-    "alembic.script",
-    "alembic.runtime.environment",
-    "alembic.runtime.migration",
+    "tuttle.db_schema",
+    # LLM providers
+    "llama_index.llms.ollama",
+    "llama_index.llms.openai_like",
+    "llama_index.llms.openai",
+    "openai",
     # Babel number/currency formatting
     "babel.numbers",
     # SQLModel / SQLAlchemy backends
