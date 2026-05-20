@@ -88,6 +88,7 @@ export function TimeTrackingView() {
   const [systemCals, setSystemCals] = useState<SystemCalendar[] | null>(null);
   const [sysCalAuthStatus, setSysCalAuthStatus] = useState<string | null>(null);
   const [sysCalLoading, setSysCalLoading] = useState(false);
+  const [restoringSource, setRestoringSource] = useState(true);
 
   const isMac = typeof window !== "undefined" && window.tuttle?.platform === "darwin";
 
@@ -102,7 +103,19 @@ export function TimeTrackingView() {
     setLoading(false);
   }, [year, month, filterTag]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    (async () => {
+      await rpc("timetracking.restore");
+      const cfgRes = await rpc<{ source_type: string }>("timetracking.get_source_config");
+      if (cfgRes.ok && cfgRes.data?.source_type) {
+        setCalendarSource(cfgRes.data.source_type as CalendarSource);
+      }
+      setRestoringSource(false);
+      loadData();
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { if (!restoringSource) loadData(); }, [loadData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ──────────────────────────────────────────────────────────
 

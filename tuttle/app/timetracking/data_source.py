@@ -14,6 +14,17 @@ from ...calendar import ICSCalendar, ICloudCalendar, CloudCalendar
 from ...dev import singleton
 from ...cloud import CloudConnector, CloudProvider
 from ... import timetracking
+from ...app_db import AppDatabase
+
+_SETTING_SOURCE_TYPE = "timetracking.source_type"
+_SETTING_CALENDAR_ID = "timetracking.calendar_id"
+_SETTING_CALENDAR_NAME = "timetracking.calendar_name"
+
+
+def _cache_dir() -> Path:
+    d = Path.home() / ".tuttle" / "cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 @singleton
@@ -37,6 +48,61 @@ class TimeTrackingDataFrameSource:
 
     def clear(self):
         self.data = None
+
+    # -- persistence helpers ---------------------------------------------------
+
+    def save_to_cache(self):
+        if self.data is None or self.data.empty:
+            return
+        path = _cache_dir() / "timetracking_events.parquet"
+        try:
+            self.data.to_parquet(path)
+            logger.info(f"Persisted {len(self.data)} events to {path}")
+        except Exception as ex:
+            logger.warning(f"Failed to persist time-tracking cache: {ex}")
+
+    def load_from_cache(self) -> bool:
+        path = _cache_dir() / "timetracking_events.parquet"
+        if not path.exists():
+            return False
+        try:
+            from pandas import read_parquet
+
+            self.data = read_parquet(path)
+            logger.info(f"Restored {len(self.data)} events from cache")
+            return True
+        except Exception as ex:
+            logger.warning(f"Failed to load time-tracking cache: {ex}")
+            return False
+
+    def clear_cache(self):
+        path = _cache_dir() / "timetracking_events.parquet"
+        if path.exists():
+            path.unlink()
+
+    @staticmethod
+    def save_source_config(
+        source_type: str, calendar_id: str = "", calendar_name: str = ""
+    ):
+        db = AppDatabase()
+        db.set_setting(_SETTING_SOURCE_TYPE, source_type)
+        db.set_setting(_SETTING_CALENDAR_ID, calendar_id)
+        db.set_setting(_SETTING_CALENDAR_NAME, calendar_name)
+
+    @staticmethod
+    def get_source_config() -> dict:
+        db = AppDatabase()
+        return {
+            "source_type": db.get_setting(_SETTING_SOURCE_TYPE) or "",
+            "calendar_id": db.get_setting(_SETTING_CALENDAR_ID) or "",
+            "calendar_name": db.get_setting(_SETTING_CALENDAR_NAME) or "",
+        }
+
+    @staticmethod
+    def clear_source_config():
+        db = AppDatabase()
+        for key in (_SETTING_SOURCE_TYPE, _SETTING_CALENDAR_ID, _SETTING_CALENDAR_NAME):
+            db.delete_setting(key)
 
 
 class TimeTrackingSpreadsheetSource:
