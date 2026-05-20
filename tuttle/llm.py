@@ -1,7 +1,8 @@
 """LLM integration for AI-powered document processing.
 
-Provides configuration management, Ollama model discovery, and
-structured entity extraction from documents using llama_index.
+Provides configuration management, model discovery, and structured
+entity extraction from documents. Supports Ollama (local) and any
+OpenAI-API-compatible endpoint via llama_index.
 """
 
 import base64
@@ -21,17 +22,23 @@ from loguru import logger
 
 
 class LLMConfig(BaseModel):
-    """LLM provider configuration."""
+    """LLM provider configuration.
+
+    provider is either "ollama" (local, with model discovery) or "openai"
+    (any OpenAI-API-compatible endpoint: OpenAI, Anthropic, Together, Groq,
+    vLLM, etc.).
+    """
 
     provider: str = Field(
-        default="ollama", description="LLM provider: ollama or anthropic"
+        default="ollama", description="LLM provider: ollama or openai"
     )
     base_url: str = Field(
-        default="http://localhost:11434", description="Base URL for Ollama API"
+        default="http://localhost:11434",
+        description="Base URL (Ollama server or OpenAI-compatible endpoint)",
     )
     model: str = Field(default="", description="Selected model name")
     api_key: str = Field(
-        default="", description="API key (for Anthropic or other hosted providers)"
+        default="", description="API key (required for OpenAI-compatible providers)"
     )
     request_timeout: float = Field(
         default=600.0, description="LLM request timeout in seconds"
@@ -44,6 +51,9 @@ def load_config() -> LLMConfig:
 
     db = AppDatabase()
     data = db.get_llm_config()
+    # Migrate legacy provider names to the unified "openai" provider.
+    if data.get("provider") not in ("ollama", "openai"):
+        data["provider"] = "openai"
     return LLMConfig(**data)
 
 
@@ -61,18 +71,37 @@ def save_config(config: LLMConfig) -> LLMConfig:
 # ---------------------------------------------------------------------------
 
 
-def get_available_models(base_url: str) -> List[str]:
-    """Fetch available model names from an Ollama instance."""
-    url = f"{base_url.rstrip('/')}/api/tags"
+def get_available_models(
+    base_url: str, provider: str = "ollama", api_key: str = ""
+) -> List[str]:
+    """Fetch available model names from the configured provider.
+
+    For Ollama uses ``/api/tags``; for OpenAI-compatible endpoints uses
+    ``/v1/models`` (or ``/models`` if *base_url* already ends with ``/v1``).
+    """
+    if provider == "ollama":
+        url = f"{base_url.rstrip('/')}/api/tags"
+        try:
+            resp = httpx.get(url, timeout=10.0)
+            resp.raise_for_status()
+            data = resp.json()
+            models = data.get("models", [])
+            return [m["name"] for m in models if "name" in m]
+        except Exception as e:
+            logger.error(f"Failed to fetch models from {url}: {e}")
+            raise RuntimeError(f"Could not connect to Ollama at {base_url}: {e}")
+
+    stripped = base_url.rstrip("/")
+    url = f"{stripped}/models" if stripped.endswith("/v1") else f"{stripped}/v1/models"
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
-        resp = httpx.get(url, timeout=10.0)
+        resp = httpx.get(url, headers=headers, timeout=10.0)
         resp.raise_for_status()
         data = resp.json()
-        models = data.get("models", [])
-        return [m["name"] for m in models if "name" in m]
+        return [m["id"] for m in data.get("data", []) if "id" in m]
     except Exception as e:
         logger.error(f"Failed to fetch models from {url}: {e}")
-        raise RuntimeError(f"Could not connect to Ollama at {base_url}: {e}")
+        raise RuntimeError(f"Could not list models at {base_url}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -231,8 +260,30 @@ def _get_llm(config: LLMConfig):
             request_timeout=config.request_timeout,
             thinking=True,
         )
-    else:
-        raise ValueError(f"Unsupported LLM provider: {config.provider}")
+
+    from llama_index.llms.openai_like import OpenAILike
+
+    return OpenAILike(
+        model=config.model,
+        api_base=config.base_url,
+        api_key=config.api_key or "no-key",
+        timeout=config.request_timeout,
+        is_chat_model=True,
+    )
+
+
+def _structured_complete(sllm, prompt: str, config: LLMConfig):
+    """Call sllm.complete with provider-appropriate kwargs.
+
+    OpenAI-compatible providers may reject tool_choice='required'
+    (e.g. Anthropic when thinking is enabled). Passing tool_choice='none'
+    forces prompt-based JSON extraction instead.
+    See https://github.com/run-llama/llama_index/issues/20790
+    """
+    kwargs = {}
+    if config.provider != "ollama":
+        kwargs["tool_choice"] = "none"
+    return sllm.complete(prompt, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +353,7 @@ def parse_document(
         + "\n--- DOCUMENT END ---"
     )
 
-    response = sllm.complete(prompt)
+    response = _structured_complete(sllm, prompt, config)
     extracted = response.raw
 
     if entity_type == "contact":
@@ -598,12 +649,12 @@ def parse_contract_document(
             msg = (
                 f"The LLM server disconnected after {elapsed:.0f}s. "
                 f"This usually means the model crashed (out of memory). "
-                f"Check the Ollama server logs, try a smaller model, "
+                f"Check the server logs, try a smaller model, "
                 f"or reduce the context window. "
                 f"[{config.model} @ {config.base_url}, ~{est_tokens} tokens]"
             )
         elif "connection" in low or "refused" in low:
-            msg = f"Could not reach the LLM server. Is Ollama running? ({msg})"
+            msg = f"Could not reach the LLM server. Is it running? ({msg})"
         return _fail(step_key, msg)
 
     # Step 4a: Summarise document (plain LLM, no schema constraint)
@@ -643,7 +694,7 @@ def parse_contract_document(
             + summary_text
             + "\n--- SUMMARY END ---"
         )
-        response = sllm.complete(extract_prompt)
+        response = _structured_complete(sllm, extract_prompt, config)
         elapsed = time.monotonic() - t1
         raw_text = response.text
         logger.info(

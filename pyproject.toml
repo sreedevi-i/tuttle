@@ -40,6 +40,7 @@ dependencies = [
     "pyobjc-framework-EventKit; sys_platform == 'darwin'",
     "llama-index-core",
     "llama-index-llms-ollama",
+    "llama-index-llms-openai-like",
 ]
 
 [project.scripts]

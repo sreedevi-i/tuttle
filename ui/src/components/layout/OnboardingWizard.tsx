@@ -129,11 +129,14 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
 
   if (!open) return null;
 
-  async function fetchLlmModels(baseUrl?: string) {
-    const url = baseUrl || llm.base_url;
-    if (!url) return;
+  async function fetchLlmModels() {
+    if (!llm.base_url) return;
     setFetchingModels(true);
-    const res = await rpc<string[]>("llm.get_models", { base_url: url });
+    const res = await rpc<string[]>("llm.get_models", {
+      base_url: llm.base_url,
+      provider: llm.provider,
+      api_key: llm.api_key,
+    });
     if (res.ok && res.data) setModels(res.data);
     else setModels([]);
     setFetchingModels(false);
@@ -380,45 +383,54 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
           <label className={labelCls}>Provider</label>
           <select
             value={llm.provider}
-            onChange={(e) => setLlm((c) => ({ ...c, provider: e.target.value }))}
+            onChange={(e) => {
+              const p = e.target.value;
+              setModels([]);
+              setLlm((c) => ({
+                ...c,
+                provider: p,
+                base_url: p === "ollama" ? "http://localhost:11434" : c.base_url === "http://localhost:11434" ? "" : c.base_url,
+              }));
+            }}
             className={inputCls}
           >
             <option value="ollama">Ollama</option>
-            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI API compatible</option>
           </select>
+          {llm.provider === "openai" && (
+            <p className="mt-1 text-xs text-muted">Works with OpenAI, Anthropic, Together, Groq, vLLM, and any OpenAI-compatible endpoint.</p>
+          )}
         </div>
 
-        {llm.provider === "ollama" && (
-          <div>
-            <label className={labelCls}>Ollama URL</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={llm.base_url}
-                onChange={(e) => setLlm((c) => ({ ...c, base_url: e.target.value }))}
-                placeholder="http://localhost:11434"
-                className={`flex-1 ${inputCls}`}
-              />
-              <button
-                onClick={() => fetchLlmModels()}
-                disabled={fetchingModels || !llm.base_url}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-bg-content text-secondary hover:text-primary border border-border-subtle transition-colors disabled:opacity-40"
-              >
-                <RefreshCw size={14} className={fetchingModels ? "animate-spin" : ""} />
-                {fetchingModels ? "Fetching…" : "Fetch Models"}
-              </button>
-            </div>
+        <div>
+          <label className={labelCls}>{llm.provider === "ollama" ? "Ollama URL" : "API Base URL"}</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={llm.base_url}
+              onChange={(e) => setLlm((c) => ({ ...c, base_url: e.target.value }))}
+              placeholder={llm.provider === "ollama" ? "http://localhost:11434" : "https://api.openai.com/v1"}
+              className={`flex-1 ${inputCls}`}
+            />
+            <button
+              onClick={() => fetchLlmModels()}
+              disabled={fetchingModels || !llm.base_url}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-bg-content text-secondary hover:text-primary border border-border-subtle transition-colors disabled:opacity-40"
+            >
+              <RefreshCw size={14} className={fetchingModels ? "animate-spin" : ""} />
+              {fetchingModels ? "Fetching…" : "Fetch Models"}
+            </button>
           </div>
-        )}
+        </div>
 
-        {llm.provider === "anthropic" && (
+        {llm.provider === "openai" && (
           <div>
             <label className={labelCls}>API Key</label>
             <input
               type="password"
               value={llm.api_key}
               onChange={(e) => setLlm((c) => ({ ...c, api_key: e.target.value }))}
-              placeholder="sk-ant-…"
+              placeholder="sk-…"
               className={inputCls}
             />
           </div>
@@ -426,26 +438,27 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
 
         <div>
           <label className={labelCls}>Model</label>
-          {llm.provider === "ollama" ? (
-            models.length > 0 ? (
-              <select value={llm.model} onChange={(e) => setLlm((c) => ({ ...c, model: e.target.value }))} className={inputCls}>
-                <option value="">Select a model…</option>
-                {models.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            ) : (
-              <div className="px-3 py-2 rounded-md text-sm bg-bg-content text-muted border border-border-subtle">
-                {fetchingModels ? "Fetching models…" : "No models available. Click \"Fetch Models\" to connect."}
-              </div>
-            )
+          {models.length > 0 ? (
+            <select value={llm.model} onChange={(e) => setLlm((c) => ({ ...c, model: e.target.value }))} className={inputCls}>
+              <option value="">Select a model…</option>
+              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          ) : fetchingModels ? (
+            <div className="px-3 py-2 rounded-md text-sm bg-bg-content text-muted border border-border-subtle">
+              Fetching models…
+            </div>
           ) : (
             <input
               type="text"
               value={llm.model}
               onChange={(e) => setLlm((c) => ({ ...c, model: e.target.value }))}
-              placeholder="claude-sonnet-4-20250514"
+              placeholder={llm.provider === "ollama" ? "qwen3:8b" : "gpt-4o"}
               className={inputCls}
             />
           )}
+          <p className="mt-1 text-xs text-muted">
+            Click "Fetch Models" to list available models, or type a name directly.
+          </p>
         </div>
 
         <div>

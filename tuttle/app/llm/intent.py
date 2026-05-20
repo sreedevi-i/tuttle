@@ -16,10 +16,17 @@ class LlmIntent:
         saved = _llm.save_config(_llm.LLMConfig(**config))
         return IntentResult(was_intent_successful=True, data=saved)
 
-    def get_models(self, base_url: str = "http://localhost:11434") -> IntentResult:
+    def get_models(
+        self,
+        base_url: str = "http://localhost:11434",
+        provider: str = "ollama",
+        api_key: str = "",
+    ) -> IntentResult:
         return IntentResult(
             was_intent_successful=True,
-            data=_llm.get_available_models(base_url),
+            data=_llm.get_available_models(
+                base_url, provider=provider, api_key=api_key
+            ),
         )
 
     def parse_document(
