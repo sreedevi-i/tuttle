@@ -123,23 +123,30 @@ export function SettingsView() {
     const res = await rpc<LLMConfig>("llm.get_config");
     if (res.ok && res.data) {
       setConfig(res.data);
-      if (res.data.base_url) await fetchModels(res.data.base_url);
+      if (res.data.base_url) await fetchModels(res.data);
     }
     setLoading(false);
   }
 
-  async function fetchModels(baseUrl?: string) {
-    const url = baseUrl || config.base_url;
-    if (!url) return;
+  async function fetchModels(overrides?: Partial<LLMConfig>) {
+    const c = { ...config, ...overrides };
+    if (!c.base_url) return;
     setFetchingModels(true);
     setStatus(null);
-    const res = await rpc<string[]>("llm.get_models", { base_url: url });
+    const res = await rpc<string[]>("llm.get_models", {
+      base_url: c.base_url,
+      provider: c.provider,
+      api_key: c.api_key,
+    });
     if (res.ok && res.data) {
       setModels(res.data);
-      if (res.data.length === 0) setStatus({ type: "error", msg: "No models found. Pull a model in Ollama first." });
+      if (res.data.length === 0) {
+        const hint = c.provider === "ollama" ? "Pull a model in Ollama first." : "No models found at this endpoint.";
+        setStatus({ type: "error", msg: `No models found. ${hint}` });
+      }
     } else {
       setModels([]);
-      setStatus({ type: "error", msg: res.error || "Could not connect to Ollama." });
+      setStatus({ type: "error", msg: res.error || "Could not connect to server." });
     }
     setFetchingModels(false);
   }
@@ -541,45 +548,54 @@ export function SettingsView() {
             <label className={labelCls}>Provider</label>
             <select
               value={config.provider}
-              onChange={(e) => setConfig((c) => ({ ...c, provider: e.target.value }))}
+              onChange={(e) => {
+                const p = e.target.value;
+                setModels([]);
+                setConfig((c) => ({
+                  ...c,
+                  provider: p,
+                  base_url: p === "ollama" ? "http://localhost:11434" : c.base_url === "http://localhost:11434" ? "" : c.base_url,
+                }));
+              }}
               className={inputCls}
             >
               <option value="ollama">Ollama</option>
-              <option value="anthropic">Anthropic</option>
+              <option value="openai">OpenAI API compatible</option>
             </select>
+            {config.provider === "openai" && (
+              <p className="mt-1 text-xs text-muted">Works with OpenAI, Anthropic, Together, Groq, vLLM, and any OpenAI-compatible endpoint.</p>
+            )}
           </div>
 
-          {config.provider === "ollama" && (
-            <div>
-              <label className={labelCls}>Ollama URL</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={config.base_url}
-                  onChange={(e) => setConfig((c) => ({ ...c, base_url: e.target.value }))}
-                  placeholder="http://localhost:11434"
-                  className={`flex-1 ${inputCls}`}
-                />
-                <button
-                  onClick={() => fetchModels()}
-                  disabled={fetchingModels || !config.base_url}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-bg-card text-secondary hover:text-primary border border-border-subtle transition-colors disabled:opacity-40"
-                >
-                  <RefreshCw size={14} className={fetchingModels ? "animate-spin" : ""} />
-                  {fetchingModels ? "Fetching…" : "Fetch Models"}
-                </button>
-              </div>
+          <div>
+            <label className={labelCls}>{config.provider === "ollama" ? "Ollama URL" : "API Base URL"}</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={config.base_url}
+                onChange={(e) => setConfig((c) => ({ ...c, base_url: e.target.value }))}
+                placeholder={config.provider === "ollama" ? "http://localhost:11434" : "https://api.openai.com/v1"}
+                className={`flex-1 ${inputCls}`}
+              />
+              <button
+                onClick={() => fetchModels()}
+                disabled={fetchingModels || !config.base_url}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium bg-bg-card text-secondary hover:text-primary border border-border-subtle transition-colors disabled:opacity-40"
+              >
+                <RefreshCw size={14} className={fetchingModels ? "animate-spin" : ""} />
+                {fetchingModels ? "Fetching…" : "Fetch Models"}
+              </button>
             </div>
-          )}
+          </div>
 
-          {config.provider === "anthropic" && (
+          {config.provider === "openai" && (
             <div>
               <label className={labelCls}>API Key</label>
               <input
                 type="password"
                 value={config.api_key}
                 onChange={(e) => setConfig((c) => ({ ...c, api_key: e.target.value }))}
-                placeholder="sk-ant-…"
+                placeholder="sk-…"
                 className={inputCls}
               />
             </div>
@@ -587,26 +603,27 @@ export function SettingsView() {
 
           <div>
             <label className={labelCls}>Model</label>
-            {config.provider === "ollama" ? (
-              models.length > 0 ? (
-                <select value={config.model} onChange={(e) => setConfig((c) => ({ ...c, model: e.target.value }))} className={inputCls}>
-                  <option value="">Select a model…</option>
-                  {models.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <div className="px-3 py-2 rounded-md text-sm bg-bg-card text-muted border border-border-subtle">
-                  {fetchingModels ? "Fetching models…" : "No models available. Click \"Fetch Models\" to connect."}
-                </div>
-              )
+            {models.length > 0 ? (
+              <select value={config.model} onChange={(e) => setConfig((c) => ({ ...c, model: e.target.value }))} className={inputCls}>
+                <option value="">Select a model…</option>
+                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            ) : fetchingModels ? (
+              <div className="px-3 py-2 rounded-md text-sm bg-bg-card text-muted border border-border-subtle">
+                Fetching models…
+              </div>
             ) : (
               <input
                 type="text"
                 value={config.model}
                 onChange={(e) => setConfig((c) => ({ ...c, model: e.target.value }))}
-                placeholder="claude-sonnet-4-20250514"
+                placeholder={config.provider === "ollama" ? "qwen3:8b" : "gpt-4o"}
                 className={inputCls}
               />
             )}
+            <p className="mt-1 text-xs text-muted">
+              {models.length > 0 ? "Choose from fetched models, or type a name manually below." : "Click \"Fetch Models\" to list available models, or type a name directly."}
+            </p>
           </div>
 
           <div>

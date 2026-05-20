@@ -77,10 +77,20 @@ def build_calendar_data(
     for idx, row in month_df.iterrows():
         d = str(idx.date()) if hasattr(idx, "date") else str(idx)[:10]
         if d not in days:
-            days[d] = {"date": d, "hours": 0.0, "tags": [], "count": 0}
-        dur = row.get("duration")
-        h = dur.total_seconds() / 3600 if hasattr(dur, "total_seconds") else 0
-        days[d]["hours"] = round(days[d]["hours"] + h, 2)
+            days[d] = {
+                "date": d,
+                "hours": 0.0,
+                "all_day_count": 0,
+                "tags": [],
+                "count": 0,
+            }
+        is_all_day = bool(row.get("all_day", False))
+        if is_all_day:
+            days[d]["all_day_count"] += 1
+        else:
+            dur = row.get("duration")
+            h = dur.total_seconds() / 3600 if hasattr(dur, "total_seconds") else 0
+            days[d]["hours"] = round(days[d]["hours"] + h, 2)
         days[d]["count"] += 1
         tag = str(row.get("tag", ""))
         if tag and tag not in days[d]["tags"]:

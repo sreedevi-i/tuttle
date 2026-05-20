@@ -110,11 +110,11 @@ class Address(RpcMixin, SQLModel, table=True):
     """Postal address."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    street: str = Field(default="")
-    number: str = Field(default="")
-    city: str = Field(default="")
-    postal_code: str = Field(default="")
-    country: str = Field(default="")
+    street: str = Field(default="", description="Street name")
+    number: str = Field(default="", description="House or building number")
+    city: str = Field(default="", description="City or town")
+    postal_code: str = Field(default="", description="Postal / ZIP code")
+    country: str = Field(default="", description="Country name")
     users: List["User"] = Relationship(back_populates="address")
     contacts: List["Contact"] = Relationship(back_populates="address")
     clients: List["Client"] = Relationship(back_populates="address")
@@ -252,10 +252,12 @@ class Contact(RpcMixin, SQLModel, table=True):
     __rpc_relationships__ = ("address",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    first_name: Optional[str]
-    last_name: Optional[str]
-    company: Optional[str]
-    email: Optional[str]
+    first_name: Optional[str] = Field(default=None, description="First / given name")
+    last_name: Optional[str] = Field(default=None, description="Last / family name")
+    company: Optional[str] = Field(
+        default=None, description="Company or organisation name"
+    )
+    email: Optional[str] = Field(default=None, description="Email address")
     address_id: Optional[int] = Field(default=None, foreign_key="address.id")
     address: Optional[Address] = Relationship(
         back_populates="contacts", sa_relationship_kwargs={"lazy": "subquery"}
@@ -399,7 +401,7 @@ class Contract(RpcMixin, SQLModel, table=True):
     is_completed: bool = Field(
         default=False, description="flag marking if contract has been completed"
     )
-    currency: str  # TODO: currency representation
+    currency: str = Field(description="Currency code, e.g. EUR or USD")
     VAT_rate: Decimal = Field(
         description="VAT rate applied to the contractual rate.",
         default=CONTRACT_DEFAULT_VAT_RATE,  # TODO: configure by country?
@@ -436,6 +438,21 @@ class Contract(RpcMixin, SQLModel, table=True):
     @property
     def volume_as_time(self):
         return self.volume * self.unit.to_timedelta()
+
+    @property
+    def unit_duration(self) -> datetime.timedelta:
+        """Real-world duration of one contractual billing unit.
+
+        For ``unit=hour`` this is 1 hour. For ``unit=day`` it is
+        ``units_per_workday`` hours — a contractual "day" is a *work* day,
+        not a calendar day.  Used by ``invoicing.generate_invoice`` to
+        convert tracked time to billable quantity.
+        """
+        if self.unit == TimeUnit.hour:
+            return datetime.timedelta(hours=1)
+        if self.unit == TimeUnit.day:
+            return datetime.timedelta(hours=self.units_per_workday)
+        raise ValueError(f"Unsupported contract unit: {self.unit}")
 
     def is_active(self) -> bool:
         """Check if contract is active.A contract is active if it is not completed and the end date is in the future."""
@@ -482,8 +499,8 @@ class Project(RpcMixin, SQLModel, table=True):
         description="A unique tag, starting with a # symbol",
         sa_column_kwargs={"unique": True},
     )
-    start_date: datetime.date
-    end_date: datetime.date
+    start_date: datetime.date = Field(description="Project start date")
+    end_date: datetime.date = Field(description="Project end date")
     is_completed: bool = Field(
         default=False, description="marks if the project is completed"
     )
@@ -676,6 +693,8 @@ class Invoice(RpcMixin, SQLModel, table=True):
         "pdf_path",
         "is_reminder",
         "reminder_chain_head_id",
+        "has_timesheet",
+        "timesheet_pdf_path",
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -896,6 +915,22 @@ class Invoice(RpcMixin, SQLModel, table=True):
         if not self.rendered:
             return None
         p = Path.home() / ".tuttle" / "Invoices" / self.file_name
+        return str(p) if p.exists() else None
+
+    @property
+    def has_timesheet(self) -> bool:
+        """True iff the invoice was created from time-tracking data."""
+        return bool(self.timesheets)
+
+    @property
+    def timesheet_pdf_path(self) -> Optional[str]:
+        """Filesystem path of the timesheet PDF, if it has been rendered."""
+        if not self.timesheets:
+            return None
+        ts = self.timesheets[0]
+        if not ts.rendered:
+            return None
+        p = Path.home() / ".tuttle" / "Timesheets" / f"{ts.prefix}.pdf"
         return str(p) if p.exists() else None
 
 

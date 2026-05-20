@@ -64,13 +64,13 @@
   <table class="items-table">
     <thead>
       <tr>
-        <th class="col-date">Date</th>
-        <th class="col-desc">Description</th>
-        <th class="col-qty">Qty</th>
-        <th class="col-unit">Unit</th>
-        <th class="col-price">Unit Price</th>
-        <th class="col-vat">VAT</th>
-        <th class="col-subtotal">Subtotal</th>
+        <th class="col-date">{{ l.date }}</th>
+        <th class="col-desc">{{ l.description }}</th>
+        <th class="col-qty">{{ l.qty }}</th>
+        <th class="col-unit">{{ l.unit }}</th>
+        <th class="col-price">{{ l.unit_price }}</th>
+        <th class="col-vat">{{ l.vat }}</th>
+        <th class="col-subtotal">{{ l.subtotal }}</th>
       </tr>
     </thead>
     <tbody>
@@ -79,7 +79,7 @@
         <td class="col-date">{{ item.start_date }} – {{ item.end_date }}</td>
         <td class="col-desc">{{ item.description }}</td>
         <td class="col-qty num">{{ item.quantity }}</td>
-        <td class="col-unit">{{ item.unit }}</td>
+        <td class="col-unit">{{ item.unit | unit_label(item.quantity) }}</td>
         <td class="col-price num">{{ item.unit_price | as_currency }}</td>
         <td class="col-vat num">{{ item.VAT_rate | as_percentage }}</td>
         <td class="col-subtotal num">{{ item.subtotal | as_currency }}</td>

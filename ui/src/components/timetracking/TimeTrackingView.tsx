@@ -20,7 +20,7 @@ type TimeEvent = {
   date: string;
 };
 
-type DayInfo = { date: string; hours: number; tags: string[]; count: number };
+type DayInfo = { date: string; hours: number; all_day_count?: number; tags: string[]; count: number };
 
 type CalendarData = {
   year: number;
@@ -88,6 +88,7 @@ export function TimeTrackingView() {
   const [systemCals, setSystemCals] = useState<SystemCalendar[] | null>(null);
   const [sysCalAuthStatus, setSysCalAuthStatus] = useState<string | null>(null);
   const [sysCalLoading, setSysCalLoading] = useState(false);
+  const [restoringSource, setRestoringSource] = useState(true);
 
   const isMac = typeof window !== "undefined" && window.tuttle?.platform === "darwin";
 
@@ -102,7 +103,19 @@ export function TimeTrackingView() {
     setLoading(false);
   }, [year, month, filterTag]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    (async () => {
+      await rpc("timetracking.restore");
+      const cfgRes = await rpc<{ source_type: string }>("timetracking.get_source_config");
+      if (cfgRes.ok && cfgRes.data?.source_type) {
+        setCalendarSource(cfgRes.data.source_type as CalendarSource);
+      }
+      setRestoringSource(false);
+      loadData();
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { if (!restoringSource) loadData(); }, [loadData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ──────────────────────────────────────────────────────────
 
@@ -518,7 +531,7 @@ function MonthGrid({
                     ))}
                   </div>
                   <div className="text-[11px] font-medium tabular-nums text-secondary">
-                    {info.hours}h
+                    {formatDayDuration(info)}
                   </div>
                 </div>
               )}
@@ -547,7 +560,14 @@ function DayDetail({
     } catch { return day; }
   })();
 
-  const totalHours = events.reduce((sum, e) => sum + e.duration_hours, 0);
+  const timedEvents = events.filter((e) => !e.all_day);
+  const allDayEvents = events.filter((e) => e.all_day);
+  const timedHours = timedEvents.reduce((sum, e) => sum + e.duration_hours, 0);
+
+  const totalLabel = [
+    allDayEvents.length > 0 ? `${allDayEvents.length}d` : "",
+    timedHours > 0 ? `${timedHours.toFixed(1)}h` : "",
+  ].filter(Boolean).join(" + ") || "0h";
 
   return (
     <div className="mx-5 mt-4 mb-4 rounded-xl border border-border-subtle bg-bg-card shadow-sm">
@@ -555,7 +575,7 @@ function DayDetail({
         <div className="flex items-center gap-2">
           <Calendar size={14} className="text-secondary" />
           <span className="text-sm font-bold text-primary">{dateLabel}</span>
-          <span className="text-xs text-secondary font-medium tabular-nums">{totalHours.toFixed(1)}h total</span>
+          <span className="text-xs text-secondary font-medium tabular-nums">{totalLabel} total</span>
         </div>
         <button onClick={onClose} className="text-xs text-muted hover:text-secondary">close</button>
       </div>
@@ -578,8 +598,11 @@ function DayDetail({
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 text-xs text-secondary">
-                  <span>{formatTime(ev.begin)} – {ev.end ? formatTime(ev.end) : "?"}</span>
-                  <span className="tabular-nums font-medium">{ev.duration_hours}h</span>
+                  {ev.all_day
+                    ? <span>all day</span>
+                    : <><span>{formatTime(ev.begin)} – {ev.end ? formatTime(ev.end) : "?"}</span>
+                        <span className="tabular-nums font-medium">{ev.duration_hours}h</span></>
+                  }
                 </div>
                 {ev.description && (
                   <p className="text-xs text-secondary mt-0.5 line-clamp-2">{ev.description}</p>
@@ -602,4 +625,12 @@ function formatTime(iso: string): string {
     const d = new Date(iso);
     return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
   } catch { return ""; }
+}
+
+function formatDayDuration(info: DayInfo): string {
+  const parts: string[] = [];
+  if (info.all_day_count && info.all_day_count > 0)
+    parts.push(`${info.all_day_count}d`);
+  if (info.hours > 0) parts.push(`${info.hours}h`);
+  return parts.join(" + ") || "0h";
 }

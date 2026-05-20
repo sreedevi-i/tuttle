@@ -2,9 +2,12 @@
 from time import time
 import pandas
 import datetime
+from decimal import Decimal
 
 from tuttle import timetracking
 from tuttle.calendar import get_month_start_end
+from tuttle.model import Address, Client, Contract, Project
+from tuttle.time import Cycle, TimeUnit
 
 
 def test_timetracking_import_toggl():
@@ -86,3 +89,138 @@ def test_create_timesheet(
     assert isinstance(timesheet.period_end, datetime.date)
     assert timesheet.period_start == period_start
     assert timesheet.period_end == period_end
+
+
+# ---------------------------------------------------------------------------
+# Bug B / Bug C regression tests
+# ---------------------------------------------------------------------------
+
+
+def _make_project(tag: str, unit: TimeUnit, units_per_workday: int = 8) -> Project:
+    client = Client(
+        name="Acme",
+        address=Address(
+            street="Main",
+            number="1",
+            postal_code="00000",
+            city="Nowhere",
+            country="N/A",
+        ),
+    )
+    contract = Contract(
+        title="Test",
+        client=client,
+        signature_date=datetime.date(2022, 1, 1),
+        start_date=datetime.date(2022, 1, 1),
+        rate=Decimal("100"),
+        currency="EUR",
+        VAT_rate=Decimal("0.19"),
+        unit=unit,
+        units_per_workday=units_per_workday,
+        term_of_payment=14,
+        billing_cycle=Cycle.monthly,
+    )
+    return Project(
+        title=f"Project {tag}",
+        description="",
+        tag=tag,
+        contract=contract,
+        start_date=datetime.date(2022, 1, 1),
+        end_date=datetime.date(2022, 12, 31),
+    )
+
+
+def test_generate_timesheet_handles_tz_boundary():
+    """Bug C: event at month boundary in UTC must land in the local-time month.
+
+    A calendar event at 2022-01-31 23:00 UTC is 2022-02-01 00:00 CET. With
+    naive string-key slicing the event was silently dropped from February's
+    timesheet; with date-based masking on the tz-aware index it correctly
+    appears in February.
+    """
+    tag = "#TzProj"
+    project = _make_project(tag, TimeUnit.hour)
+
+    begin = pandas.to_datetime(["2022-01-31 23:00:00"], utc=True).tz_convert("CET")
+    end = pandas.to_datetime(["2022-02-01 00:00:00"], utc=True).tz_convert("CET")
+    df = pandas.DataFrame(
+        {
+            "end": end,
+            "title": ["Late work"],
+            "tag": [tag],
+            "description": [""],
+            "all_day": [False],
+        },
+        index=pandas.Index(begin, name="begin"),
+    )
+    df["duration"] = df["end"] - df.index
+
+    timesheet = timetracking.generate_timesheet(
+        timetracking_data=df,
+        project=project,
+        period_start=datetime.date(2022, 2, 1),
+        period_end=datetime.date(2022, 2, 28),
+    )
+
+    assert timesheet.total == datetime.timedelta(hours=1)
+    assert len(timesheet.items) == 1
+
+
+def test_generate_timesheet_all_day_expansion_hour_unit():
+    """Bug B (hour unit): all-day event expands to units_per_workday hours."""
+    tag = "#AllDayHour"
+    project = _make_project(tag, TimeUnit.hour, units_per_workday=8)
+
+    df = pandas.DataFrame(
+        {
+            "begin": pandas.to_datetime(["2022-01-03 00:00:00"]),
+            "end": pandas.to_datetime(["2022-01-04 00:00:00"]),
+            "title": ["All-day work"],
+            "tag": [tag],
+            "description": [""],
+            "all_day": [True],
+        }
+    )
+    df["duration"] = df["end"] - df["begin"]
+    df = df.set_index("begin")
+
+    timesheet = timetracking.generate_timesheet(
+        timetracking_data=df,
+        project=project,
+        period_start=datetime.date(2022, 1, 1),
+        period_end=datetime.date(2022, 1, 31),
+    )
+
+    assert timesheet.total == datetime.timedelta(hours=8)
+
+
+def test_generate_timesheet_all_day_expansion_day_unit():
+    """Bug B (day unit): an all-day event still represents 8 hours of work, not 8 days.
+
+    Previously the expansion was ``unit.to_timedelta() * units_per_workday``, which
+    for unit=day, units_per_workday=8 yielded eight whole days per event.
+    """
+    tag = "#AllDayDay"
+    project = _make_project(tag, TimeUnit.day, units_per_workday=8)
+
+    df = pandas.DataFrame(
+        {
+            "begin": pandas.to_datetime(["2022-01-03 00:00:00"]),
+            "end": pandas.to_datetime(["2022-01-04 00:00:00"]),
+            "title": ["All-day work"],
+            "tag": [tag],
+            "description": [""],
+            "all_day": [True],
+        }
+    )
+    df["duration"] = df["end"] - df["begin"]
+    df = df.set_index("begin")
+
+    timesheet = timetracking.generate_timesheet(
+        timetracking_data=df,
+        project=project,
+        period_start=datetime.date(2022, 1, 1),
+        period_end=datetime.date(2022, 1, 31),
+    )
+
+    assert timesheet.total == datetime.timedelta(hours=8)

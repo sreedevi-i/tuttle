@@ -19,20 +19,20 @@ const SECTIONS: { label: string; items: SidebarItem[] }[] = [
     ],
   },
   {
+    label: "Workflows",
+    items: [
+      { id: "import", label: "Import", icon: FileUp },
+      { id: "timetracking", label: "Time Tracking", icon: Clock },
+      { id: "invoicing", label: "Invoicing", icon: FileText },
+    ],
+  },
+  {
     label: "My Business",
     items: [
       { id: "projects", label: "Projects", icon: FolderKanban },
       { id: "contracts", label: "Contracts", icon: FileSignature },
       { id: "clients", label: "Clients", icon: Building2 },
       { id: "contacts", label: "Contacts", icon: Users },
-    ],
-  },
-  {
-    label: "Workflows",
-    items: [
-      { id: "timetracking", label: "Time Tracking", icon: Clock },
-      { id: "invoicing", label: "Invoicing", icon: FileText },
-      { id: "import", label: "Import", icon: FileUp },
     ],
   },
   {

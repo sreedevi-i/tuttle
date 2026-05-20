@@ -2,6 +2,7 @@
 
 from typing import List, Optional, Dict
 import datetime
+from decimal import Decimal
 from pathlib import Path
 import shutil
 
@@ -26,18 +27,24 @@ def generate_invoice(
         project=project,
         number=number,
     )
+    unit_td = contract.unit_duration
+    # ``Contract.rate`` may be stored as float at runtime even though it is
+    # declared ``condecimal`` — coerce here so ``InvoiceItem.subtotal`` always
+    # multiplies two Decimals and the invoice totals are exact.
+    unit_price = Decimal(str(contract.rate))
+    vat_rate = Decimal(str(contract.VAT_rate))
     for timesheet in timesheets:
-        total_hours = timesheet.total / pandas.Timedelta("1h")
+        quantity = timesheet.total / unit_td
         item = InvoiceItem(
-            invoice=invoice,
             start_date=timesheet.table["begin"].min().date(),
             end_date=timesheet.table["end"].max().date(),
-            quantity=total_hours,
-            unit="hour",
-            unit_price=timesheet.project.contract.rate,
-            VAT_rate=contract.VAT_rate,
+            quantity=quantity,
+            unit=contract.unit.value,
+            unit_price=unit_price,
+            VAT_rate=vat_rate,
             description=timesheet.title,
         )
+        invoice.items.append(item)
 
     return invoice
 

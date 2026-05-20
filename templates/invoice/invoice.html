@@ -74,7 +74,7 @@
         <td>{{ item.date }}</td>
         <td>{{ item.description }}</td>
         <td>{{ item.quantity }}</td>
-        <td>{{ item.unit }}</td>
+        <td>{{ item.unit | unit_label(item.quantity) }}</td>
         <td>{{ item.unit_price | as_currency}} €</td>
         <td>{{ item.VAT_rate | as_percentage }}</td>
         <td>{{ item.subtotal | as_currency }}</td>

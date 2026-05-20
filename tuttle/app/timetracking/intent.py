@@ -82,6 +82,8 @@ class TimeTrackingIntent(Intent):
         new_df = cal.to_data()
         ds = self._timetracking_data_frame_source
         ds.store_data_frame(merge_dataframes(ds.get_data_frame(), new_df))
+        ds.save_to_cache()
+        ds.save_source_config("ics", calendar_name=name)
         records = df_to_records(new_df)
         return IntentResult(
             was_intent_successful=True,
@@ -90,6 +92,8 @@ class TimeTrackingIntent(Intent):
 
     def clear(self) -> IntentResult:
         self._timetracking_data_frame_source.store_data_frame(None)
+        self._timetracking_data_frame_source.clear_cache()
+        self._timetracking_data_frame_source.clear_source_config()
         return IntentResult(was_intent_successful=True, data=None)
 
     def list_system_calendars(self, open_settings=False) -> IntentResult:
@@ -154,6 +158,8 @@ class TimeTrackingIntent(Intent):
                 )
             ds = self._timetracking_data_frame_source
             ds.store_data_frame(merge_dataframes(ds.get_data_frame(), new_df))
+            ds.save_to_cache()
+            ds.save_source_config("system", calendar_id=str(calendar_id))
             records = df_to_records(new_df)
             return IntentResult(
                 was_intent_successful=True,
@@ -168,6 +174,54 @@ class TimeTrackingIntent(Intent):
                 was_intent_successful=False,
                 error_msg=str(ex),
             )
+
+    def get_source_config(self) -> IntentResult:
+        config = self._timetracking_data_frame_source.get_source_config()
+        return IntentResult(was_intent_successful=True, data=config)
+
+    def restore(self) -> IntentResult:
+        """Restore cached time-tracking data from disk (called on startup)."""
+        ds = self._timetracking_data_frame_source
+        if ds.get_data_frame() is not None:
+            return IntentResult(
+                was_intent_successful=True,
+                data={"restored": False, "reason": "already_loaded"},
+            )
+        config = ds.get_source_config()
+        source_type = config.get("source_type", "")
+        if not source_type:
+            return IntentResult(
+                was_intent_successful=True,
+                data={"restored": False, "reason": "no_config"},
+            )
+        if source_type == "system" and is_available():
+            calendar_id = config.get("calendar_id", "")
+            if calendar_id:
+                try:
+                    from_date = datetime.date.today() - datetime.timedelta(days=365)
+                    to_date = datetime.date.today()
+                    new_df = fetch_events(calendar_id, from_date, to_date)
+                    if not new_df.empty:
+                        ds.store_data_frame(new_df)
+                        ds.save_to_cache()
+                        logger.info(
+                            f"Restored {len(new_df)} events from system calendar {calendar_id}"
+                        )
+                        return IntentResult(
+                            was_intent_successful=True,
+                            data={
+                                "restored": True,
+                                "source": "system",
+                                "count": len(new_df),
+                            },
+                        )
+                except Exception as ex:
+                    logger.warning(f"Failed to restore from system calendar: {ex}")
+        restored = ds.load_from_cache()
+        return IntentResult(
+            was_intent_successful=True,
+            data={"restored": restored, "source": source_type if restored else "cache"},
+        )
 
     def get_summary(self) -> IntentResult:
         df = self._timetracking_data_frame_source.get_data_frame()

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   FileText, Send, CheckCircle, XCircle, Mail,
   Building2, FolderKanban, Calendar, Banknote, Eye, Search,
-  Plus, Clock, AlertTriangle,
+  Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { rpc, readFileAsDataURL } from "../../api/rpc";
 import { str, num, bool, list as entityList, formatDate, invoiceStatus, deepStr, isReminder, reminderLevel } from "../../api/entity";
@@ -185,7 +185,8 @@ export function InvoicingView() {
                 onToggleSent={() => toggleSent(selected.id)}
                 onTogglePaid={() => togglePaid(selected.id)} onToggleCancelled={() => toggleCancelled(selected.id)}
                 onSendMail={() => sendMail(selected.id)}
-                onReminderCreated={(newId) => load(newId)} />
+                onReminderCreated={(newId) => load(newId)}
+                onRefresh={() => load(selected.id)} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary">
                 <FileText size={36} strokeWidth={1.2} /><span className="text-sm">Select an invoice</span>
@@ -242,9 +243,22 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [toDate, setToDate] = useState(() => {
     const d = new Date(); d.setDate(0); return d.toISOString().slice(0, 10);
   });
+
+  function setMonth(year: number, month: number) {
+    setFromDate(`${year}-${String(month + 1).padStart(2, "0")}-01`);
+    const last = new Date(year, month + 1, 0);
+    setToDate(last.toISOString().slice(0, 10));
+  }
+
+  function shiftMonth(delta: number) {
+    const cur = new Date(fromDate + "T00:00:00");
+    const d = new Date(cur.getFullYear(), cur.getMonth() + delta, 1);
+    setMonth(d.getFullYear(), d.getMonth());
+  }
   const [mode, setMode] = useState<"timetracking" | "manual">("timetracking");
   const [lineItems, setLineItems] = useState<LineItem[]>([makeDefaultItem()]);
   const [hasTimeData, setHasTimeData] = useState(false);
+  const [withTimesheet, setWithTimesheet] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -313,6 +327,8 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
         unit: it.unit,
         unit_price: parseFloat(it.unitPrice),
       }));
+    } else {
+      params.with_timesheet = withTimesheet;
     }
     const res = await rpc<{ id?: number }>("invoicing.create", params);
     if (res.ok) {
@@ -363,23 +379,54 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
             )}
           </div>
 
+          {/* Timesheet opt-out (time-tracking mode only) */}
+          {mode === "timetracking" && (
+            <div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={withTimesheet}
+                  onChange={(e) => setWithTimesheet(e.target.checked)}
+                  className="mt-0.5 accent-accent" />
+                <div className="flex-1">
+                  <div className="text-sm text-primary">Generate timesheet PDF</div>
+                  <div className="text-[10px] text-muted">
+                    You can also generate it later from the invoice view.
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+
           {/* Dates */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-2">
             <label className="block">
               <span className="text-[10px] font-semibold text-muted uppercase">Invoice Date</span>
               <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)}
                 className="mt-1 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
             </label>
-            <label className="block">
-              <span className="text-[10px] font-semibold text-muted uppercase">From</span>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-                className="mt-1 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
-            </label>
-            <label className="block">
-              <span className="text-[10px] font-semibold text-muted uppercase">To</span>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
-                className="mt-1 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
-            </label>
+            <div>
+              <span className="text-[10px] font-semibold text-muted uppercase">Billing Period</span>
+              <div className="mt-1 flex items-center gap-2">
+                <button type="button" onClick={() => shiftMonth(-1)}
+                  className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Previous month">
+                  <ChevronLeft size={14} />
+                </button>
+                <label className="block flex-1">
+                  <span className="text-[10px] font-semibold text-muted uppercase">From</span>
+                  <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                    className="mt-0.5 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
+                </label>
+                <span className="text-muted text-xs pt-3">–</span>
+                <label className="block flex-1">
+                  <span className="text-[10px] font-semibold text-muted uppercase">To</span>
+                  <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                    className="mt-0.5 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
+                </label>
+                <button type="button" onClick={() => shiftMonth(1)}
+                  className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Next month">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Line items editor */}
@@ -531,16 +578,20 @@ function InvoiceCard({ invoice, reminderCount }: { invoice: Entity; color: strin
   );
 }
 
-function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail, onReminderCreated }: {
+function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail, onReminderCreated, onRefresh }: {
   invoice: Entity; allInvoices: Entity[];
   onToggleSent: () => void; onTogglePaid: () => void; onToggleCancelled: () => void; onSendMail: () => void;
   onReminderCreated: (newId?: number) => void;
+  onRefresh: () => void;
 }) {
   const status = invoiceStatus(invoice);
   const items = entityList(invoice, "items");
   const isCancelled = bool(invoice, "cancelled");
   const pdfPath = str(invoice, "pdf_path");
+  const tsPath = str(invoice, "timesheet_pdf_path");
+  const hasTimesheet = bool(invoice, "has_timesheet");
   const isRem = isReminder(invoice);
+  const showTimesheetTab = hasTimesheet && !isRem;
   const canCreateReminder = status === "Overdue" && !isCancelled;
 
   const chain = useMemo(() => {
@@ -553,15 +604,19 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
     return [root, ...reminders];
   }, [invoice, allInvoices]);
 
-  const [detailTab, setDetailTab] = useState<"details" | "preview">(pdfPath ? "preview" : "details");
+  const [detailTab, setDetailTab] = useState<"invoice" | "timesheet" | "details">(pdfPath ? "invoice" : "details");
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [tsPdfDataUrl, setTsPdfDataUrl] = useState<string | null>(null);
+  const [tsPdfLoading, setTsPdfLoading] = useState(false);
+  const [tsRendering, setTsRendering] = useState(false);
+  const [tsError, setTsError] = useState("");
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
 
   useEffect(() => {
     setPdfDataUrl(null);
     if (pdfPath) {
-      setDetailTab("preview");
+      setDetailTab("invoice");
       setPdfLoading(true);
       readFileAsDataURL(pdfPath, "application/pdf").then((url) => {
         setPdfDataUrl(url);
@@ -571,6 +626,30 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
       setDetailTab("details");
     }
   }, [pdfPath, invoice.id]);
+
+  useEffect(() => {
+    setTsPdfDataUrl(null);
+    setTsError("");
+    if (tsPath) {
+      setTsPdfLoading(true);
+      readFileAsDataURL(tsPath, "application/pdf").then((url) => {
+        setTsPdfDataUrl(url);
+        setTsPdfLoading(false);
+      });
+    }
+  }, [tsPath, invoice.id]);
+
+  async function renderTimesheet() {
+    setTsRendering(true);
+    setTsError("");
+    const res = await rpc("invoicing.render_timesheet_for_invoice", { id: invoice.id });
+    setTsRendering(false);
+    if (res.ok) {
+      onRefresh();
+    } else {
+      setTsError(res.error || "Failed to render timesheet");
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -600,15 +679,48 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
           <AmountCard label="Total" value={str(invoice, "total_formatted")} prominent />
         </div>
 
+        {/* Actions group */}
+        <Section title="Actions">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {!isCancelled && pdfPath && (
+              <button onClick={onSendMail}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
+                <Mail size={13} /> {isRem ? "Send Reminder" : "Send Invoice"}
+              </button>
+            )}
+            {canCreateReminder && (
+              <button onClick={() => setReminderDialogOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500 text-white hover:bg-amber-500/90 transition-colors">
+                <AlertTriangle size={13} /> Create Reminder
+              </button>
+            )}
+            <div className="flex-1" />
+            {!isCancelled && (
+              <>
+                <ActionBtn label={bool(invoice, "sent") ? "Sent" : "Mark Sent"} icon={<Send size={13} />}
+                  color="#3b82f6" active={bool(invoice, "sent")} onClick={onToggleSent} />
+                <ActionBtn label={bool(invoice, "paid") ? "Paid" : "Mark Paid"} icon={<CheckCircle size={13} />}
+                  color="#22c55e" active={bool(invoice, "paid")} onClick={onTogglePaid} />
+              </>
+            )}
+            <ActionBtn label={isCancelled ? "Restore" : "Cancel"} icon={<XCircle size={13} />}
+              color="#f97316" active={isCancelled} onClick={onToggleCancelled} />
+          </div>
+        </Section>
+
         <div className="flex gap-1 border-b border-border-subtle">
-          <TabBtn label="Preview" icon={<Eye size={14} />} active={detailTab === "preview"}
-            disabled={!pdfPath} onClick={() => setDetailTab("preview")} />
+          <TabBtn label="Invoice" icon={<Eye size={14} />} active={detailTab === "invoice"}
+            disabled={!pdfPath} onClick={() => setDetailTab("invoice")} />
+          {showTimesheetTab && (
+            <TabBtn label="Timesheet" icon={<Clock size={14} />} active={detailTab === "timesheet"}
+              onClick={() => setDetailTab("timesheet")} />
+          )}
           <TabBtn label="Details" icon={<FileText size={14} />} active={detailTab === "details"}
             onClick={() => setDetailTab("details")} />
         </div>
       </div>
 
-      {detailTab === "preview" ? (
+      {detailTab === "invoice" ? (
         <div className="flex-1 min-h-0 px-5 pb-5">
           {pdfLoading ? (
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
@@ -618,6 +730,30 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
           ) : (
             <div className="flex items-center justify-center h-full text-tertiary">
               PDF not available
+            </div>
+          )}
+        </div>
+      ) : detailTab === "timesheet" ? (
+        <div className="flex-1 min-h-0 px-5 pb-5">
+          {tsRendering ? (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-secondary">
+              <Clock size={24} className="animate-pulse" />
+              <span className="text-sm">Generating timesheet…</span>
+            </div>
+          ) : tsPdfLoading ? (
+            <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
+          ) : tsPdfDataUrl ? (
+            <embed src={tsPdfDataUrl} type="application/pdf"
+              className="w-full h-full rounded-lg border border-border-subtle" />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-tertiary">
+              <FileText size={36} strokeWidth={1.2} />
+              <div className="text-sm text-center">No timesheet PDF generated yet.</div>
+              <button onClick={renderTimesheet}
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
+                <FileText size={14} /> Generate Timesheet PDF
+              </button>
+              {tsError && <p className="text-xs text-red-400">{tsError}</p>}
             </div>
           )}
         </div>
@@ -680,36 +816,6 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
             </Section>
           )}
 
-          <Section title="Actions">
-            {!isCancelled && pdfPath && (
-              <div className="mb-2">
-                <button onClick={onSendMail}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors bg-accent text-white hover:bg-accent/90">
-                  <Mail size={16} /> {isRem ? "Send Reminder" : "Send Invoice"}
-                </button>
-              </div>
-            )}
-            {canCreateReminder && (
-              <div className="mb-2">
-                <button onClick={() => setReminderDialogOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors bg-amber-500 text-white hover:bg-amber-500/90">
-                  <AlertTriangle size={16} /> Create Reminder
-                </button>
-              </div>
-            )}
-            <div className="flex gap-2">
-              {!isCancelled && (
-                <>
-                  <ActionBtn label={bool(invoice, "sent") ? "Sent" : "Mark Sent"} icon={<Send size={16} />}
-                    color="#3b82f6" active={bool(invoice, "sent")} onClick={onToggleSent} />
-                  <ActionBtn label={bool(invoice, "paid") ? "Paid" : "Mark Paid"} icon={<CheckCircle size={16} />}
-                    color="#22c55e" active={bool(invoice, "paid")} onClick={onTogglePaid} />
-                </>
-              )}
-              <ActionBtn label={isCancelled ? "Restore" : "Cancel"} icon={<XCircle size={16} />}
-                color="#f97316" active={isCancelled} onClick={onToggleCancelled} />
-            </div>
-          </Section>
         </div>
       )}
 
@@ -740,11 +846,11 @@ function TabBtn({ label, icon, active, disabled, onClick }: {
 
 function AmountCard({ label, value, color, prominent }: { label: string; value: string; color?: string; prominent?: boolean }) {
   return (
-    <div className="text-center py-2.5 rounded-lg bg-bg-card border border-border-subtle"
+    <div className="flex items-baseline justify-between gap-2 px-3 py-1.5 rounded-md bg-bg-card border border-border-subtle"
       style={prominent ? { borderColor: `${color || "#007AFF"}44` } : undefined}>
-      <div className="text-xs font-semibold uppercase tracking-wider text-tertiary mb-1">{label}</div>
-      <div className={`tabular-nums ${prominent ? "text-base font-bold" : "text-sm font-medium"}`}
-        style={prominent ? { color: color || "#007AFF" } : undefined}>{value || "—"}</div>
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-tertiary">{label}</span>
+      <span className={`tabular-nums ${prominent ? "text-sm font-bold" : "text-xs font-medium"}`}
+        style={prominent ? { color: color || "#007AFF" } : undefined}>{value || "—"}</span>
     </div>
   );
 }
@@ -770,7 +876,7 @@ function ActionBtn({ label, icon, color, active, onClick }: {
 }) {
   return (
     <button onClick={onClick}
-      className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-sm font-medium transition-colors"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
       style={{ background: active ? color : `${color}18`, color: active ? "#fff" : color }}>
       {icon}{label}
     </button>

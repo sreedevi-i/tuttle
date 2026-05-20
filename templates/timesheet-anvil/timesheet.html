@@ -3,14 +3,13 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Timehseet {{ timesheet.title }}</title>
+  <title>Timesheet {{ timesheet.title }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   {% if style == "anvil" %}
   <link rel="stylesheet" href="./web/modern-normalize.css">
   <link rel="stylesheet" href="./web/web-base.css">
   <link rel="stylesheet" href="./timesheet.css">
-  <!-- <script type="text/javascript" src="./web/scripts.js"></script> -->
   {% else %}
   <!-- pure HTML -->
   {% endif %}
@@ -26,93 +25,94 @@
 
   {% if user.logo %}
   <div class="logo-container">
-    <img
-      style="height: 18px"
-      src="https://app.useanvil.com/img/email-logo-black.png"
-    >
+    <img style="height: 18px" src="https://app.useanvil.com/img/email-logo-black.png">
   </div>
   {% endif %}
 
+  <!-- ────── Document header ────── -->
 
-  <table class="invoice-info-container">
+  <table class="ts-header">
     <tr>
-      <td rowspan="2" class="client-name">
-        {{ timesheet.project.client.name }}<br>
-        {% if timesheet.project.client.invoicing_contact %}
-        c/o {{ timesheet.project.client.invoicing_contact.name }}<br>
-        {% endif %}
-        {% if timesheet.project.client.invoice_recipient_address %}
-        {{ timesheet.project.client.invoice_recipient_address.html }}
-        {% endif %}
+      <td class="ts-header-client">
+        <div class="ts-header-label">Client</div>
+        <div class="ts-header-value">
+          {{ timesheet.project.client.name }}
+          {% if timesheet.project.client.invoicing_contact %}
+          <div class="ts-header-sub">c/o {{ timesheet.project.client.invoicing_contact.name }}</div>
+          {% endif %}
+          {% if timesheet.project.client.invoice_recipient_address %}
+          <div class="ts-header-sub">{{ timesheet.project.client.invoice_recipient_address.html }}</div>
+          {% endif %}
+        </div>
       </td>
-      <td>
-        {{ user.name }}<br>
-        {{ user.address.html }}
-      </td>
-    </tr>
-    <tr>
-      <td>
-
-      </td>
-    </tr>
-    <tr>
-      <td>
-
-      </td>
-      <td>
-
-      </td>
-    </tr>
-    <tr>
-      <td>
-        Timesheet: <strong>{{ timesheet.title }}</strong>
-      </td>
-      <td>
+      <td class="ts-header-user">
+        <div class="ts-header-label">Prepared by</div>
+        <div class="ts-header-value">
+          {{ user.name }}
+          <div class="ts-header-sub">{{ user.address.html }}</div>
+        </div>
       </td>
     </tr>
   </table>
 
+  <table class="ts-meta">
+    <tr>
+      <td>
+        <div class="ts-header-label">Project</div>
+        <div class="ts-meta-value">{{ timesheet.project.title }}</div>
+      </td>
+      <td>
+        <div class="ts-header-label">Period</div>
+        <div class="ts-meta-value">{{ timesheet.period_start | date }} — {{ timesheet.period_end | date }}</div>
+      </td>
+      <td>
+        <div class="ts-header-label">Issued</div>
+        <div class="ts-meta-value">{{ timesheet.date | date }}</div>
+      </td>
+    </tr>
+  </table>
 
-  <table class="line-items-container">
+  <!-- ────── Entries ────── -->
+
+  <table class="ts-entries has-bottom-border">
     <thead>
       <tr>
-        <th>Begin</th>
-        <th>End</th>
-        <th>Duration</th>
-        <th>Description</th>
-
+        <th class="col-date">Date</th>
+        <th class="col-time">Time</th>
+        <th class="col-task">Task</th>
+        <th class="col-hours">Hours</th>
       </tr>
     </thead>
     <tbody>
-      {% for item in timesheet.items %}
+      {% for item in timesheet.items | sort(attribute="begin") %}
       <tr>
-        <td>{{ item.begin | date }}</td>
-        <td>{{ item.end | date }}</td>
-        <td>{{ item.duration | hours_minutes }}</td>
-        <td>{{ item.description }}</td>
+        <td class="col-date">{{ item.begin | date }}</td>
+        <td class="col-time">{{ item | time_range }}</td>
+        <td class="col-task">{{ item | clean_title }}</td>
+        <td class="col-hours">{{ item.duration | hours_minutes }}</td>
       </tr>
       {% endfor %}
     </tbody>
-  </table>
-
-  <table class="line-items-container has-bottom-border">
-    <tbody>
+    <tfoot>
       <tr>
-        <th><b>Total</b></th>
-        <td>{{ timesheet.total | as_hours }} hours</td>
+        <th colspan="3" class="ts-total-label">Total</th>
+        <th class="col-hours">{{ timesheet.total | hours_minutes }}</th>
       </tr>
-    </tbody>
+    </tfoot>
   </table>
 
-
+  {% if timesheet.comment %}
+  <div class="ts-comment">
+    <div class="ts-header-label">Notes</div>
+    <p>{{ timesheet.comment }}</p>
+  </div>
+  {% endif %}
 
   <div class="footer">
-    <div class="footer-info">
-    </div>
+    <div class="footer-info"></div>
   </div>
 
 </div>
-
 
 </body>
 </html>
