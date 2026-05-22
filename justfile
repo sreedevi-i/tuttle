@@ -111,3 +111,30 @@ demo-reset:
 reset:
     rm -rf ~/.tuttle
     @echo "✓ ~/.tuttle removed – next launch will recreate everything from scratch"
+
+# ── Release ─────────────────────────────────────────────────────────────────
+
+# Bump version, commit, tag, push. Uses bump-my-version (config in pyproject.toml).
+#
+#   just release patch                  3.1.0 → 3.1.1
+#   just release minor                  3.1.0 → 3.2.0
+#   just release major                  3.1.0 → 4.0.0
+#   just release minor --pre a          3.1.0 → 3.2.0a1   (alpha)
+#   just release patch --pre rc         3.1.0 → 3.1.1rc1  (release candidate)
+#
+# Add --dry-run to preview without changing anything.
+release part *flags="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pre=""
+    bump_flags=()
+    for arg in {{flags}}; do
+        if [[ "$arg" == "--pre" ]]; then pre="next"; continue; fi
+        if [[ "$pre" == "next" ]]; then pre="$arg"; continue; fi
+        bump_flags+=("$arg")
+    done
+    if [[ -n "$pre" && "$pre" != "next" ]]; then
+        base=$({{python}} -m bumpversion show new_version --increment {{part}})
+        bump_flags+=(--new-version "${base}${pre}1")
+    fi
+    {{python}} -m bumpversion bump {{part}} "${bump_flags[@]}"
