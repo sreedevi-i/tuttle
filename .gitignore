@@ -131,6 +131,9 @@ dmypy.json
 # macOS
 .DS_Store
 
+# peekaboo UI test screenshots
+logs/peekaboo/
+
 # data
 *.db
 

@@ -237,9 +237,16 @@ class SQLModelDataSourceMixin:
         """Stores the given entity in the database"""
         # logger.debug(f"storing {entity}")
         with self.create_session() as session:
-            session.add(entity)
+            # Use merge instead of add so that any relationship attributes
+            # pointing to detached instances (from prior sessions) are
+            # re-attached in the current session, avoiding DetachedInstanceError.
+            merged = session.merge(entity)
             session.commit()
-            session.refresh(entity)
+            session.refresh(merged)
+            # Copy DB-generated values (e.g. auto-incremented id) back to the
+            # original entity so callers see the updated state.
+            if getattr(entity, "id", None) is None and getattr(merged, "id", None):
+                entity.id = merged.id
 
     def delete_by_id(self, entity_type: Type[sqlmodel.SQLModel], entity_id: int):
         """Deletes the entity of the given type with the given id from the database.
