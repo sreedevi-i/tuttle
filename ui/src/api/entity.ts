@@ -112,6 +112,8 @@ export function dateRange(e: Entity): string {
 }
 
 export function projectStatus(e: Entity): string {
+  const stage = str(e, "stage");
+  if (stage) return stage;
   const completed = bool(e, "is_completed");
   if (completed) return "Completed";
   const end = str(e, "end_date");

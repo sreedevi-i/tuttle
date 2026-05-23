@@ -96,7 +96,7 @@ export function TimeTrackingView() {
     setLoading(true);
     const [calRes, sumRes] = await Promise.all([
       rpc<CalendarData>("timetracking.get_calendar_data", { year, month, project_tag: filterTag }),
-      rpc<{ total_events: number; total_hours: number; projects: ProjectSummary[] }>("timetracking.get_summary"),
+      rpc<{ total_events: number; total_hours: number; projects: ProjectSummary[] }>("timetracking.get_summary", filterTag ? { project_tag: filterTag } : undefined),
     ]);
     if (calRes.ok && calRes.data) setCalData(calRes.data);
     if (sumRes.ok && sumRes.data) setSummaryData(sumRes.data);

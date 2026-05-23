@@ -40,6 +40,7 @@ export function InvoicingView() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [newlyCreatedId, setNewlyCreatedId] = useState<number | null>(null);
+  const [mailError, setMailError] = useState<string | null>(null);
 
   const defaultColumn = useCallback(
     (e: { id: number; [k: string]: unknown }) => invoiceStatus(e as Entity), [],
@@ -47,6 +48,10 @@ export function InvoicingView() {
   const stageStore = useStageStore("invoice", INVOICE_COLUMNS, defaultColumn);
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { setMailError(null); }, [selected?.id]);
+  useEffect(() => {
+    if (selected && !filtered.some((inv) => inv.id === selected.id)) setSelected(null);
+  }, [statusFilter, search, invoices]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load(selectId?: number) {
     setLoading(true);
@@ -92,8 +97,9 @@ export function InvoicingView() {
   async function togglePaid(id: number) { await rpc("invoicing.toggle_paid", { id }); load(); }
   async function toggleCancelled(id: number) { await rpc("invoicing.toggle_cancelled", { id }); load(); }
   async function sendMail(id: number) {
+    setMailError(null);
     const res = await rpc<void>("invoicing.send_mail", { id });
-    if (!res.ok) alert(res.error || "Failed to send invoice");
+    if (!res.ok) setMailError(res.error || "Failed to send invoice");
   }
 
   async function moveToColumn(id: number, colId: string) {
@@ -185,6 +191,7 @@ export function InvoicingView() {
                 onToggleSent={() => toggleSent(selected.id)}
                 onTogglePaid={() => togglePaid(selected.id)} onToggleCancelled={() => toggleCancelled(selected.id)}
                 onSendMail={() => sendMail(selected.id)}
+                mailError={mailError} onClearMailError={() => setMailError(null)}
                 onReminderCreated={(newId) => load(newId)}
                 onRefresh={() => load(selected.id)} />
             ) : (
@@ -578,9 +585,10 @@ function InvoiceCard({ invoice, reminderCount }: { invoice: Entity; color: strin
   );
 }
 
-function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail, onReminderCreated, onRefresh }: {
+function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail, mailError, onClearMailError, onReminderCreated, onRefresh }: {
   invoice: Entity; allInvoices: Entity[];
   onToggleSent: () => void; onTogglePaid: () => void; onToggleCancelled: () => void; onSendMail: () => void;
+  mailError: string | null; onClearMailError: () => void;
   onReminderCreated: (newId?: number) => void;
   onRefresh: () => void;
 }) {
@@ -681,6 +689,12 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
 
         {/* Actions group */}
         <Section title="Actions">
+          {mailError && (
+            <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-md text-xs text-red-400 bg-red-500/10 border border-red-500/30">
+              <span className="flex-1">{mailError}</span>
+              <button onClick={onClearMailError} className="text-red-400 hover:text-red-300">✕</button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-1.5">
             {!isCancelled && pdfPath && (
               <button onClick={onSendMail}

@@ -50,6 +50,11 @@ export function ClientsView() {
 
   async function handleSave(data: ClientFormData) {
     setSaveError(null);
+    const nameTrimmed = data.name.trim().toLowerCase();
+    const duplicate = clients.find(
+      (c) => str(c, "name").trim().toLowerCase() === nameTrimmed && c.id !== selected?.id,
+    );
+    if (duplicate) { setSaveError("A client with this name already exists."); return; }
     const client: Record<string, unknown> = {
       name: data.name,
       invoicing_contact: data.contactId

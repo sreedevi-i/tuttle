@@ -327,6 +327,7 @@ class Client(RpcMixin, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(
         description="Name of the client.",
+        sa_column_kwargs={"unique": True},
     )
     # Client n:1 Address (optional, for direct invoicing)
     address_id: Optional[int] = Field(default=None, foreign_key="address.id")
@@ -375,11 +376,15 @@ class Contract(RpcMixin, SQLModel, table=True):
     }
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    title: str = Field(description="Short description of the contract.")
+    title: str = Field(
+        description="Short description of the contract.",
+        sa_column_kwargs={"unique": True},
+    )
     client: Client = Relationship(
         back_populates="contracts", sa_relationship_kwargs={"lazy": "subquery"}
     )
-    signature_date: datetime.date = Field(
+    signature_date: Optional[datetime.date] = Field(
+        default=None,
         description="Date on which the contract was signed",
     )
     start_date: datetime.date = Field(
@@ -503,6 +508,11 @@ class Project(RpcMixin, SQLModel, table=True):
     end_date: datetime.date = Field(description="Project end date")
     is_completed: bool = Field(
         default=False, description="marks if the project is completed"
+    )
+    stage: Optional[str] = Field(
+        default=None,
+        description="Explicit pipeline stage override: Lead, Offer, Upcoming, Active, or Completed. "
+        "When set, takes precedence over the date-derived status.",
     )
     # Project m:n Contract
     contract_id: Optional[int] = Field(

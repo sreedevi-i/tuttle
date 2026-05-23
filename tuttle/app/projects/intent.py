@@ -61,4 +61,34 @@ class ProjectsIntent(CrudIntent):
             return "The selected contract is invalid."
         return "Failed to save the project."
 
-    toggle_project_completed_status = CrudIntent.toggle_completed
+    def toggle_completed(self, id: int) -> IntentResult:
+        """Toggle is_completed and clear the stage override so the board re-derives position."""
+        result = self.get_by_id(id)
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Project not found"
+            )
+        project: Project = result.data
+        project.is_completed = not project.is_completed
+        project.stage = "Completed" if project.is_completed else None
+        return self._validated_save(project)
+
+    def set_stage(self, id: int, stage: Optional[str]) -> IntentResult:
+        """Set the explicit pipeline stage for a project.
+
+        Passing stage=None (or an empty string) clears the override and lets
+        the date-derived status take effect again.  Passing stage='Completed'
+        also sets is_completed=True; any other value clears is_completed.
+        """
+        result = self.get_by_id(id)
+        if not result.was_intent_successful or not result.data:
+            return IntentResult(
+                was_intent_successful=False, error_msg="Project not found"
+            )
+        project: Project = result.data
+        project.stage = stage or None
+        if stage == "Completed":
+            project.is_completed = True
+        elif stage in ("Lead", "Offer", "Upcoming", "Active"):
+            project.is_completed = False
+        return self._validated_save(project)

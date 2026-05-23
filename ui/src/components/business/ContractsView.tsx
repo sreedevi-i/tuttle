@@ -67,6 +67,11 @@ export function ContractsView() {
 
   async function handleSave(data: ContractFormData) {
     setSaveError(null);
+    const titleTrimmed = data.title.trim().toLowerCase();
+    const duplicate = contracts.find(
+      (c) => str(c, "title").trim().toLowerCase() === titleTrimmed && c.id !== selected?.id,
+    );
+    if (duplicate) { setSaveError("A contract with this title already exists."); return; }
     const contract: Record<string, unknown> = {
       title: data.title,
       client_id: data.clientId,
@@ -553,7 +558,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       <Section title="Dates">
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs text-tertiary mb-1">Signature Date</label>
+            <label className="block text-xs text-tertiary mb-1">Signature Date <span className="text-muted">(optional)</span></label>
             <input type="date" value={form.signatureDate} onChange={(e) => update("signatureDate", e.target.value)}
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>

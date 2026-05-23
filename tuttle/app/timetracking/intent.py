@@ -223,7 +223,7 @@ class TimeTrackingIntent(Intent):
             data={"restored": restored, "source": source_type if restored else "cache"},
         )
 
-    def get_summary(self) -> IntentResult:
+    def get_summary(self, project_tag: Optional[str] = None) -> IntentResult:
         df = self._timetracking_data_frame_source.get_data_frame()
         if df is None or df.empty:
             return IntentResult(
@@ -240,7 +240,7 @@ class TimeTrackingIntent(Intent):
             tag_to_title = {p.tag: p.title for p in proj_result.data}
         return IntentResult(
             was_intent_successful=True,
-            data=build_summary(df, tag_to_title),
+            data=build_summary(df, tag_to_title, project_tag),
         )
 
     # -- Legacy internal methods -----------------------------------------------

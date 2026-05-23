@@ -34,4 +34,25 @@ class ClientsIntent(CrudIntent):
                 was_intent_successful=False,
                 error_msg="Saving client failed. Please specify the address.",
             )
-        return self.save(client)
+        is_updating = client.id is not None
+        result = self.save(client)
+        if not result.was_intent_successful:
+            if is_updating:
+                old = self.get_by_id(client.id)
+                result.data = old.data if old.was_intent_successful else None
+            result.error_msg = self._describe_save_error(result.exception)
+            result.log_message_if_any()
+        return result
+
+    @staticmethod
+    def _describe_save_error(exc) -> str:
+        if exc is None:
+            return "Failed to save the client."
+        detail = str(getattr(exc, "orig", exc))
+        if "UNIQUE" in detail or "duplicate" in detail.lower():
+            if "name" in detail:
+                return "A client with this name already exists."
+            return "A client with these details already exists."
+        if "NOT NULL" in detail:
+            return "A required field is missing."
+        return "Failed to save the client."

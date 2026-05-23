@@ -30,10 +30,11 @@ const PROJECT_COLUMNS: BoardColumn[] = [
   { id: "Completed", label: "Completed", color: "#8e8e93" },
 ];
 
-const STATUS_FILTERS = ["All", "Active", "Upcoming", "Completed"] as const;
+const STATUS_FILTERS = ["All", "Lead", "Offer", "Upcoming", "Active", "Completed"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 const FILTER_COLORS: Record<string, string> = {
-  All: "#007AFF", Active: "#34d399", Upcoming: "#60a5fa", Completed: "#a0a0a0",
+  All: "#007AFF", Lead: "#a855f7", Offer: "#f97316",
+  Upcoming: "#60a5fa", Active: "#34d399", Completed: "#a0a0a0",
 };
 
 export function ProjectsView() {
@@ -119,6 +120,7 @@ export function ProjectsView() {
   async function handleToggle(id: number) {
     await rpc("projects.toggle_completed", { id });
     await load();
+    stageStore.removeEntity(id);
   }
 
   async function handleFileImport(file: File) {
@@ -180,11 +182,9 @@ export function ProjectsView() {
 
   function moveToColumn(id: number, colId: string) {
     stageStore.setColumn(id, colId);
-    if (colId === "Completed") rpc("projects.toggle_completed", { id }).then(load);
-    else {
-      const proj = projects.find((p) => p.id === id);
-      if (proj && projectStatus(proj) === "Completed") rpc("projects.toggle_completed", { id }).then(load);
-    }
+    rpc("projects.set_stage", { id, stage: colId }).then(() => {
+      load().then(() => stageStore.removeEntity(id));
+    });
   }
 
   const selectedContract = selected ? entity(selected, "contract") : null;
@@ -231,7 +231,7 @@ export function ProjectsView() {
           <div className="w-72 shrink-0 flex flex-col border-r border-border-subtle">
             <div className="flex-1 overflow-y-auto">
               {filtered.length === 0
-                ? <div className="p-4 text-sm text-center text-tertiary">No projects.</div>
+                ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No projects."}</div>
                 : filtered.map((p) => {
                   const isSelected = selected?.id === p.id && mode === "view";
                   const isHighlighted = !isSelected && navFilter.contractId != null && num(p, "contract_id") === navFilter.contractId;

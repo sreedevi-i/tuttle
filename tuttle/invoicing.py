@@ -24,7 +24,9 @@ def generate_invoice(
     invoice = Invoice(
         date=date,
         contract=contract,
+        contract_id=contract.id,
         project=project,
+        project_id=project.id,
         number=number,
     )
     unit_td = contract.unit_duration

@@ -117,13 +117,22 @@ def build_calendar_data(
     }
 
 
-def build_summary(df: DataFrame, tag_to_title: dict) -> dict:
+def build_summary(
+    df: DataFrame, tag_to_title: dict, project_tag: Optional[str] = None
+) -> dict:
     """Build a time-tracking summary: totals and per-project breakdown.
 
     *tag_to_title* maps project tags to human-readable titles.
+    When *project_tag* is provided, totals and project list are filtered to
+    that tag only.
     """
     if df is None or df.empty:
         return {"total_events": 0, "total_hours": 0, "projects": []}
+
+    if project_tag:
+        df = df[df["tag"] == project_tag]
+        if df.empty:
+            return {"total_events": 0, "total_hours": 0, "projects": []}
 
     total_hours = df["duration"].sum().total_seconds() / 3600
     by_tag = (

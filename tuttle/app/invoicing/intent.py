@@ -258,7 +258,9 @@ class InvoicingIntent(Intent):
                     date=invoice_date,
                     number=invoice_number,
                     contract=contract,
+                    contract_id=contract.id,
                     project=project,
+                    project_id=project.id,
                     items=items,
                 )
             elif manual_quantity is not None:
@@ -276,7 +278,9 @@ class InvoicingIntent(Intent):
                     date=invoice_date,
                     number=invoice_number,
                     contract=contract,
+                    contract_id=contract.id,
                     project=project,
+                    project_id=project.id,
                     items=[item],
                 )
             else:
