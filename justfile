@@ -90,6 +90,12 @@ calendar-setup:
     open --wait-apps ~/.tuttle/TuttleCalendar.app --args request-access
     @echo "Check System Settings → Privacy → Calendars for 'Tuttle Calendar'"
 
+# ── Test ─────────────────────────────────────────────────────────────────────
+
+# Run the test suite
+test *args="":
+    {{python}} -m pytest {{args}}
+
 # ── Utilities ───────────────────────────────────────────────────────────────
 
 # Install/sync Python dependencies
