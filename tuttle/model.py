@@ -390,6 +390,33 @@ class Client(RpcMixin, SQLModel, table=True):
 CONTRACT_DEFAULT_VAT_RATE = 0.19
 
 
+def normalize_vat_rate(value) -> Decimal:
+    """Coerce a VAT rate into the canonical [0, 1] fraction form.
+
+    Accepts a number, str, or Decimal. Values in (1, 100] are treated as
+    percent and divided by 100 (so ``19`` → ``0.19``). Values > 100 or < 0
+    raise ``ValueError`` — they cannot be silently corrected.
+
+    This is the single source of truth for VAT-rate sanity; call it on
+    every ingress path (intent save, LLM mapping, manual scripts).
+    """
+    if value is None:
+        raise ValueError("VAT rate cannot be None")
+    try:
+        d = Decimal(str(value))
+    except Exception as e:
+        raise ValueError(f"VAT rate must be numeric, got {value!r}") from e
+    if d < 0:
+        raise ValueError(f"VAT rate must be non-negative, got {d}")
+    if d > Decimal("100"):
+        raise ValueError(
+            f"VAT rate {d} is out of range (expected fraction 0–1 or percent 0–100)"
+        )
+    if d > Decimal("1"):
+        d = d / Decimal("100")
+    return d
+
+
 class Contract(RpcMixin, SQLModel, table=True):
     """A contract defines the business conditions of a project"""
 
@@ -509,6 +536,12 @@ class Contract(RpcMixin, SQLModel, table=True):
         else:
             # default
             return default
+
+    # NOTE: pydantic-v1-style @validator decorators do not run on
+    # SQLModel(table=True) classes. VAT_rate normalisation lives in
+    # ``ContractsIntent._validated_save`` (canonical write path) and
+    # ``normalize_vat_rate`` is used on every ingress (LLM mapping,
+    # manual scripts).
 
 
 class Project(RpcMixin, SQLModel, table=True):

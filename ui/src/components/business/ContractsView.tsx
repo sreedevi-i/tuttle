@@ -329,7 +329,14 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
           <TermItem label="Rate" value={`${rate} ${currency}`} sub={`per ${unit}`} />
           <TermItem label="Volume" value={str(contract, "volume") || "—"} sub={str(contract, "volume") ? `${unit}s` : ""} />
           <TermItem label="Billing" value={str(contract, "billing_cycle") || "—"} />
-          <TermItem label="VAT" value={`${(num(contract, "VAT_rate") * 100).toFixed(0)}%`} />
+          <TermItem
+            label="VAT"
+            value={(() => {
+              const v = num(contract, "VAT_rate");
+              const frac = v > 1 ? v / 100 : v;
+              return `${(frac * 100).toFixed(0)}%`;
+            })()}
+          />
           <TermItem label="Payment" value={str(contract, "term_of_payment") ? `${str(contract, "term_of_payment")} days` : "—"} />
           <TermItem label="Workday" value={`${str(contract, "units_per_workday") || "8"} ${unit}s`} />
         </div>
@@ -435,7 +442,11 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       unit: str(contract, "unit") || "hour",
       billingCycle: str(contract, "billing_cycle") || "monthly",
       volume: num(contract, "volume") || null,
-      vatRate: num(contract, "VAT_rate") || 0.19,
+      vatRate: (() => {
+        const v = num(contract, "VAT_rate");
+        if (!v) return 0.19;
+        return v > 1 ? v / 100 : v;
+      })(),
       signatureDate: str(contract, "signature_date"),
       startDate: str(contract, "start_date"),
       endDate: str(contract, "end_date"),
@@ -534,9 +545,19 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
             </select>
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">VAT Rate</label>
-            <input type="number" step="0.01" value={form.vatRate} onChange={(e) => update("vatRate", parseFloat(e.target.value) || 0.19)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
+            <label className="block text-xs text-tertiary mb-1">VAT Rate (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={Math.round(form.vatRate * 10000) / 100}
+              onChange={(e) => {
+                const pct = parseFloat(e.target.value);
+                update("vatRate", Number.isFinite(pct) ? pct / 100 : 0.19);
+              }}
+              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors"
+            />
           </div>
           <div>
             <label className="block text-xs text-tertiary mb-1">Billing Cycle</label>

@@ -131,7 +131,7 @@ def _extract_text(file_bytes: bytes, file_name: str) -> str:
 
 from pydantic import create_model as _create_model
 
-from tuttle.model import Contact, Address, Client, Contract, Project
+from tuttle.model import Contact, Address, Client, Contract, Project, normalize_vat_rate
 
 
 def _flat_schema(model_cls: type, *, include: Optional[List[str]] = None) -> type:
@@ -425,6 +425,13 @@ def _map_contracts(result: ContractExtractionResult) -> List[Dict[str, Any]]:
         billing_cycle = getattr(c, "billing_cycle", None)
         rate = getattr(c, "rate", None)
         vat = getattr(c, "VAT_rate", None)
+        vat_normalized: Optional[float] = None
+        if vat is not None:
+            try:
+                vat_normalized = float(normalize_vat_rate(vat))
+            except ValueError as e:
+                logger.warning(f"LLM extraction returned invalid VAT rate {vat!r}: {e}")
+                vat_normalized = None
         results.append(
             {
                 "title": getattr(c, "title", "") or "",
@@ -436,7 +443,7 @@ def _map_contracts(result: ContractExtractionResult) -> List[Dict[str, Any]]:
                 "signature_date": _serialise_date(getattr(c, "signature_date", None)),
                 "start_date": _serialise_date(getattr(c, "start_date", None)),
                 "end_date": _serialise_date(getattr(c, "end_date", None)),
-                "VAT_rate": float(vat) if vat is not None else None,
+                "VAT_rate": vat_normalized,
                 "term_of_payment": getattr(c, "term_of_payment", None),
                 "client_name_hint": item.client_name_hint or "",
             }

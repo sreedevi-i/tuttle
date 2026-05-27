@@ -35,6 +35,12 @@ def generate_invoice(
     # multiplies two Decimals and the invoice totals are exact.
     unit_price = Decimal(str(contract.rate))
     vat_rate = Decimal(str(contract.VAT_rate))
+    # Defensive: VAT_rate is stored as a fraction (0.19 = 19%). Some legacy /
+    # LLM-imported contracts persisted percent values directly (e.g. 19 or 1900),
+    # which previously produced absurd VAT totals like 1900%. Normalize any
+    # value > 1 back into a fraction.
+    while vat_rate > Decimal("1"):
+        vat_rate = vat_rate / Decimal("100")
     for timesheet in timesheets:
         quantity = timesheet.total / unit_td
         item = InvoiceItem(

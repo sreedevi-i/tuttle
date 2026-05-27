@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  FileText, Send, CheckCircle, XCircle, Mail,
+  FileText, Send, CheckCircle, XCircle, Mail, Trash2,
   Building2, FolderKanban, Calendar, Banknote, Eye, Search,
   Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -101,6 +101,13 @@ export function InvoicingView() {
     const res = await rpc<void>("invoicing.send_mail", { id });
     if (!res.ok) setMailError(res.error || "Failed to send invoice");
   }
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  async function handleDelete(id: number) {
+    setDeleteError(null);
+    const res = await rpc("invoicing.delete", { id });
+    if (res.ok) { setSelected(null); load(); }
+    else setDeleteError(res.error || "Failed to delete invoice.");
+  }
 
   async function moveToColumn(id: number, colId: string) {
     const inv = invoices.find((i) => i.id === id);
@@ -191,6 +198,7 @@ export function InvoicingView() {
                 onToggleSent={() => toggleSent(selected.id)}
                 onTogglePaid={() => togglePaid(selected.id)} onToggleCancelled={() => toggleCancelled(selected.id)}
                 onSendMail={() => sendMail(selected.id)}
+                onDelete={() => handleDelete(selected.id)} deleteError={deleteError}
                 mailError={mailError} onClearMailError={() => setMailError(null)}
                 onReminderCreated={(newId) => load(newId)}
                 onRefresh={() => load(selected.id)} />
@@ -585,9 +593,10 @@ function InvoiceCard({ invoice, reminderCount }: { invoice: Entity; color: strin
   );
 }
 
-function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail, mailError, onClearMailError, onReminderCreated, onRefresh }: {
+function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onToggleCancelled, onSendMail, onDelete, deleteError, mailError, onClearMailError, onReminderCreated, onRefresh }: {
   invoice: Entity; allInvoices: Entity[];
   onToggleSent: () => void; onTogglePaid: () => void; onToggleCancelled: () => void; onSendMail: () => void;
+  onDelete: () => void; deleteError: string | null;
   mailError: string | null; onClearMailError: () => void;
   onReminderCreated: (newId?: number) => void;
   onRefresh: () => void;
@@ -620,6 +629,9 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
   const [tsRendering, setTsRendering] = useState(false);
   const [tsError, setTsError] = useState("");
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  useEffect(() => { setDeleteConfirm(false); }, [invoice.id]);
 
   useEffect(() => {
     setPdfDataUrl(null);
@@ -719,7 +731,29 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
             )}
             <ActionBtn label={isCancelled ? "Restore" : "Cancel"} icon={<XCircle size={13} />}
               color="#f97316" active={isCancelled} onClick={onToggleCancelled} />
+            {!deleteConfirm ? (
+              <button onClick={() => setDeleteConfirm(true)}
+                className="p-1.5 rounded-md text-secondary hover:text-red-400 border border-border-subtle transition-colors"
+                title="Delete invoice">
+                <Trash2 size={14} />
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="text-xs text-red-400">Delete permanently?</span>
+                <button onClick={() => { setDeleteConfirm(false); onDelete(); }}
+                  className="px-2 py-1 rounded-md text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors">
+                  Delete
+                </button>
+                <button onClick={() => setDeleteConfirm(false)}
+                  className="px-2 py-1 rounded-md text-xs font-medium text-secondary hover:text-primary border border-border-subtle transition-colors">
+                  Keep
+                </button>
+              </div>
+            )}
           </div>
+          {deleteError && (
+            <div className="mt-1.5 px-3 py-2 rounded-md text-xs text-red-400 bg-red-500/10 border border-red-500/30">{deleteError}</div>
+          )}
         </Section>
 
         <div className="flex gap-1 border-b border-border-subtle">
@@ -785,7 +819,7 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
                     <div className="flex items-center gap-3 mt-1.5 text-xs text-secondary">
                       <span>{num(item, "quantity").toFixed(1)} {str(item, "unit") || "hour"}</span>
                       <span>{str(item, "unit_price_formatted")}/{str(item, "unit") || "hour"}</span>
-                      <span>{(num(item, "VAT_rate") * 100).toFixed(0)}% VAT</span>
+                      <span>{(((v) => (v > 1 ? v / 100 : v))(num(item, "VAT_rate")) * 100).toFixed(0)}% VAT</span>
                     </div>
                   </div>
                 ))}

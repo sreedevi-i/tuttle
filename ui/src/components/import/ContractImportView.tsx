@@ -741,7 +741,18 @@ function ContractCard({ item, onUpdate, existing, clients }: {
         <AiField label="End Date" value={d.end_date} onChange={(v) => set("end_date", v)} type="date" />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <AiField label="VAT Rate" value={String(d.VAT_rate ?? "")} onChange={(v) => set("VAT_rate", v ? parseFloat(v) : null)} />
+        <AiField
+          label="VAT Rate (%)"
+          value={
+            d.VAT_rate == null
+              ? ""
+              : String(Math.round((d.VAT_rate > 1 ? d.VAT_rate : d.VAT_rate * 100) * 100) / 100)
+          }
+          onChange={(v) => {
+            const pct = v ? parseFloat(v) : null;
+            set("VAT_rate", pct == null || !Number.isFinite(pct) ? null : pct / 100);
+          }}
+        />
         <AiField label="Term of Payment (days)" value={String(d.term_of_payment ?? "")} onChange={(v) => set("term_of_payment", v ? parseInt(v) : null)} />
       </div>
       <RefDropdown
