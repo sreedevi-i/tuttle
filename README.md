@@ -30,8 +30,8 @@
 
 Tuttle is a desktop app that takes the paperwork off your plate as a freelancer:
 
-- **Track your time** — import it from your cloud calendar (iCloud), an ICS file, or a CSV export from your time-tracking tool.
-- **Generate invoices and timesheets** — automatically from your tracked time, or by entering hours and days manually, then export to PDF and send by email. Every invoice is also a valid EU electronic invoice by default (Factur-X / ZUGFeRD), so you stay compliant without any extra steps.
+- **Track your time** — import it from your calendar or from your time-tracking tool.
+- **Generate invoices and timesheets** — automatically from your tracked time, or by entering hours and days manually, then export to PDF and send by email.
 - **See your business at a glance** — a dashboard with revenue, outstanding invoices, project budgets, and key performance indicators.
 - **Keep your data private** — everything is processed and stored locally on your device, with no central data collection.
 
