@@ -1,9 +1,9 @@
 /**
  * OnboardingWizard — multi-step first-run setup.
  *
- * COUPLING: Steps 1–3 mirror the tabs in SettingsView.tsx (Profile,
- * Invoicing, AI/LLM). Any field or RPC change in SettingsView must be
- * reflected here, and vice-versa.
+ * COUPLING: Steps 1–4 mirror the tabs in SettingsView.tsx (Profile,
+ * Business, Invoicing, AI/LLM). Any field or RPC change in SettingsView
+ * must be reflected here, and vice-versa.
  *
  * @see {@link ../settings/SettingsView.tsx}
  */
@@ -90,7 +90,7 @@ const SCHEME_EXAMPLES: Record<string, string> = {
   plain: "01",
 };
 
-const STEP_LABELS = ["Welcome", "Profile", "Invoicing", "AI / LLM", "Finish"];
+const STEP_LABELS = ["Welcome", "Profile", "Business", "Invoicing", "AI / LLM", "Finish"];
 const TOTAL_STEPS = STEP_LABELS.length;
 
 // ---------------------------------------------------------------------------
@@ -148,9 +148,10 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
 
   function canAdvance(): boolean {
     if (step === 1) {
+      return !!(profile.name.trim() && profile.email.trim());
+    }
+    if (step === 2) {
       return !!(
-        profile.name.trim() &&
-        profile.email.trim() &&
         profile.street.trim() &&
         profile.city.trim() &&
         profile.country.trim() &&
@@ -178,7 +179,7 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
     setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   }
 
-  const isSkippable = step === 2 || step === 3;
+  const isSkippable = step === 3 || step === 4;
 
   const inputCls =
     "w-full rounded-md border border-border-subtle bg-bg-content px-3 py-1.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent";
@@ -274,13 +275,25 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
           <label className={labelCls}>Website</label>
           <input className={inputCls} value={profile.website} onChange={pset("website")} placeholder="https://…" />
         </div>
+      </div>
+    );
+  }
+
+  function renderBusiness() {
+    return (
+      <div className="space-y-4">
+        <p className="text-secondary text-sm leading-relaxed">
+          Your business address, tax info, and payment details for invoices.
+        </p>
+
+        <p className="text-xs text-muted"><span className="text-accent">*</span> Required</p>
 
         <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
           <legend className="text-xs font-medium text-secondary px-1">Address <span className="text-accent">*</span></legend>
           <div className="grid grid-cols-4 gap-3 mt-1">
             <div className="col-span-3">
               <label className={labelCls}>Street</label>
-              <input className={inputCls} value={profile.street} onChange={pset("street")} />
+              <input className={inputCls} value={profile.street} onChange={pset("street")} autoFocus />
             </div>
             <div>
               <label className={labelCls}>Nr.</label>
@@ -541,7 +554,7 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
 
   // -- Layout ---------------------------------------------------------------
 
-  const stepContent = [renderWelcome, renderProfile, renderInvoicing, renderLLM, renderFinish][step];
+  const stepContent = [renderWelcome, renderProfile, renderBusiness, renderInvoicing, renderLLM, renderFinish][step];
   const showNav = step > 0;
 
   const content = (

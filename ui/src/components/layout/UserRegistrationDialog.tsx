@@ -67,15 +67,15 @@ export function UserRegistrationDialog({ open, onClose, onSubmit, loading }: Pro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-bg-sidebar rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+      <div className="bg-bg-sidebar rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle shrink-0">
           <h2 className="text-base font-semibold">Create new user</h2>
           <button onClick={onClose} className="text-muted hover:text-primary transition-colors" disabled={loading}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4 flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className={labelCls}>Full name *</label>
@@ -157,7 +157,7 @@ export function UserRegistrationDialog({ open, onClose, onSubmit, loading }: Pro
           </fieldset>
         </form>
 
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-border-subtle">
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-border-subtle shrink-0">
           <button type="button" onClick={onClose} disabled={loading}
             className="px-4 py-1.5 text-sm rounded-md text-secondary hover:bg-bg-hover transition-colors">
             Cancel
