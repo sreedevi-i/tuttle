@@ -67,6 +67,16 @@ def country_to_iso(name: str) -> str:
     return "DE"
 
 
+def _rate_to_percent(vat_rate: Decimal) -> Decimal:
+    """Convert a VAT rate fraction (0–1) to a plain xs:decimal-safe percentage.
+
+    Decimal arithmetic can produce scientific notation (e.g. 0E-10) for zero,
+    which xs:decimal rejects. Always return Decimal("0") for zero rates.
+    """
+    pct = vat_rate * 100
+    return Decimal("0") if pct == 0 else pct
+
+
 def _vat_category_code(vat_rate: Decimal) -> str:
     """Derive ZUGFeRD tax category code from a VAT rate.
 
@@ -199,13 +209,10 @@ def build_zugferd_document(
             li.delivery.billed_quantity = (quantity, unit_code)
             li.settlement.trade_tax.type_code = "VAT"
             li.settlement.trade_tax.category_code = _vat_category_code(item.VAT_rate)
-            li.settlement.trade_tax.rate_applicable_percent = Decimal(
-                str(item.VAT_rate * 100)
-            )
+            vat_pct = _rate_to_percent(item.VAT_rate)
+            li.settlement.trade_tax.rate_applicable_percent = vat_pct
             li.settlement.monetary_summation.total_amount = line_total
             doc.trade.items.add(li)
-
-            vat_pct = Decimal(str(item.VAT_rate * 100))
             tax_aggregates[vat_pct] = (
                 tax_aggregates.get(vat_pct, Decimal("0")) + line_total
             )
@@ -223,7 +230,7 @@ def build_zugferd_document(
             doc.trade.settlement.trade_tax.add(trade_tax)
     else:
         for item in invoice.items:
-            vat_pct = Decimal(str(item.VAT_rate * 100))
+            vat_pct = _rate_to_percent(item.VAT_rate)
             line_total = Decimal(str(item.subtotal))
             tax_aggregates[vat_pct] = (
                 tax_aggregates.get(vat_pct, Decimal("0")) + line_total
