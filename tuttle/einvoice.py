@@ -136,14 +136,17 @@ def build_zugferd_document(
     doc.header.type_code = "380"  # commercial invoice
     doc.header.issue_date_time = invoice.date
 
+    is_minimum = profile == "MINIMUM"
+
     # -- Seller (User) --------------------------------------------------------
     doc.trade.agreement.seller.name = user.name
     if user.address:
-        doc.trade.agreement.seller.address.line_one = (
-            f"{user.address.street} {user.address.number}".strip()
-        )
-        doc.trade.agreement.seller.address.city_name = user.address.city
-        doc.trade.agreement.seller.address.postcode = user.address.postal_code
+        if not is_minimum:
+            doc.trade.agreement.seller.address.line_one = (
+                f"{user.address.street} {user.address.number}".strip()
+            )
+            doc.trade.agreement.seller.address.city_name = user.address.city
+            doc.trade.agreement.seller.address.postcode = user.address.postal_code
         doc.trade.agreement.seller.address.country_id = country_to_iso(
             user.address.country
         )
@@ -151,18 +154,19 @@ def build_zugferd_document(
         doc.trade.agreement.seller.tax_registrations.add(
             TaxRegistration(id=("VA", user.VAT_number))
         )
-    if user.email:
+    if user.email and not is_minimum:
         doc.trade.agreement.seller.electronic_address.uri_ID = ("EM", user.email)
 
     # -- Buyer (Client) -------------------------------------------------------
     doc.trade.agreement.buyer.name = client.invoice_recipient_name
     buyer_address = client.address
     if buyer_address:
-        doc.trade.agreement.buyer.address.line_one = (
-            f"{buyer_address.street} {buyer_address.number}".strip()
-        )
-        doc.trade.agreement.buyer.address.city_name = buyer_address.city
-        doc.trade.agreement.buyer.address.postcode = buyer_address.postal_code
+        if not is_minimum:
+            doc.trade.agreement.buyer.address.line_one = (
+                f"{buyer_address.street} {buyer_address.number}".strip()
+            )
+            doc.trade.agreement.buyer.address.city_name = buyer_address.city
+            doc.trade.agreement.buyer.address.postcode = buyer_address.postal_code
         doc.trade.agreement.buyer.address.country_id = country_to_iso(
             buyer_address.country
         )
@@ -176,67 +180,80 @@ def build_zugferd_document(
     currency = contract.currency or "EUR"
     doc.trade.settlement.currency_code = currency
 
-    # -- Payment means --------------------------------------------------------
-    if user.bank_account and user.bank_account.IBAN:
+    # -- Payment means (not in MINIMUM) ----------------------------------------
+    if not is_minimum and user.bank_account and user.bank_account.IBAN:
         pm = PaymentMeans()
         pm.type_code = "58"  # SEPA credit transfer
         pm.payee_account.iban = user.bank_account.IBAN
-        if user.bank_account.BIC:
+        if user.bank_account.BIC and profile not in ("BASIC",):
             pm.payee_institution.bic = user.bank_account.BIC
         doc.trade.settlement.payment_means.add(pm)
 
-    # -- Line items -----------------------------------------------------------
+    # -- Line items & tax (not in MINIMUM) -------------------------------------
     tax_aggregates: dict[Decimal, Decimal] = {}  # rate -> basis_amount
-
-    for idx, item in enumerate(invoice.items, start=1):
-        li = LineItem()
-        li.document.line_id = str(idx)
-        li.product.name = item.description or f"Item {idx}"
-
-        unit_code = unit_to_unece(item.unit)
-        quantity = Decimal(str(item.quantity))
-        net_price = item.unit_price
-        line_total = Decimal(str(item.subtotal))
-
-        li.agreement.net.amount = net_price
-        li.agreement.net.basis_quantity = (Decimal("1"), unit_code)
-        li.delivery.billed_quantity = (quantity, unit_code)
-        li.settlement.trade_tax.type_code = "VAT"
-        li.settlement.trade_tax.category_code = _vat_category_code(item.VAT_rate)
-        vat_pct = _rate_to_percent(item.VAT_rate)
-        li.settlement.trade_tax.rate_applicable_percent = vat_pct
-        li.settlement.monetary_summation.total_amount = line_total
-        doc.trade.items.add(li)
-        tax_aggregates[vat_pct] = tax_aggregates.get(vat_pct, Decimal("0")) + line_total
-
-    # -- Tax summary ----------------------------------------------------------
     total_tax = Decimal("0")
-    for rate_pct, basis in tax_aggregates.items():
-        tax_amount = (basis * rate_pct / Decimal("100")).quantize(Decimal("0.01"))
-        total_tax += tax_amount
-        trade_tax = ApplicableTradeTax()
-        trade_tax.calculated_amount = tax_amount
-        trade_tax.basis_amount = basis
-        trade_tax.type_code = "VAT"
-        trade_tax.category_code = _vat_category_code(rate_pct / Decimal("100"))
-        trade_tax.rate_applicable_percent = rate_pct
-        doc.trade.settlement.trade_tax.add(trade_tax)
+
+    if not is_minimum:
+        for idx, item in enumerate(invoice.items, start=1):
+            li = LineItem()
+            li.document.line_id = str(idx)
+            li.product.name = item.description or f"Item {idx}"
+
+            unit_code = unit_to_unece(item.unit)
+            quantity = Decimal(str(item.quantity))
+            net_price = item.unit_price
+            line_total = Decimal(str(item.subtotal))
+
+            li.agreement.net.amount = net_price
+            li.agreement.net.basis_quantity = (Decimal("1"), unit_code)
+            li.delivery.billed_quantity = (quantity, unit_code)
+            li.settlement.trade_tax.type_code = "VAT"
+            li.settlement.trade_tax.category_code = _vat_category_code(item.VAT_rate)
+            vat_pct = _rate_to_percent(item.VAT_rate)
+            li.settlement.trade_tax.rate_applicable_percent = vat_pct
+            li.settlement.monetary_summation.total_amount = line_total
+            doc.trade.items.add(li)
+            tax_aggregates[vat_pct] = (
+                tax_aggregates.get(vat_pct, Decimal("0")) + line_total
+            )
+
+        # -- Tax summary ------------------------------------------------------
+        for rate_pct, basis in tax_aggregates.items():
+            tax_amount = (basis * rate_pct / Decimal("100")).quantize(Decimal("0.01"))
+            total_tax += tax_amount
+            trade_tax = ApplicableTradeTax()
+            trade_tax.calculated_amount = tax_amount
+            trade_tax.basis_amount = basis
+            trade_tax.type_code = "VAT"
+            trade_tax.category_code = _vat_category_code(rate_pct / Decimal("100"))
+            trade_tax.rate_applicable_percent = rate_pct
+            doc.trade.settlement.trade_tax.add(trade_tax)
+    else:
+        for item in invoice.items:
+            vat_pct = _rate_to_percent(item.VAT_rate)
+            line_total = Decimal(str(item.subtotal))
+            tax_aggregates[vat_pct] = (
+                tax_aggregates.get(vat_pct, Decimal("0")) + line_total
+            )
+        for rate_pct, basis in tax_aggregates.items():
+            total_tax += (basis * rate_pct / Decimal("100")).quantize(Decimal("0.01"))
 
     # -- Monetary summation ---------------------------------------------------
     line_total_sum = invoice.sum
     grand_total = line_total_sum + total_tax
     due_amount = grand_total
 
-    doc.trade.settlement.monetary_summation.line_total = line_total_sum
-    doc.trade.settlement.monetary_summation.charge_total = Decimal("0.00")
-    doc.trade.settlement.monetary_summation.allowance_total = Decimal("0.00")
+    if not is_minimum:
+        doc.trade.settlement.monetary_summation.line_total = line_total_sum
+        doc.trade.settlement.monetary_summation.charge_total = Decimal("0.00")
+        doc.trade.settlement.monetary_summation.allowance_total = Decimal("0.00")
     doc.trade.settlement.monetary_summation.tax_basis_total = line_total_sum
     doc.trade.settlement.monetary_summation.tax_total = (total_tax, currency)
     doc.trade.settlement.monetary_summation.grand_total = grand_total
     doc.trade.settlement.monetary_summation.due_amount = due_amount
 
-    # -- Payment terms --------------------------------------------------------
-    if contract.term_of_payment:
+    # -- Payment terms (not in MINIMUM) ----------------------------------------
+    if not is_minimum and contract.term_of_payment:
         terms = PaymentTerms()
         due_date = invoice.date + timedelta(days=contract.term_of_payment)
         terms.due = datetime(

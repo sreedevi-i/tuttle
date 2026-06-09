@@ -224,6 +224,46 @@ class TestBuildZugferdDocument:
         assert len(xml_bytes) > 0
         assert b"0E-10" not in xml_bytes
 
+    @pytest.mark.parametrize(
+        "profile",
+        ["EN16931", "EXTENDED", "BASIC", "MINIMUM"],
+    )
+    def test_schema_validation_all_profiles(self, profile):
+        """All profiles with bundled schemas must produce valid XML."""
+        user = _make_user()
+        invoice = _make_invoice()
+        xml_bytes = serialize_zugferd_xml(invoice, user, profile=profile, validate=True)
+        assert len(xml_bytes) > 0
+
+    def test_xrechnung_profile_serializes(self):
+        """XRECHNUNG has no bundled schema; verify it serializes without error."""
+        user = _make_user()
+        invoice = _make_invoice()
+        xml_bytes = serialize_zugferd_xml(
+            invoice, user, profile="XRECHNUNG", validate=False
+        )
+        assert len(xml_bytes) > 0
+        assert b"XRechnung" in xml_bytes
+
+    def test_basic_profile_excludes_bic(self):
+        """BASIC profile must not include BIC (issue #283 follow-up)."""
+        user = _make_user()
+        assert user.bank_account.BIC
+        invoice = _make_invoice()
+        xml_bytes = serialize_zugferd_xml(invoice, user, profile="BASIC", validate=True)
+        assert b"COBADEFFXXX" not in xml_bytes
+
+    def test_minimum_profile_excludes_line_items(self):
+        """MINIMUM profile must not include line items or payment means."""
+        user = _make_user()
+        invoice = _make_invoice()
+        xml_bytes = serialize_zugferd_xml(
+            invoice, user, profile="MINIMUM", validate=True
+        )
+        xml_str = xml_bytes.decode("utf-8")
+        assert "IncludedSupplyChainTradeLineItem" not in xml_str
+        assert "PayeePartyCreditorFinancialAccount" not in xml_str
+
     def test_embed_in_pdf(self, tmp_path):
         """Full round-trip: generate a PDF, embed ZUGFeRD XML, verify output."""
         from pypdf import PdfWriter
