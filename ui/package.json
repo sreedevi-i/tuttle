@@ -3,6 +3,7 @@
   "productName": "Tuttle",
   "version": "3.7.2",
   "description": "Cross-platform Electron UI for Tuttle",
+  "homepage": "https://github.com/tuttle-dev/tuttle",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",
