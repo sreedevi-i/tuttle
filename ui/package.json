@@ -39,7 +39,11 @@
     },
     "mac": {
       "category": "public.app-category.business",
-      "target": ["zip", "dmg", "dir"],
+      "target": [
+        "zip",
+        "dmg",
+        "dir"
+      ],
       "extendInfo": {
         "NSCalendarsFullAccessUsageDescription": "Tuttle needs access to your calendars to import events for time tracking."
       }
