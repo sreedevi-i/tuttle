@@ -4,6 +4,10 @@
   "version": "3.7.2",
   "description": "Cross-platform Electron UI for Tuttle",
   "homepage": "https://github.com/tuttle-dev/tuttle",
+  "author": {
+    "name": "Tuttle",
+    "email": "hi@tuttle.dev"
+  },
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",
