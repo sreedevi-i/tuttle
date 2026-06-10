@@ -185,31 +185,12 @@ release part *flags="":
     # Build release body: download guide + auto-generated changelog
     notes=$(gh api repos/{owner}/{repo}/releases/generate-notes \
         -f tag_name="$tag" --jq .body 2>/dev/null || true)
-    body="## Download
+    notes_file=$(mktemp)
+    trap 'rm -f "$notes_file"' EXIT
+    sed "s/__VERSION__/${version}/g" .github/release-body-template.md > "$notes_file"
+    printf '\n%s\n' "$notes" >> "$notes_file"
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | \`Tuttle-${version}-macOS-arm64.dmg\` |
-| Windows | \`Tuttle-${version}-Windows-Setup.exe\` |
-| Linux (Ubuntu/Debian) | \`Tuttle-${version}-Linux-amd64.deb\` |
-| Linux (Fedora/RHEL) | \`Tuttle-${version}-Linux-x86_64.rpm\` |
-| Linux (other) | \`Tuttle-${version}-Linux-x86_64.AppImage\` |
-
-<details><summary>ARM64 Linux</summary>
-
-| Platform | File |
-|----------|------|
-| Linux ARM64 (Ubuntu/Debian) | \`Tuttle-${version}-Linux-arm64.deb\` |
-| Linux ARM64 (Fedora/RHEL) | \`Tuttle-${version}-Linux-aarch64.rpm\` |
-| Linux ARM64 (other) | \`Tuttle-${version}-Linux-arm64.AppImage\` |
-
-</details>
-
-> Other files in the asset list (\`.yml\`, \`.blockmap\`, \`.zip\`) are for automatic updates and can be ignored.
-
-${notes}"
-
-    gh_flags=(--notes "$body")
+    gh_flags=(--notes-file "$notes_file")
     if [[ "$tag" == *a* || "$tag" == *b* || "$tag" == *rc* ]]; then
         gh_flags+=(--prerelease)
     fi
