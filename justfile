@@ -178,9 +178,38 @@ release part *flags="":
     {{python}} -m bumpversion bump {{part}} ${bump_flags[@]+"${bump_flags[@]}"}
     if [[ "$dry_run" -eq 1 ]]; then exit 0; fi
     tag=$(git describe --tags --abbrev=0)
+    version="${tag#v}"
     git push origin main
     git push origin "$tag"
-    gh_flags=(--generate-notes)
+
+    # Build release body: download guide + auto-generated changelog
+    notes=$(gh api repos/{owner}/{repo}/releases/generate-notes \
+        -f tag_name="$tag" --jq .body 2>/dev/null || true)
+    body="## Download
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | \`Tuttle-${version}-macOS-arm64.dmg\` |
+| Windows | \`Tuttle-${version}-Windows-Setup.exe\` |
+| Linux (Ubuntu/Debian) | \`Tuttle-${version}-Linux-amd64.deb\` |
+| Linux (Fedora/RHEL) | \`Tuttle-${version}-Linux-x86_64.rpm\` |
+| Linux (other) | \`Tuttle-${version}-Linux-x86_64.AppImage\` |
+
+<details><summary>ARM64 Linux</summary>
+
+| Platform | File |
+|----------|------|
+| Linux ARM64 (Ubuntu/Debian) | \`Tuttle-${version}-Linux-arm64.deb\` |
+| Linux ARM64 (Fedora/RHEL) | \`Tuttle-${version}-Linux-aarch64.rpm\` |
+| Linux ARM64 (other) | \`Tuttle-${version}-Linux-arm64.AppImage\` |
+
+</details>
+
+> Other files in the asset list (\`.yml\`, \`.blockmap\`, \`.zip\`) are for automatic updates and can be ignored.
+
+${notes}"
+
+    gh_flags=(--notes "$body")
     if [[ "$tag" == *a* || "$tag" == *b* || "$tag" == *rc* ]]; then
         gh_flags+=(--prerelease)
     fi
