@@ -58,7 +58,9 @@
     },
     "linux": {
       "target": ["AppImage", "deb", "rpm"],
-      "category": "Office"
+      "category": "Office",
+      "executableName": "tuttle",
+      "artifactName": "Tuttle-${version}-${arch}.${ext}"
     },
     "deb": {
       "depends": ["zlib1g", "libfuse2"]
