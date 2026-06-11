@@ -221,8 +221,10 @@ class User(RpcMixin, SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={"lazy": "subquery"},
     )
-    # TODO: path to logo image
-    # logo: Optional[str] = Field(default=None)
+    logo: Optional[str] = Field(
+        default=None,
+        description="Logo image as a data URI (data:image/...;base64,...), shown on documents.",
+    )
 
     @property
     def bank_account_not_set(self) -> bool:

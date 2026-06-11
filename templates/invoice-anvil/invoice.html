@@ -27,8 +27,9 @@
   {% if user.logo %}
   <div class="logo-container">
     <img
-      style="height: 18px"
-      src="https://app.useanvil.com/img/email-logo-black.png"
+      style="max-height: 48px; max-width: 200px"
+      src="{{ user.logo }}"
+      alt=""
     >
   </div>
   {% endif %}

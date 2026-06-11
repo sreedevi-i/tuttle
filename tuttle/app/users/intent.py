@@ -16,6 +16,37 @@ from ..core.rpc_utils import reset_all
 from ...db_schema import ensure_schema
 
 
+#: Logos are downscaled so the longest edge is at most this many pixels before
+#: being stored as a base64 data URI in the per-user database.
+LOGO_MAX_DIMENSION = 600
+
+
+def _normalize_logo(data_uri: str) -> str:
+    """Validate, downscale, and re-encode a logo image as a PNG data URI.
+
+    Accepts a ``data:image/...;base64,<...>`` string (or a bare base64 string),
+    decodes it via PIL, scales the longest edge down to ``LOGO_MAX_DIMENSION``
+    (never up), and returns a ``data:image/png;base64,<...>`` string. Raises on
+    anything that is not a decodable image.
+    """
+    import base64
+    import io
+
+    import PIL.Image
+
+    encoded = data_uri.split(",", 1)[1] if data_uri.startswith("data:") else data_uri
+    raw = base64.b64decode(encoded)
+
+    with PIL.Image.open(io.BytesIO(raw)) as img:
+        img = img.convert("RGBA")
+        # thumbnail() preserves aspect ratio and is a no-op when already smaller.
+        img.thumbnail((LOGO_MAX_DIMENSION, LOGO_MAX_DIMENSION), PIL.Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 class UsersIntent:
     """Manages the user registry (app.db) and per-user profile (user.db)."""
 
@@ -221,6 +252,19 @@ class UsersIntent:
         ):
             if k in profile_data:
                 setattr(profile, k, profile_data[k])
+
+        if "logo" in profile_data:
+            raw_logo = profile_data["logo"]
+            if not raw_logo:
+                profile.logo = None
+            else:
+                try:
+                    profile.logo = _normalize_logo(raw_logo)
+                except Exception as ex:
+                    return IntentResult(
+                        was_intent_successful=False,
+                        error_msg=f"Could not process logo image: {ex}",
+                    )
 
         addr = profile_data.get("address")
         if addr:
