@@ -150,6 +150,7 @@ def render_invoice(
     only_final: bool = False,
     language: str = "en",
     e_invoice_profile: Optional[str] = None,
+    include_logo: bool = True,
 ):
     """Render an Invoice using an HTML template.
 
@@ -228,6 +229,7 @@ def render_invoice(
         is_reminder=is_reminder,
         reminder_title=reminder_title,
         notes=invoice.notes,
+        include_logo=include_logo,
     )
     if out_dir is None:
         return html

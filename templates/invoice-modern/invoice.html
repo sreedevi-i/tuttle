@@ -27,7 +27,7 @@
       </div>
     </div>
     <div class="letterhead">
-      {% if user.logo %}<img class="lh-logo" src="{{ user.logo }}" alt="">{% endif %}
+      {% if include_logo and user.logo %}<img class="lh-logo" src="{{ user.logo }}" alt="">{% endif %}
       <div class="lh-name">{{ user.name }}</div>
       <div class="lh-title">{{ user.subtitle }}</div>
       <div class="lh-details">

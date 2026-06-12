@@ -350,6 +350,14 @@ class InvoicingIntent(Intent):
                     if tmpl_result.was_intent_successful and tmpl_result.data:
                         resolved_template = tmpl_result.data
 
+                logo_result = self._preferences_intent.get_include_logo()
+                resolved_include_logo = (
+                    logo_result.data
+                    if logo_result.was_intent_successful
+                    and logo_result.data is not None
+                    else True
+                )
+
                 try:
                     rendering.render_invoice(
                         user=user,
@@ -359,6 +367,7 @@ class InvoicingIntent(Intent):
                         only_final=True,
                         language=language,
                         e_invoice_profile=e_invoice_profile,
+                        include_logo=resolved_include_logo,
                     )
                 except Exception as ex:
                     logger.error(f"Error rendering invoice for {project.title}: {ex}")

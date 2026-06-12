@@ -59,6 +59,13 @@ body {
   padding-top: 0;
 }
 
+.lh-logo {
+  display: inline-block;
+  max-height: 60px;
+  max-width: 200px;
+  margin-bottom: 8px;
+}
+
 .lh-name {
   font-size: 16pt;
   font-weight: 700;

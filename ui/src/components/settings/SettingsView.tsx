@@ -71,6 +71,7 @@ interface InvoicingPrefs {
   language: string;
   invoice_number_scheme: string;
   e_invoice_profile: string;
+  include_logo: boolean;
 }
 
 const DEFAULT_INVOICING: InvoicingPrefs = {
@@ -78,6 +79,7 @@ const DEFAULT_INVOICING: InvoicingPrefs = {
   language: "en",
   invoice_number_scheme: "daily",
   e_invoice_profile: "EN16931",
+  include_logo: true,
 };
 
 const SCHEME_EXAMPLES: Record<string, string> = {
@@ -319,6 +321,7 @@ export function SettingsView() {
       language: invoicing.language,
       invoice_number_scheme: invoicing.invoice_number_scheme,
       e_invoice_profile: invoicing.e_invoice_profile,
+      include_logo: invoicing.include_logo,
     });
     setInvoicingStatus(res.ok ? { type: "success", msg: "Invoicing preferences saved." } : { type: "error", msg: res.error || "Failed to save." });
     setInvoicingSaving(false);
@@ -620,6 +623,17 @@ export function SettingsView() {
             </select>
             <p className="mt-1 text-xs text-muted">Visual style of generated invoices.</p>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={invoicing.include_logo}
+              onChange={(e) => setInvoicing((p) => ({ ...p, include_logo: e.target.checked }))}
+              className="rounded border-border-subtle text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-primary">Include logo on invoices</span>
+          </label>
+          <p className="mt-1 text-xs text-muted mb-3">When enabled, your uploaded logo appears on generated invoices.</p>
 
           <div>
             <label className={labelCls}>Invoice language</label>

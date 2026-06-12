@@ -13,6 +13,7 @@
   <!-- Header band: sender as letterhead only — no return-line / address window -->
   <div class="header-band">
     <div class="hb-identity">
+      {% if include_logo and user.logo %}<img class="hb-logo" src="{{ user.logo }}" alt="">{% endif %}
       <div class="hb-name">{{ user.name }}</div>
       {% if user.subtitle %}<div class="hb-title">{{ user.subtitle }}</div>{% endif %}
     </div>

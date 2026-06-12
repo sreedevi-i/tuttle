@@ -10,6 +10,7 @@ from ..core.intent_result import IntentResult
 from ...app_db import AppDatabase
 from .model import (
     DEFAULT_E_INVOICE_PROFILE,
+    DEFAULT_INCLUDE_LOGO,
     DEFAULT_INVOICE_NUMBER_SCHEME,
     DEFAULT_INVOICE_TEMPLATE,
     PreferencesStorageKeys,
@@ -23,6 +24,14 @@ class PreferencesIntent:
     # -- RPC-facing ------------------------------------------------------------
 
     def get(self) -> IntentResult:
+        raw_include_logo = self._app_db.get_setting(
+            PreferencesStorageKeys.include_logo_key.value,
+        )
+        if raw_include_logo is None:
+            include_logo = DEFAULT_INCLUDE_LOGO
+        else:
+            include_logo = raw_include_logo == "true"
+
         return IntentResult(
             was_intent_successful=True,
             data={
@@ -42,6 +51,7 @@ class PreferencesIntent:
                     PreferencesStorageKeys.e_invoice_profile_key.value,
                 )
                 or DEFAULT_E_INVOICE_PROFILE,
+                "include_logo": include_logo,
             },
         )
 
@@ -51,6 +61,7 @@ class PreferencesIntent:
         language=None,
         invoice_number_scheme=None,
         e_invoice_profile=None,
+        include_logo=None,
     ) -> IntentResult:
         if invoice_template is not None:
             self._app_db.set_setting(
@@ -72,6 +83,11 @@ class PreferencesIntent:
                 PreferencesStorageKeys.e_invoice_profile_key.value,
                 e_invoice_profile,
             )
+        if include_logo is not None:
+            self._app_db.set_setting(
+                PreferencesStorageKeys.include_logo_key.value,
+                "true" if include_logo else "false",
+            )
         return IntentResult(was_intent_successful=True, data=None)
 
     # -- Internal API (used by other intents) ----------------------------------
@@ -91,3 +107,13 @@ class PreferencesIntent:
             or DEFAULT_INVOICE_TEMPLATE
         )
         return IntentResult(was_intent_successful=True, data=tmpl)
+
+    def get_include_logo(self) -> IntentResult:
+        raw = self._app_db.get_setting(
+            PreferencesStorageKeys.include_logo_key.value,
+        )
+        if raw is None:
+            include = DEFAULT_INCLUDE_LOGO
+        else:
+            include = raw == "true"
+        return IntentResult(was_intent_successful=True, data=include)
