@@ -38,6 +38,13 @@ body {
   border-bottom: 3pt solid #14b8a6;
 }
 
+.hb-logo {
+  display: inline-block;
+  max-height: 48px;
+  max-width: 180px;
+  margin-bottom: 6px;
+}
+
 .hb-name {
   font-size: 20pt;
   font-weight: 700;

@@ -3,13 +3,15 @@
  *
  * COUPLING: The tabs here (Profile, Invoicing, AI/LLM) are mirrored in
  * the onboarding wizard (OnboardingWizard.tsx). Any field or RPC change
- * here must be reflected in the wizard, and vice-versa.
+ * here must be reflected in the wizard, and vice-versa. EXCEPTION: the
+ * logo upload is intentionally Settings-only (optional branding users can
+ * add anytime) and is deliberately omitted from onboarding.
  *
  * @see {@link ../layout/OnboardingWizard.tsx}
  */
 
 import { useEffect, useState } from "react";
-import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info } from "lucide-react";
+import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info, Image as ImageIcon, X } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import type { Entity } from "../../api/types";
 import { str } from "../../api/entity";
@@ -41,6 +43,7 @@ interface ProfileForm {
   email: string;
   phone_number: string;
   website: string;
+  logo: string;
   VAT_number: string;
   operating_country: string;
   street: string;
@@ -54,17 +57,21 @@ interface ProfileForm {
 }
 
 const EMPTY_PROFILE: ProfileForm = {
-  name: "", subtitle: "", email: "", phone_number: "", website: "",
+  name: "", subtitle: "", email: "", phone_number: "", website: "", logo: "",
   VAT_number: "", operating_country: "Germany",
   street: "", number: "", postal_code: "", city: "", country: "Germany",
   bank_name: "", bank_IBAN: "", bank_BIC: "",
 };
+
+// Reject logos larger than this before upload; the backend also downscales.
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 interface InvoicingPrefs {
   invoice_template: string;
   language: string;
   invoice_number_scheme: string;
   e_invoice_profile: string;
+  include_logo: boolean;
 }
 
 const DEFAULT_INVOICING: InvoicingPrefs = {
@@ -72,6 +79,7 @@ const DEFAULT_INVOICING: InvoicingPrefs = {
   language: "en",
   invoice_number_scheme: "daily",
   e_invoice_profile: "EN16931",
+  include_logo: true,
 };
 
 const SCHEME_EXAMPLES: Record<string, string> = {
@@ -196,6 +204,7 @@ export function SettingsView() {
           email: str(p, "email"),
           phone_number: str(p, "phone_number"),
           website: str(p, "website"),
+          logo: str(p, "logo"),
           VAT_number: str(p, "VAT_number"),
           operating_country: str(p, "operating_country") || "Germany",
           street: addr ? str(addr, "street") : "",
@@ -222,6 +231,7 @@ export function SettingsView() {
         email: profile.email,
         phone_number: profile.phone_number,
         website: profile.website,
+        logo: profile.logo,
         VAT_number: profile.VAT_number,
         operating_country: profile.operating_country,
         address: {
@@ -261,6 +271,24 @@ export function SettingsView() {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setProfile((p) => ({ ...p, [key]: e.target.value }));
   }
 
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    if (file.size > MAX_LOGO_BYTES) {
+      setProfileStatus({ type: "error", msg: "Logo is too large (max 2 MB)." });
+      return;
+    }
+    const dataUri = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    setProfile((p) => ({ ...p, logo: dataUri }));
+    setProfileStatus(null);
+  }
+
   async function handleDeleteUser() {
     if (!activeDbFile) return;
     setDeleting(true);
@@ -293,6 +321,7 @@ export function SettingsView() {
       language: invoicing.language,
       invoice_number_scheme: invoicing.invoice_number_scheme,
       e_invoice_profile: invoicing.e_invoice_profile,
+      include_logo: invoicing.include_logo,
     });
     setInvoicingStatus(res.ok ? { type: "success", msg: "Invoicing preferences saved." } : { type: "error", msg: res.error || "Failed to save." });
     setInvoicingSaving(false);
@@ -404,6 +433,37 @@ export function SettingsView() {
           <div>
             <label className={labelCls}>Website</label>
             <input className={inputCls} value={profile.website} onChange={pset("website")} placeholder="https://…" />
+          </div>
+
+          <div>
+            <label className={labelCls}>Logo</label>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-20 h-20 shrink-0 rounded-md border border-border-subtle bg-bg-card overflow-hidden">
+                {profile.logo ? (
+                  <img src={profile.logo} alt="Logo preview" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <ImageIcon size={20} className="text-muted" />
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-bg-card text-secondary hover:text-primary border border-border-subtle hover:bg-bg-hover transition-colors cursor-pointer w-fit">
+                  <ImageIcon size={13} />
+                  {profile.logo ? "Replace logo" : "Upload logo"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
+                </label>
+                {profile.logo && (
+                  <button
+                    type="button"
+                    onClick={() => setProfile((p) => ({ ...p, logo: "" }))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-secondary hover:text-red-400 border border-border-subtle hover:bg-bg-hover transition-colors w-fit"
+                  >
+                    <X size={13} />
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-muted">Shown on invoices and timesheets. PNG or JPG, max 2 MB.</p>
           </div>
 
           <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
@@ -563,6 +623,17 @@ export function SettingsView() {
             </select>
             <p className="mt-1 text-xs text-muted">Visual style of generated invoices.</p>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={invoicing.include_logo}
+              onChange={(e) => setInvoicing((p) => ({ ...p, include_logo: e.target.checked }))}
+              className="rounded border-border-subtle text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-primary">Include logo on invoices</span>
+          </label>
+          <p className="mt-1 text-xs text-muted mb-3">When enabled, your uploaded logo appears on generated invoices.</p>
 
           <div>
             <label className={labelCls}>Invoice language</label>

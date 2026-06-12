@@ -35,6 +35,8 @@ E_INVOICE_PROFILES = {
 
 DEFAULT_E_INVOICE_PROFILE = "EN16931"
 
+DEFAULT_INCLUDE_LOGO = True
+
 
 @dataclass
 class Preferences:
@@ -45,6 +47,7 @@ class Preferences:
     invoice_template: str = DEFAULT_INVOICE_TEMPLATE
     invoice_number_scheme: str = DEFAULT_INVOICE_NUMBER_SCHEME
     e_invoice_profile: str = DEFAULT_E_INVOICE_PROFILE
+    include_logo: bool = DEFAULT_INCLUDE_LOGO
 
 
 class PreferencesStorageKeys(Enum):
@@ -57,6 +60,7 @@ class PreferencesStorageKeys(Enum):
     invoice_template_key = "preferred_invoice_template"
     invoice_number_scheme_key = "preferred_invoice_number_scheme"
     e_invoice_profile_key = "preferred_e_invoice_profile"
+    include_logo_key = "preferred_include_logo"
 
     def __str__(self) -> str:
         return str(self.value)

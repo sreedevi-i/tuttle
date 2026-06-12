@@ -12,6 +12,7 @@
 
   <header class="header">
     <div class="header-left">
+      {% if include_logo and user.logo %}<img class="logo" src="{{ user.logo }}" alt="">{% endif %}
       <div class="sender-name">{{ user.name }}</div>
       <div class="sender-detail">{{ user.subtitle }}</div>
     </div>
