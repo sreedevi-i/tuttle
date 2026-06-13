@@ -482,7 +482,8 @@ class Contract(RpcMixin, SQLModel, table=True):
         default=31,
     )
     billing_cycle: Cycle = Field(
-        sa_column=sqlalchemy.Column(sqlalchemy.Enum(Cycle)),
+        default=Cycle.monthly,
+        sa_column=sqlalchemy.Column(sqlalchemy.Enum(Cycle), default=Cycle.monthly),
         description="How often is an invoice sent?",
     )
     projects: List["Project"] = Relationship(
@@ -964,7 +965,8 @@ class Invoice(RpcMixin, SQLModel, table=True):
         client_suffix = ""
         if self.client:
             client_suffix = "-".join(self.client.name.lower().split())
-        base = f"{self.number}-{client_suffix}"
+        safe_number = self.number.replace("/", "-")
+        base = f"{safe_number}-{client_suffix}"
         if self.is_reminder:
             return f"{base}-M{self.reminder_level}"
         return base
@@ -1018,9 +1020,11 @@ class InvoiceItem(RpcMixin, SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     # date and time
-    start_date: datetime.date = Field(description="Start date of the invoice item.")
+    start_date: Optional[datetime.date] = Field(
+        default=None, description="Start date of the invoice item."
+    )
     end_date: Optional[datetime.date] = Field(
-        description="End date of the invoice item."
+        default=None, description="End date of the invoice item."
     )
     #
     quantity: float

@@ -43,12 +43,12 @@ class LlmIntent:
         )
         return IntentResult(was_intent_successful=True, data=items)
 
-    def parse_contract_document(
+    def parse_document_for_import(
         self,
         file_base64: str,
         file_name: str,
     ) -> IntentResult:
-        result = _llm.parse_contract_document(
+        result = _llm.parse_document_for_import(
             file_base64,
             file_name,
         )
