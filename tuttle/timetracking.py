@@ -11,7 +11,7 @@ from pandera.typing import DataFrame
 from tuttle.dev import deprecated
 
 from . import schema
-from .calendar import Calendar, ICloudCalendar, ICSCalendar
+from .calendar import Calendar, ICSCalendar
 from .model import Project, Timesheet, TimeTrackingItem, User
 from .time import TimeUnit
 
@@ -117,10 +117,7 @@ def export_timesheet(
 @check_io(out=schema.time_tracking)
 def import_from_calendar(cal: Calendar) -> DataFrame:
     """Convert the raw calendar to time tracking data table."""
-    if issubclass(type(cal), ICloudCalendar):
-        timetracking_data = cal.to_data()
-        return timetracking_data
-    elif issubclass(type(cal), ICSCalendar):
+    if issubclass(type(cal), ICSCalendar):
         timetracking_data = cal.to_data()
         return timetracking_data
     else:

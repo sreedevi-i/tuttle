@@ -36,7 +36,6 @@ dependencies = [
     "PyPDF2",
     "pymupdf",
     "pycountry",
-    "icloudpy",
     "pyobjc-framework-EventKit; sys_platform == 'darwin'",
     "llama-index-core",
     "llama-index-llms-ollama",
