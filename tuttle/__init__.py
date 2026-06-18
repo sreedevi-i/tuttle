@@ -14,7 +14,6 @@ except ImportError:
 from . import (
     banking,
     calendar,
-    cloud,
     invoicing,
     model,
     tax,
