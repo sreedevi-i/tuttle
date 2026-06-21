@@ -57,7 +57,7 @@ Get an overview of your freelance business at a glance: revenue, outstanding inv
 
 ### Time Tracking
 
-Track the time you spend on your projects. Import from your cloud calendar (iCloud), from an ICS file, or from a CSV export of your favorite time tracking tool.
+Track the time you spend on your projects. Import directly from your calendar, from a calendar file, or from an export of your favorite time tracking tool.
 
 <img src="assets/images/screenshot-timetracking.png" width=768 />
 

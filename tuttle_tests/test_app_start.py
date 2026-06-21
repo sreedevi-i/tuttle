@@ -27,7 +27,6 @@ CORE_MODULES = [
     "tuttle.rendering",
     "tuttle.tax",
     "tuttle.banking",
-    "tuttle.cloud",
     "tuttle.time",
     "tuttle.dataviz",
     "tuttle.os_functions",
