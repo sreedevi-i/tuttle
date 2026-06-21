@@ -6,7 +6,6 @@ OpenAI-API-compatible endpoint via llama_index.
 """
 
 import base64
-import json
 import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -131,7 +130,16 @@ def _extract_text(file_bytes: bytes, file_name: str) -> str:
 
 from pydantic import create_model as _create_model
 
-from tuttle.model import Contact, Address, Client, Contract, Project, normalize_vat_rate
+from tuttle.model import (
+    Contact,
+    Address,
+    Client,
+    Contract,
+    Project,
+    Invoice,
+    InvoiceItem,
+    normalize_vat_rate,
+)
 
 
 def _flat_schema(model_cls: type, *, include: Optional[List[str]] = None) -> type:
@@ -204,6 +212,24 @@ _ContractExtract = _flat_schema(
 _ProjectExtract = _flat_schema(
     Project,
     include=["title", "tag", "description", "start_date", "end_date"],
+)
+
+_InvoiceItemExtract = _flat_schema(
+    InvoiceItem,
+    include=[
+        "start_date",
+        "end_date",
+        "quantity",
+        "unit",
+        "unit_price",
+        "description",
+        "VAT_rate",
+    ],
+)
+
+_InvoiceExtract = _flat_schema(
+    Invoice,
+    include=["number", "date", "notes"],
 )
 
 
@@ -499,8 +525,28 @@ class _RefProject(_ProjectExtract):  # type: ignore[valid-type]
     )
 
 
-class ContractDocumentExtractionResult(BaseModel):
-    """All entities extracted from a single contract document, with cross-refs."""
+class _RefInvoiceItem(_InvoiceItemExtract):  # type: ignore[valid-type]
+    """A single line item on an extracted invoice."""
+
+    pass
+
+
+class _RefInvoice(_InvoiceExtract):  # type: ignore[valid-type]
+    ref: str = Field(description="Internal reference ID, e.g. 'invoice_1'")
+    contract_ref: Optional[str] = Field(
+        default=None, description="ref of the contract this invoice belongs to"
+    )
+    project_ref: Optional[str] = Field(
+        default=None, description="ref of the project this invoice belongs to"
+    )
+    items: List[_RefInvoiceItem] = Field(
+        default_factory=list,
+        description="Line items on this invoice",
+    )
+
+
+class DocumentExtractionResult(BaseModel):
+    """All entities extracted from a document, with cross-refs."""
 
     contacts: List[_RefContact] = Field(
         description="People mentioned, e.g. signatories or contact persons"
@@ -512,6 +558,10 @@ class ContractDocumentExtractionResult(BaseModel):
     projects: List[_RefProject] = Field(
         description="Project descriptions or work packages"
     )
+    invoices: List[_RefInvoice] = Field(
+        default_factory=list,
+        description="Invoices found in the document, each with line items (number, date, amounts)",
+    )
 
 
 def _describe_entity_fields(model_cls: type, skip: set = {"ref"}) -> str:  # noqa: B006
@@ -519,6 +569,8 @@ def _describe_entity_fields(model_cls: type, skip: set = {"ref"}) -> str:  # noq
     parts = []
     for name, info in model_cls.model_fields.items():
         if name in skip or name.endswith("_ref"):
+            continue
+        if name == "items":
             continue
         desc = info.description
         parts.append(f"{name} ({desc})" if desc else name)
@@ -528,8 +580,8 @@ def _describe_entity_fields(model_cls: type, skip: set = {"ref"}) -> str:  # noq
 def _build_summary_prompt() -> str:
     """Generate the Pass-1 summary prompt from the extraction model definitions."""
     sections = []
-    for label, model_cls in ContractDocumentExtractionResult.model_fields.items():
-        field_info = ContractDocumentExtractionResult.model_fields[label]
+    for label, model_cls in DocumentExtractionResult.model_fields.items():
+        field_info = DocumentExtractionResult.model_fields[label]
         entity_desc = field_info.description or label
         annotation = field_info.annotation
         item_type = getattr(annotation, "__args__", (None,))[0]  # type: ignore[index]
@@ -539,18 +591,19 @@ def _build_summary_prompt() -> str:
         )
 
     return (
-        "You are analysing a contract or service-agreement document for a freelancer.\n"
+        "You are analysing a business document (contract, invoice, or other) for a freelancer.\n"
         "Read the document carefully and list ALL facts relevant to the following categories.\n"
-        "Be thorough — include every detail you can find, even if approximate.\n\n"
+        "Be thorough — include every detail you can find, even if approximate.\n"
+        "If the document is an invoice, extract all line items with their quantities and amounts.\n\n"
         + "\n\n".join(sections)
         + "\n\nFormat all dates as YYYY-MM-DD. "
         "Write one fact per line. Do not omit any details.\n\n"
     )
 
 
-_CONTRACT_DOC_SUMMARY_PROMPT = _build_summary_prompt()
+_DOC_SUMMARY_PROMPT = _build_summary_prompt()
 
-_CONTRACT_DOC_EXTRACT_PROMPT = (
+_DOC_EXTRACT_PROMPT = (
     "Convert the following entity summary into structured JSON.\n"
     "Use ref strings (contact_1, client_1, contract_1, project_1) to cross-link entities.\n"
     "Populate EVERY field you can; only use null for truly unknown values.\n"
@@ -568,7 +621,7 @@ _IMPORT_STEPS = [
 ]
 
 
-def parse_contract_document(
+def parse_document_for_import(
     file_base64: str,
     file_name: str,
     config: Optional[LLMConfig] = None,
@@ -605,7 +658,7 @@ def parse_contract_document(
             )
         _mark("load_config", "done")
     except Exception as e:
-        logger.exception("parse_contract_document: load_config failed")
+        logger.exception("parse_document_for_import: load_config failed")
         return _fail("load_config", str(e))
 
     # Step 2: Read document
@@ -620,7 +673,7 @@ def parse_contract_document(
             )
         _mark("read_document", "done")
     except Exception as e:
-        logger.exception("parse_contract_document: read_document failed")
+        logger.exception("parse_document_for_import: read_document failed")
         return _fail("read_document", f"Could not read document: {e}")
 
     # Step 3: Connect to LLM
@@ -629,7 +682,7 @@ def parse_contract_document(
         llm = _get_llm(config)
         _mark("connect_llm", "done")
     except Exception as e:
-        logger.exception("parse_contract_document: connect_llm failed")
+        logger.exception("parse_document_for_import: connect_llm failed")
         return _fail("connect_llm", f"Could not connect to LLM: {e}")
 
     text_len = len(text)
@@ -670,7 +723,7 @@ def parse_contract_document(
     t0 = time.monotonic()
     try:
         summary_prompt = (
-            _CONTRACT_DOC_SUMMARY_PROMPT
+            _DOC_SUMMARY_PROMPT
             + "--- DOCUMENT START ---\n"
             + text
             + "\n--- DOCUMENT END ---"
@@ -694,9 +747,9 @@ def parse_contract_document(
     logger.info("Pass 2 — structured extraction starting")
     t1 = time.monotonic()
     try:
-        sllm = llm.as_structured_llm(output_cls=ContractDocumentExtractionResult)
+        sllm = llm.as_structured_llm(output_cls=DocumentExtractionResult)
         extract_prompt = (
-            _CONTRACT_DOC_EXTRACT_PROMPT
+            _DOC_EXTRACT_PROMPT
             + "--- SUMMARY START ---\n"
             + summary_text
             + "\n--- SUMMARY END ---"
@@ -709,13 +762,14 @@ def parse_contract_document(
             f"({len(raw_text)} chars)"
         )
         logger.info(f"LLM raw response: {raw_text[:2000]}")
-        extracted: ContractDocumentExtractionResult = response.raw
+        extracted: DocumentExtractionResult = response.raw
         logger.info(
             f"Parsed extraction: "
             f"contacts={len(extracted.contacts)}, "
             f"clients={len(extracted.clients)}, "
             f"contracts={len(extracted.contracts)}, "
-            f"projects={len(extracted.projects)}"
+            f"projects={len(extracted.projects)}, "
+            f"invoices={len(extracted.invoices)}"
         )
         _mark("extract_entities", "done")
     except Exception as e:
@@ -726,10 +780,10 @@ def parse_contract_document(
     # Step 5: Map results
     _mark("map_results", "running")
     try:
-        result = _map_contract_document(extracted)
+        result = _map_document_extraction(extracted)
         _mark("map_results", "done")
     except Exception as e:
-        logger.exception("parse_contract_document: map_results failed")
+        logger.exception("parse_document_for_import: map_results failed")
         return _fail("map_results", f"Failed to process LLM output: {e}")
 
     return {"steps": steps, **result}
@@ -767,8 +821,8 @@ def _dump_extracted(items: list) -> List[Dict[str, Any]]:
     return results
 
 
-def _map_contract_document(
-    result: ContractDocumentExtractionResult,
+def _map_document_extraction(
+    result: DocumentExtractionResult,
 ) -> Dict[str, Any]:
     """Convert the unified extraction result to a frontend-ready dict."""
     mapped = {
@@ -776,12 +830,35 @@ def _map_contract_document(
         "clients": _dump_extracted(result.clients),
         "contracts": _dump_extracted(result.contracts),
         "projects": _dump_extracted(result.projects),
+        "invoices": _map_invoices(result.invoices),
     }
     logger.info(
-        f"Mapped result counts: "
-        + ", ".join(f"{k}={len(v)}" for k, v in mapped.items())
+        "Mapped result counts: " + ", ".join(f"{k}={len(v)}" for k, v in mapped.items())
     )
     return mapped
+
+
+def _map_invoices(invoices: list) -> List[Dict[str, Any]]:
+    """Map extracted invoice objects to dicts for the frontend."""
+    results = []
+    for inv in invoices:
+        d = inv.model_dump()
+        for k in list(d):
+            if k.endswith("_date"):
+                d[k] = _serialise_date(d[k])
+        # Serialise nested items' dates
+        items = d.get("items", [])
+        for item in items:
+            for k in list(item):
+                if k.endswith("_date"):
+                    item[k] = _serialise_date(item[k])
+        if _has_content(d, ignore={"ref", "items"}):
+            results.append(d)
+        elif items and any(_has_content(i) for i in items):
+            results.append(d)
+        else:
+            logger.debug(f"Dropping skeleton invoice: {d}")
+    return results
 
 
 # ---------------------------------------------------------------------------

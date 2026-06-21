@@ -3,39 +3,51 @@ import {
   FileUp, Sparkles, Loader2, X, Check, CheckCheck,
   Trash2, ChevronDown, ChevronRight, Link2, AlertTriangle,
   Users, Building2, FileSignature, FolderKanban, Circle,
-  XCircle,
+  XCircle, Receipt, Plus, Minus,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — RPC response shapes from `imports.parse_document_for_import`.
+// Source of truth: tuttle/model.py (SQLModel classes) + tuttle/llm.py (extraction schemas).
+// These interfaces only type the JSON returned by the backend; validation and
+// required-field logic live server-side. Do NOT add constraints here.
+// Only fields accessed by view rendering logic are listed explicitly.
 // ---------------------------------------------------------------------------
 
-interface AddressData {
-  street: string; number: string; city: string;
-  postal_code: string; country: string;
-}
-
 interface ParsedContact {
-  ref: string; first_name: string; last_name: string;
-  company: string; email: string; address: AddressData | null;
+  ref: string;
+  first_name: string; last_name: string;
+  company: string; email: string;
+  address: Record<string, string> | null;
+  [key: string]: any;
 }
 
 interface ParsedClient {
   ref: string; name: string; contact_ref: string;
+  [key: string]: any;
 }
 
 interface ParsedContract {
   ref: string; title: string; client_ref: string;
-  rate: number | null; currency: string; unit: string;
-  billing_cycle: string; volume: number | null;
-  signature_date: string; start_date: string; end_date: string;
-  VAT_rate: number | null; term_of_payment: number | null;
+  [key: string]: any;
 }
 
 interface ParsedProject {
-  ref: string; title: string; tag: string; description: string;
-  start_date: string; end_date: string; contract_ref: string;
+  ref: string; title: string; contract_ref: string;
+  [key: string]: any;
+}
+
+interface ParsedInvoiceItem {
+  [key: string]: any;
+}
+
+interface ParsedInvoice {
+  ref: string; number: string; date: string;
+  contract_ref: string; project_ref: string;
+  items: ParsedInvoiceItem[];
+  sent: boolean; paid: boolean;
+  [key: string]: any;
 }
 
 type EntityStatus = "accepted" | "discarded";
@@ -75,6 +87,7 @@ interface ExtractionResult {
   clients?: ParsedClient[];
   contracts?: ParsedContract[];
   projects?: ParsedProject[];
+  invoices?: ParsedInvoice[];
 }
 
 type Phase = "upload" | "review" | "committed";
@@ -84,7 +97,7 @@ const PIPELINE_STEPS: Omit<ImportStep, "status" | "error">[] = [
   { key: "read_document", label: "Reading document" },
   { key: "connect_llm", label: "Connecting to LLM" },
   { key: "summarize_document", label: "Analysing document" },
-  { key: "extract_entities", label: "Extracting structured entities" },
+  { key: "extract_entities", label: "Extracting structured data" },
   { key: "map_results", label: "Processing results" },
 ];
 
@@ -100,7 +113,7 @@ function makeSteps(upTo: number, running: number): ImportStep[] {
 // Main View
 // ---------------------------------------------------------------------------
 
-export function ContractImportView() {
+export function DocumentImportView() {
   const [phase, setPhase] = useState<Phase>("upload");
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -110,15 +123,23 @@ export function ContractImportView() {
   const [clients, setClients] = useState<ImportEntity<ParsedClient>[]>([]);
   const [contracts, setContracts] = useState<ImportEntity<ParsedContract>[]>([]);
   const [projects, setProjects] = useState<ImportEntity<ParsedProject>[]>([]);
+  const [invoices, setInvoices] = useState<ImportEntity<ParsedInvoice>[]>([]);
 
   const [existing, setExisting] = useState<ExistingEntities | null>(null);
+  const [fieldMeta, setFieldMeta] = useState<Record<string, { required: string[]; enums: Record<string, string[]> }>>({});
   const [commitResult, setCommitResult] = useState<Record<string, string[]> | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [committing, setCommitting] = useState(false);
 
+  // Keep original file content for PDF storage
+  const [fileBase64, setFileBase64] = useState<string | null>(null);
+
   useEffect(() => {
     rpc<ExistingEntities>("imports.get_existing_entities").then((res) => {
       if (res.ok && res.data) setExisting(res.data);
+    });
+    rpc<Record<string, { required: string[]; enums: Record<string, string[]> }>>("imports.get_field_metadata").then((res) => {
+      if (res.ok && res.data) setFieldMeta(res.data);
     });
   }, []);
 
@@ -126,9 +147,6 @@ export function ContractImportView() {
     setParsing(true);
     setParseError(null);
 
-    // Optimistic client-side step progression while the synchronous RPC runs.
-    // Steps 0-2 (config, read, connect) are sub-second;
-    // step 3 (summarize) and step 4 (extract) are the two LLM passes.
     setImportSteps(makeSteps(0, 0));
     const t1 = setTimeout(() => setImportSteps(makeSteps(1, 1)), 300);
     const t2 = setTimeout(() => setImportSteps(makeSteps(2, 2)), 600);
@@ -139,7 +157,9 @@ export function ContractImportView() {
       const base64 = btoa(
         new Uint8Array(buffer).reduce((d, b) => d + String.fromCharCode(b), "")
       );
-      const res = await rpc<ExtractionResult>("llm.parse_contract_document", {
+      setFileBase64(base64);
+
+      const res = await rpc<ExtractionResult>("llm.parse_document_for_import", {
         file_base64: base64, file_name: file.name,
       });
 
@@ -153,6 +173,10 @@ export function ContractImportView() {
         setClients((data.clients ?? []).map((c) => autoMatch(c, ex?.clients, "name")));
         setContracts((data.contracts ?? []).map((c) => autoMatch(c, ex?.contracts, "title")));
         setProjects((data.projects ?? []).map((c) => autoMatch(c, ex?.projects, "title")));
+        setInvoices((data.invoices ?? []).map((inv) => ({
+          data: { ...inv, sent: true, paid: false },
+          status: "accepted",
+        })));
         setPhase("review");
       } else {
         const failedStep = data?.steps?.find((s: ImportStep) => s.status === "error");
@@ -167,47 +191,29 @@ export function ContractImportView() {
 
   function startOver() {
     setPhase("upload");
-    setContacts([]); setClients([]); setContracts([]); setProjects([]);
+    setContacts([]); setClients([]); setContracts([]); setProjects([]); setInvoices([]);
     setCommitResult(null); setCommitError(null);
     setImportSteps([]); setParseError(null);
-  }
-
-  function validateEntities(): string[] {
-    const errors: string[] = [];
-    for (const item of accepted(contracts)) {
-      const d = item.data;
-      const missing: string[] = [];
-      if (!d.title?.trim()) missing.push("Title");
-      if (d.rate == null || String(d.rate).trim() === "") missing.push("Rate");
-      if (!d.currency?.trim()) missing.push("Currency");
-      if (!d.start_date?.trim()) missing.push("Start Date");
-      if (missing.length > 0) {
-        const label = d.title?.trim() || "Untitled contract";
-        errors.push(`Contract "${label}": missing ${missing.join(", ")}`);
-      }
-    }
-    return errors;
+    setFileBase64(null);
   }
 
   async function handleCommit() {
     setCommitError(null);
-
-    const validationErrors = validateEntities();
-    if (validationErrors.length > 0) {
-      setCommitError("Required fields are missing:\n" + validationErrors.join("\n"));
-      return;
-    }
-
     setCommitting(true);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       contacts: accepted(contacts).map((e) => commitShape(e)),
       clients: accepted(clients).map((e) => commitShape(e)),
       contracts: accepted(contracts).map((e) => commitShape(e)),
       projects: accepted(projects).map((e) => commitShape(e)),
+      invoices: accepted(invoices).map((e) => commitShape(e)),
     };
 
-    const res = await rpc<Record<string, string[]>>("imports.commit_contract_import", { data: payload });
+    if (fileBase64 && accepted(invoices).length > 0) {
+      payload.file_base64 = fileBase64;
+    }
+
+    const res = await rpc<Record<string, string[]>>("imports.commit_import", { data: payload });
     setCommitting(false);
     if (res.ok && res.data) {
       setCommitResult(res.data);
@@ -218,13 +224,13 @@ export function ContractImportView() {
   }
 
   const totalAccepted = accepted(contacts).length + accepted(clients).length
-    + accepted(contracts).length + accepted(projects).length;
+    + accepted(contracts).length + accepted(projects).length + accepted(invoices).length;
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
         <Sparkles size={16} className="text-fuchsia-400" />
-        <h2 className="text-sm font-semibold">Contract Import</h2>
+        <h2 className="text-sm font-semibold">Document Import</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5">
@@ -240,7 +246,7 @@ export function ContractImportView() {
         {phase === "review" && (
           <div className="space-y-6 max-w-4xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Review Extracted Entities</h2>
+              <h2 className="text-lg font-semibold">Review Extracted Data</h2>
               <div className="flex items-center gap-2">
                 <button onClick={startOver}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-secondary hover:text-primary hover:bg-bg-hover transition-colors">
@@ -252,7 +258,7 @@ export function ContractImportView() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-fuchsia-400 hover:bg-fuchsia-500/10 border border-fuchsia-400/30 transition-colors disabled:opacity-40"
                 >
                   {committing ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
-                  {committing ? "Committing..." : `Commit ${totalAccepted} Entities`}
+                  {committing ? "Committing..." : `Commit ${totalAccepted} Items`}
                 </button>
               </div>
             </div>
@@ -261,6 +267,20 @@ export function ContractImportView() {
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400 whitespace-pre-line">
                 {commitError}
               </div>
+            )}
+
+            {/* Invoice Section (shown first when present) */}
+            {invoices.length > 0 && (
+              <InvoiceSection
+                invoices={invoices}
+                setInvoices={setInvoices}
+                importedContracts={contracts}
+                importedProjects={projects}
+                existingContracts={existing?.contracts || []}
+                existingProjects={existing?.projects || []}
+                requiredFields={fieldMeta.invoices?.required || []}
+                itemRequiredFields={fieldMeta.invoice_items?.required || []}
+              />
             )}
 
             <EntitySection<ParsedContact>
@@ -287,6 +307,8 @@ export function ContractImportView() {
                   item={item} onUpdate={(u) => update(idx, u)}
                   existing={existing?.clients || []}
                   contacts={contacts}
+                  existingContacts={existing?.contacts || []}
+                  requiredFields={fieldMeta.clients?.required || []}
                 />
               )}
             />
@@ -303,6 +325,8 @@ export function ContractImportView() {
                   item={item} onUpdate={(u) => update(idx, u)}
                   existing={existing?.contracts || []}
                   clients={clients}
+                  requiredFields={fieldMeta.contracts?.required || []}
+                  enumFields={fieldMeta.contracts?.enums || {}}
                 />
               )}
             />
@@ -319,6 +343,7 @@ export function ContractImportView() {
                   item={item} onUpdate={(u) => update(idx, u)}
                   existing={existing?.projects || []}
                   importedContracts={contracts}
+                  requiredFields={fieldMeta.projects?.required || []}
                 />
               )}
             />
@@ -416,10 +441,10 @@ function UploadPhase({ parsing, parseError, importSteps, onFileSelected }: {
   return (
     <div className="max-w-xl mx-auto mt-12 space-y-5">
       <div className="text-center space-y-2">
-        <h2 className="text-xl font-semibold">Import a Contract Document</h2>
+        <h2 className="text-xl font-semibold">Import a Document</h2>
         <p className="text-sm text-secondary">
-          Upload a contract document and AI will extract contacts, clients,
-          contracts, and projects from it.
+          Upload a document and AI will extract contracts, invoices, clients,
+          contacts, and projects from it.
         </p>
       </div>
 
@@ -490,7 +515,7 @@ function CommittedPhase({ result, onDone }: {
         <Check size={32} className="text-emerald-400" />
       </div>
       <h2 className="text-xl font-semibold">Import Complete</h2>
-      <p className="text-sm text-secondary">{total} entities processed.</p>
+      <p className="text-sm text-secondary">{total} items processed.</p>
 
       <div className="text-left space-y-2 bg-bg-card rounded-lg border border-border-subtle p-4">
         {created.length > 0 && (
@@ -517,6 +542,280 @@ function CommittedPhase({ result, onDone }: {
         className="px-5 py-2 rounded-lg bg-bg-card text-primary text-sm font-medium border border-border-subtle hover:bg-bg-hover transition-colors">
         Done
       </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Invoice Section
+// ---------------------------------------------------------------------------
+
+function InvoiceSection({ invoices, setInvoices, importedContracts, importedProjects, existingContracts, existingProjects, requiredFields, itemRequiredFields }: {
+  invoices: ImportEntity<ParsedInvoice>[];
+  setInvoices: React.Dispatch<React.SetStateAction<ImportEntity<ParsedInvoice>[]>>;
+  importedContracts: ImportEntity<ParsedContract>[];
+  importedProjects: ImportEntity<ParsedProject>[];
+  existingContracts: ExistingEntity[];
+  existingProjects: ExistingEntity[];
+  requiredFields: string[];
+  itemRequiredFields: string[];
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  if (invoices.length === 0) return null;
+
+  const acceptedCount = invoices.filter((i) => i.status === "accepted").length;
+
+  function update(idx: number, item: ImportEntity<ParsedInvoice>) {
+    setInvoices((prev) => prev.map((p, i) => i === idx ? item : p));
+  }
+
+  function toggleStatus(idx: number) {
+    setInvoices((prev) => prev.map((p, i) =>
+      i === idx ? { ...p, status: p.status === "accepted" ? "discarded" : "accepted" } : p
+    ));
+  }
+
+  return (
+    <div>
+      <div onClick={() => setCollapsed((c) => !c)}
+        className="flex items-center gap-2 w-full py-2 text-left group cursor-pointer" role="button">
+        {collapsed ? <ChevronRight size={14} className="text-tertiary" /> : <ChevronDown size={14} className="text-tertiary" />}
+        <span className="text-tertiary"><Receipt size={16} /></span>
+        <span className="text-sm font-semibold">Invoices</span>
+        <span className="text-xs text-fuchsia-400 font-medium">
+          {acceptedCount}/{invoices.length}
+        </span>
+      </div>
+
+      {!collapsed && (
+        <div className="space-y-3 ml-6">
+          {invoices.map((item, idx) => (
+            <div key={item.data.ref || `inv-${idx}`} className={`rounded-xl border-2 p-4 transition-all ${
+              item.status === "discarded"
+                ? "border-border-subtle opacity-50"
+                : "border-fuchsia-400/40 bg-fuchsia-500/5"
+            }`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-400/30">
+                    <Sparkles size={11} className="inline -mt-0.5 mr-1" />
+                    Will create
+                  </span>
+                </div>
+                <button
+                  onClick={() => toggleStatus(idx)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    item.status === "discarded"
+                      ? "text-fuchsia-400 hover:bg-fuchsia-500/10"
+                      : "text-secondary hover:text-red-400 hover:bg-red-500/10"
+                  }`}
+                >
+                  {item.status === "discarded" ? <><Check size={12} /> Restore</> : <><Trash2 size={12} /> Discard</>}
+                </button>
+              </div>
+              {item.status === "accepted" && (
+                <InvoiceCard
+                  item={item}
+                  onUpdate={(u) => update(idx, u)}
+                  importedContracts={importedContracts}
+                  importedProjects={importedProjects}
+                  existingContracts={existingContracts}
+                  existingProjects={existingProjects}
+                  requiredFields={requiredFields}
+                  itemRequiredFields={itemRequiredFields}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InvoiceCard({ item, onUpdate, importedContracts, importedProjects, existingContracts, existingProjects, requiredFields, itemRequiredFields }: {
+  item: ImportEntity<ParsedInvoice>;
+  onUpdate: (u: ImportEntity<ParsedInvoice>) => void;
+  importedContracts: ImportEntity<ParsedContract>[];
+  importedProjects: ImportEntity<ParsedProject>[];
+  existingContracts: ExistingEntity[];
+  existingProjects: ExistingEntity[];
+  requiredFields: string[];
+  itemRequiredFields: string[];
+}) {
+  const d = item.data;
+  const acceptedContracts = importedContracts.filter((c) => c.status === "accepted");
+  const acceptedProjects = importedProjects.filter((c) => c.status === "accepted");
+
+  const req = (f: string) => requiredFields.includes(f);
+  const ireq = (f: string) => itemRequiredFields.includes(f);
+
+  function set<K extends keyof ParsedInvoice>(field: K, value: ParsedInvoice[K]) {
+    onUpdate({ ...item, data: { ...d, [field]: value } });
+  }
+
+  function updateItem(idx: number, field: keyof ParsedInvoiceItem, value: string | number | null) {
+    const newItems = [...d.items];
+    newItems[idx] = { ...newItems[idx], [field]: value };
+    set("items", newItems);
+  }
+
+  function addItem() {
+    set("items", [...d.items, {
+      start_date: d.date || "", end_date: "",
+      quantity: 1, unit: "hour", unit_price: 0,
+      description: "", VAT_rate: 0.19,
+    }]);
+  }
+
+  function removeItem(idx: number) {
+    set("items", d.items.filter((_, i) => i !== idx));
+  }
+
+  // Build contract options: imported refs + existing DB records
+  const contractOptions: { value: string; label: string; isRef?: boolean }[] = [
+    ...acceptedContracts.map((c) => ({
+      value: c.data.ref, label: c.data.title || c.data.ref, isRef: true,
+    })),
+    ...existingContracts.map((c) => ({
+      value: `existing:${c.id}`, label: (c.title as string) || `#${c.id}`,
+    })),
+  ];
+
+  const projectOptions: { value: string; label: string; isRef?: boolean }[] = [
+    ...acceptedProjects.map((p) => ({
+      value: p.data.ref, label: p.data.title || p.data.ref, isRef: true,
+    })),
+    ...existingProjects.map((p) => ({
+      value: `existing:${p.id}`, label: (p.title as string) || `#${p.id}`,
+    })),
+  ];
+
+  return (
+    <div className="space-y-3">
+      {/* Invoice header fields */}
+      <div className="grid grid-cols-3 gap-2">
+        <AiField label="Invoice Number" value={d.number} onChange={(v) => set("number", v)} required={req("number")} />
+        <AiField label="Date" value={d.date} onChange={(v) => set("date", v)} type="date" required={req("date")} />
+        <AiField label="Notes" value={d.notes} onChange={(v) => set("notes", v)} required={req("notes")} />
+      </div>
+
+      {/* Status flags */}
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-1.5 text-xs text-secondary cursor-pointer">
+          <input type="checkbox" checked={d.sent}
+            onChange={(e) => set("sent", e.target.checked)}
+            className="rounded border-border-subtle" />
+          Sent
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-secondary cursor-pointer">
+          <input type="checkbox" checked={d.paid}
+            onChange={(e) => set("paid", e.target.checked)}
+            className="rounded border-border-subtle" />
+          Paid
+        </label>
+      </div>
+
+      {/* Contract / Project linking */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs text-fuchsia-300/70 mb-0.5">Contract</label>
+          <select
+            value={d.contract_ref || ""}
+            onChange={(e) => set("contract_ref", e.target.value)}
+            className="w-full px-2.5 py-1.5 rounded-md text-sm bg-bg-card text-primary border border-fuchsia-400/30 outline-none focus:border-fuchsia-400 transition-colors"
+          >
+            <option value="">-- Select --</option>
+            {contractOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-fuchsia-300/70 mb-0.5">Project</label>
+          <select
+            value={d.project_ref || ""}
+            onChange={(e) => set("project_ref", e.target.value)}
+            className="w-full px-2.5 py-1.5 rounded-md text-sm bg-bg-card text-primary border border-fuchsia-400/30 outline-none focus:border-fuchsia-400 transition-colors"
+          >
+            <option value="">-- Select --</option>
+            {projectOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Line items table */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Line Items</span>
+          <button onClick={addItem}
+            className="flex items-center gap-1 text-xs text-fuchsia-400 hover:text-fuchsia-300 transition-colors">
+            <Plus size={12} /> Add Item
+          </button>
+        </div>
+        <div className="space-y-2">
+          {d.items.map((li, idx) => {
+            const missing = (f: string, v: any) => ireq(f) && (v == null || v === "");
+            const borderCls = (f: string, v: any) =>
+              missing(f, v) ? "border-red-400/60" : "border-fuchsia-400/20";
+            return (
+            <div key={idx} className="grid grid-cols-[1fr_80px_60px_90px_70px_28px] gap-1.5 items-end">
+              <div>
+                <label className="block text-[10px] text-tertiary mb-0.5">
+                  Description{ireq("description") && <span className="text-red-400 ml-0.5">*</span>}
+                </label>
+                <input value={li.description} onChange={(e) => updateItem(idx, "description", e.target.value)}
+                  className={`w-full px-2 py-1 rounded text-xs bg-bg-card text-primary border ${borderCls("description", li.description)} outline-none focus:border-fuchsia-400`} />
+              </div>
+              <div>
+                <label className="block text-[10px] text-tertiary mb-0.5">
+                  Qty{ireq("quantity") && <span className="text-red-400 ml-0.5">*</span>}
+                </label>
+                <input type="number" step="any" value={li.quantity ?? ""} onChange={(e) => updateItem(idx, "quantity", e.target.value ? parseFloat(e.target.value) : null)}
+                  className={`w-full px-2 py-1 rounded text-xs bg-bg-card text-primary border ${borderCls("quantity", li.quantity)} outline-none focus:border-fuchsia-400`} />
+              </div>
+              <div>
+                <label className="block text-[10px] text-tertiary mb-0.5">
+                  Unit{ireq("unit") && <span className="text-red-400 ml-0.5">*</span>}
+                </label>
+                <input value={li.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)}
+                  className={`w-full px-2 py-1 rounded text-xs bg-bg-card text-primary border ${borderCls("unit", li.unit)} outline-none focus:border-fuchsia-400`} />
+              </div>
+              <div>
+                <label className="block text-[10px] text-tertiary mb-0.5">
+                  Unit Price{ireq("unit_price") && <span className="text-red-400 ml-0.5">*</span>}
+                </label>
+                <input type="number" step="any" value={li.unit_price ?? ""} onChange={(e) => updateItem(idx, "unit_price", e.target.value ? parseFloat(e.target.value) : null)}
+                  className={`w-full px-2 py-1 rounded text-xs bg-bg-card text-primary border ${borderCls("unit_price", li.unit_price)} outline-none focus:border-fuchsia-400`} />
+              </div>
+              <div>
+                <label className="block text-[10px] text-tertiary mb-0.5">
+                  VAT %{ireq("VAT_rate") && <span className="text-red-400 ml-0.5">*</span>}
+                </label>
+                <input type="number" step="any"
+                  value={li.VAT_rate != null ? String(Math.round((li.VAT_rate > 1 ? li.VAT_rate : li.VAT_rate * 100) * 100) / 100) : ""}
+                  onChange={(e) => {
+                    const pct = e.target.value ? parseFloat(e.target.value) : null;
+                    updateItem(idx, "VAT_rate", pct == null ? null : pct / 100);
+                  }}
+                  className={`w-full px-2 py-1 rounded text-xs bg-bg-card text-primary border ${borderCls("VAT_rate", li.VAT_rate)} outline-none focus:border-fuchsia-400`} />
+              </div>
+              <button onClick={() => removeItem(idx)}
+                className="p-1 rounded text-tertiary hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                <Minus size={12} />
+              </button>
+            </div>
+            );
+          })}
+        </div>
+        {d.items.length > 0 && (
+          <div className="mt-2 text-right text-xs text-secondary">
+            Subtotal: {d.items.reduce((sum, li) => sum + (li.quantity || 0) * (li.unit_price || 0), 0).toFixed(2)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -702,11 +1001,13 @@ function ContactCard({ item, onUpdate, existing }: {
   );
 }
 
-function ClientCard({ item, onUpdate, existing, contacts }: {
+function ClientCard({ item, onUpdate, existing, contacts, existingContacts, requiredFields }: {
   item: ImportEntity<ParsedClient>;
   onUpdate: (u: ImportEntity<ParsedClient>) => void;
   existing: ExistingEntity[];
   contacts: ImportEntity<ParsedContact>[];
+  existingContacts: ExistingEntity[];
+  requiredFields: string[];
 }) {
   const d = item.data;
   const ex = item.existingData;
@@ -716,18 +1017,28 @@ function ClientCard({ item, onUpdate, existing, contacts }: {
     onUpdate({ ...item, data: { ...d, [field]: value } });
   }
 
+  const req = (f: string) => requiredFields.includes(f);
+
+  const contactOptions = [
+    ...acceptedContacts.map((c) => ({
+      ref: c.data.ref,
+      label: `${c.data.first_name} ${c.data.last_name}`.trim() || c.data.company || c.data.ref,
+    })),
+    ...existingContacts.map((c) => ({
+      ref: `existing:${c.id}`,
+      label: `${c.first_name || ""} ${c.last_name || ""}`.trim() || (c.company as string) || `#${c.id}`,
+    })),
+  ];
+
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
-        <AiField label="Name" value={d.name} dbValue={ex?.name as string} onChange={(v) => set("name", v)} />
+        <AiField label="Name" value={d.name} dbValue={ex?.name as string} onChange={(v) => set("name", v)} required={req("name")} />
       </div>
       <RefDropdown
         label="Invoicing Contact"
         currentRef={d.contact_ref}
-        options={acceptedContacts.map((c) => ({
-          ref: c.data.ref,
-          label: `${c.data.first_name} ${c.data.last_name}`.trim() || c.data.company || c.data.ref,
-        }))}
+        options={contactOptions}
         onChange={(ref) => set("contact_ref", ref)}
         hint={d.contact_ref}
       />
@@ -735,11 +1046,13 @@ function ClientCard({ item, onUpdate, existing, contacts }: {
   );
 }
 
-function ContractCard({ item, onUpdate, existing, clients }: {
+function ContractCard({ item, onUpdate, existing, clients, requiredFields, enumFields }: {
   item: ImportEntity<ParsedContract>;
   onUpdate: (u: ImportEntity<ParsedContract>) => void;
   existing: ExistingEntity[];
   clients: ImportEntity<ParsedClient>[];
+  requiredFields: string[];
+  enumFields: Record<string, string[]>;
 }) {
   const d = item.data;
   const ex = item.existingData;
@@ -749,20 +1062,22 @@ function ContractCard({ item, onUpdate, existing, clients }: {
     onUpdate({ ...item, data: { ...d, [field]: value } });
   }
 
+  const req = (f: string) => requiredFields.includes(f);
+
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 gap-2">
-        <AiField label="Title" value={d.title} dbValue={ex?.title as string} onChange={(v) => set("title", v)} required />
-        <AiField label="Rate" value={String(d.rate ?? "")} onChange={(v) => set("rate", v ? parseFloat(v) : null)} required />
-        <AiField label="Currency" value={d.currency} onChange={(v) => set("currency", v)} required />
-        <AiField label="Unit" value={d.unit} onChange={(v) => set("unit", v)} />
-        <AiField label="Billing Cycle" value={d.billing_cycle} onChange={(v) => set("billing_cycle", v)} />
-        <AiField label="Volume" value={String(d.volume ?? "")} onChange={(v) => set("volume", v ? parseInt(v) : null)} />
+        <AiField label="Title" value={d.title} dbValue={ex?.title as string} onChange={(v) => set("title", v)} required={req("title")} />
+        <AiField label="Rate" value={String(d.rate ?? "")} onChange={(v) => set("rate", v ? parseFloat(v) : null)} required={req("rate")} />
+        <AiField label="Currency" value={d.currency} onChange={(v) => set("currency", v)} required={req("currency")} />
+        <AiField label="Unit" value={d.unit} onChange={(v) => set("unit", v)} required={req("unit")} options={enumFields.unit} />
+        <AiField label="Billing Cycle" value={d.billing_cycle} onChange={(v) => set("billing_cycle", v)} required={req("billing_cycle")} options={enumFields.billing_cycle} />
+        <AiField label="Volume" value={String(d.volume ?? "")} onChange={(v) => set("volume", v ? parseInt(v) : null)} required={req("volume")} />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <AiField label="Signature Date" value={d.signature_date} onChange={(v) => set("signature_date", v)} type="date" />
-        <AiField label="Start Date" value={d.start_date} onChange={(v) => set("start_date", v)} type="date" required />
-        <AiField label="End Date" value={d.end_date} onChange={(v) => set("end_date", v)} type="date" />
+        <AiField label="Signature Date" value={d.signature_date} onChange={(v) => set("signature_date", v)} type="date" required={req("signature_date")} />
+        <AiField label="Start Date" value={d.start_date} onChange={(v) => set("start_date", v)} type="date" required={req("start_date")} />
+        <AiField label="End Date" value={d.end_date} onChange={(v) => set("end_date", v)} type="date" required={req("end_date")} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <AiField
@@ -793,11 +1108,12 @@ function ContractCard({ item, onUpdate, existing, clients }: {
   );
 }
 
-function ProjectCard({ item, onUpdate, existing, importedContracts }: {
+function ProjectCard({ item, onUpdate, existing, importedContracts, requiredFields }: {
   item: ImportEntity<ParsedProject>;
   onUpdate: (u: ImportEntity<ParsedProject>) => void;
   existing: ExistingEntity[];
   importedContracts: ImportEntity<ParsedContract>[];
+  requiredFields: string[];
 }) {
   const d = item.data;
   const ex = item.existingData;
@@ -807,16 +1123,18 @@ function ProjectCard({ item, onUpdate, existing, importedContracts }: {
     onUpdate({ ...item, data: { ...d, [field]: value } });
   }
 
+  const req = (f: string) => requiredFields.includes(f);
+
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
-        <AiField label="Title" value={d.title} dbValue={ex?.title as string} onChange={(v) => set("title", v)} />
-        <AiField label="Tag" value={d.tag} onChange={(v) => set("tag", v)} />
+        <AiField label="Title" value={d.title} dbValue={ex?.title as string} onChange={(v) => set("title", v)} required={req("title")} />
+        <AiField label="Tag" value={d.tag} onChange={(v) => set("tag", v)} required={req("tag")} />
       </div>
-      <AiField label="Description" value={d.description} onChange={(v) => set("description", v)} />
+      <AiField label="Description" value={d.description} onChange={(v) => set("description", v)} required={req("description")} />
       <div className="grid grid-cols-2 gap-2">
-        <AiField label="Start Date" value={d.start_date} onChange={(v) => set("start_date", v)} type="date" />
-        <AiField label="End Date" value={d.end_date} onChange={(v) => set("end_date", v)} type="date" />
+        <AiField label="Start Date" value={d.start_date} onChange={(v) => set("start_date", v)} type="date" required={req("start_date")} />
+        <AiField label="End Date" value={d.end_date} onChange={(v) => set("end_date", v)} type="date" required={req("end_date")} />
       </div>
       <RefDropdown
         label="Contract"
@@ -836,25 +1154,34 @@ function ProjectCard({ item, onUpdate, existing, importedContracts }: {
 // Shared UI primitives
 // ---------------------------------------------------------------------------
 
-function AiField({ label, value, dbValue, onChange, type = "text", required }: {
+function AiField({ label, value, dbValue, onChange, type = "text", required, options }: {
   label: string; value: string | null | undefined; dbValue?: string;
   onChange: (v: string) => void; type?: string; required?: boolean;
+  options?: string[];
 }) {
   const safeValue = value ?? "";
   const differs = dbValue != null && dbValue !== "" && safeValue !== dbValue;
   const missing = required && !safeValue.trim();
+
+  const fieldCls = `w-full px-2.5 py-1.5 rounded-md text-sm bg-bg-card text-primary outline-none
+    focus:border-fuchsia-400 transition-colors placeholder:text-muted border ${
+    missing ? "border-red-400/70 bg-red-500/5" :
+    differs ? "border-amber-400/60" : "border-fuchsia-400/30"
+  }`;
 
   return (
     <div>
       <label className={`block text-xs mb-0.5 ${missing ? "text-red-400" : "text-fuchsia-300/70"}`}>
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
-      <input type={type} value={safeValue} onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-2.5 py-1.5 rounded-md text-sm bg-bg-card text-primary outline-none
-          focus:border-fuchsia-400 transition-colors placeholder:text-muted border ${
-          missing ? "border-red-400/70 bg-red-500/5" :
-          differs ? "border-amber-400/60" : "border-fuchsia-400/30"
-        }`} />
+      {options ? (
+        <select value={safeValue} onChange={(e) => onChange(e.target.value)} className={fieldCls}>
+          <option value="">-- Select --</option>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <input type={type} value={safeValue} onChange={(e) => onChange(e.target.value)} className={fieldCls} />
+      )}
       {missing && (
         <div className="text-[10px] text-red-400 mt-0.5">Required</div>
       )}

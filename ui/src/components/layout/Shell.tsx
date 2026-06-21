@@ -12,7 +12,7 @@ import { TimelineView } from "../timeline/TimelineView";
 import { TaxReservesView } from "../tax/TaxReservesView";
 import { SalaryView } from "../salary/SalaryView";
 import { TimeTrackingView } from "../timetracking/TimeTrackingView";
-import { ContractImportView } from "../import/ContractImportView";
+import { DocumentImportView } from "../import/DocumentImportView";
 import { PlaceholderView } from "../shared/PlaceholderView";
 import { UpdateBanner } from "./UpdateBanner";
 import { StatusBar } from "./StatusBar";
@@ -233,7 +233,7 @@ function DetailView({ id }: { id: string }) {
     case "contacts": return <ContactsView />;
     case "timetracking": return <TimeTrackingView />;
     case "invoicing": return <InvoicingView />;
-    case "import": return <ContractImportView />;
+    case "import": return <DocumentImportView />;
     case "settings": return <SettingsView />;
     default: return <PlaceholderView title={id.charAt(0).toUpperCase() + id.slice(1)} />;
   }
