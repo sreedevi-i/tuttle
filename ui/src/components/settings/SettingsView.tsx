@@ -891,14 +891,32 @@ const THEME_OPTIONS: { id: ThemeChoice; label: string; icon: typeof Sun }[] = [
 ];
 
 function SystemTab() {
-  const { log } = useStatusBar();
+  const { log, showMessage } = useStatusBar();
   const { choice, setChoice } = useTheme();
   const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    const offs = [
+      window.tuttle?.onUpdateNotAvailable?.(() => {
+        setChecking(false);
+        showMessage("You're on the latest version.", { type: "success" });
+      }),
+      window.tuttle?.onUpdateAvailable?.((info) => {
+        setChecking(false);
+        showMessage(`Update ${info.version} available — downloading…`, { type: "info" });
+      }),
+      window.tuttle?.onUpdateError?.((info) => {
+        setChecking(false);
+        showMessage(`Update check failed: ${info.message}`, { type: "error" });
+      }),
+    ];
+    return () => offs.forEach((off) => off?.());
+  }, []);
 
   function handleCheckForUpdate() {
     setChecking(true);
     window.tuttle.checkForUpdate();
-    setTimeout(() => setChecking(false), 3000);
+    setTimeout(() => setChecking(false), 15000);
   }
 
   return (

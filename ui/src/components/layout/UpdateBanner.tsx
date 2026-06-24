@@ -8,10 +8,13 @@ export function UpdateBanner() {
   const { showMessage } = useStatusBar();
 
   useEffect(() => {
-    window.tuttle?.onUpdateDownloaded?.((info) => setUpdate(info));
-    window.tuttle?.onUpdateError?.((info) => {
-      showMessage(`Update check failed: ${info.message}`, { type: "error" });
-    });
+    const offs = [
+      window.tuttle?.onUpdateDownloaded?.((info) => setUpdate(info)),
+      window.tuttle?.onUpdateError?.((info) => {
+        showMessage(`Update check failed: ${info.message}`, { type: "error" });
+      }),
+    ];
+    return () => offs.forEach((off) => off?.());
   }, []);
 
   if (!update || dismissed) return null;
