@@ -7,6 +7,14 @@ export function initUpdater(win: BrowserWindow) {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
 
+  autoUpdater.on("update-available", (info) => {
+    win.webContents.send("update-available", { version: info.version });
+  });
+
+  autoUpdater.on("update-not-available", (info) => {
+    win.webContents.send("update-not-available", { version: info.version });
+  });
+
   autoUpdater.on("update-downloaded", (info) => {
     win.webContents.send("update-downloaded", {
       version: info.version,
