@@ -118,22 +118,60 @@ def _prune_backups(db_path: Path) -> None:
             logger.warning(f"Could not prune backup {old}: {e}")
 
 
+def _get_current_revision(db_url: str) -> str | None:
+    """Read the current alembic_version from the database, or None."""
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(db_url)
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT version_num FROM alembic_version"))
+            row = result.fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+    finally:
+        engine.dispose()
+
+
 def ensure_schema(db_url: str) -> None:
     """Upgrade the database at db_url to the current head revision.
 
     For SQLite URLs, takes a timestamped backup before upgrading. If
-    upgrade fails, restores the backup, preserves the broken DB as
-    .broken-<ts>, and raises SchemaMigrationError.
+    upgrade fails AND the migration partially applied (alembic_version
+    changed), the DB is presumed corrupt: it is preserved as
+    .broken-<ts> and the backup is restored.
+
+    Transient errors (SQLite locked, I/O errors, no-op upgrade failures)
+    that leave the schema unchanged do NOT mark the DB as broken — the
+    error is simply re-raised so the caller can retry.
     """
     cfg = _alembic_config_for(db_url)
     db_path = _db_path_from_url(db_url)
     backup_path = _backup(db_path) if db_path is not None else None
+
+    revision_before = _get_current_revision(db_url) if db_path else None
 
     try:
         command.upgrade(cfg, "head")
         logger.debug(f"Schema ensured for {db_url}")
     except Exception as exc:
         logger.exception(f"Schema migration failed for {db_url}")
+
+        revision_after = _get_current_revision(db_url) if db_path else None
+        schema_was_modified = revision_before != revision_after
+
+        if not schema_was_modified:
+            logger.warning(
+                "Migration error was transient (schema unchanged) — "
+                "database NOT marked as broken."
+            )
+            raise SchemaMigrationError(
+                f"Schema migration failed (transient): {exc}",
+                broken_db=None,
+                restored_from=None,
+            ) from exc
+
         broken_path = None
         if db_path is not None and db_path.exists():
             ts = time.strftime("%Y%m%d-%H%M%S")
