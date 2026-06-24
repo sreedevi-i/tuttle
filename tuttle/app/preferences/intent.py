@@ -13,6 +13,7 @@ from .model import (
     DEFAULT_INCLUDE_LOGO,
     DEFAULT_INVOICE_NUMBER_SCHEME,
     DEFAULT_INVOICE_TEMPLATE,
+    DEFAULT_THEME_MODE,
     PreferencesStorageKeys,
 )
 
@@ -35,6 +36,10 @@ class PreferencesIntent:
         return IntentResult(
             was_intent_successful=True,
             data={
+                "theme_mode": self._app_db.get_setting(
+                    PreferencesStorageKeys.theme_mode_key.value,
+                )
+                or DEFAULT_THEME_MODE,
                 "invoice_template": self._app_db.get_setting(
                     PreferencesStorageKeys.invoice_template_key.value,
                 )
@@ -57,12 +62,18 @@ class PreferencesIntent:
 
     def save(
         self,
+        theme_mode=None,
         invoice_template=None,
         language=None,
         invoice_number_scheme=None,
         e_invoice_profile=None,
         include_logo=None,
     ) -> IntentResult:
+        if theme_mode is not None:
+            self._app_db.set_setting(
+                PreferencesStorageKeys.theme_mode_key.value,
+                theme_mode,
+            )
         if invoice_template is not None:
             self._app_db.set_setting(
                 PreferencesStorageKeys.invoice_template_key.value,

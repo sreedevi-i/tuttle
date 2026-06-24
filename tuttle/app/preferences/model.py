@@ -37,6 +37,8 @@ DEFAULT_E_INVOICE_PROFILE = "EN16931"
 
 DEFAULT_INCLUDE_LOGO = True
 
+DEFAULT_THEME_MODE = "dark"
+
 
 @dataclass
 class Preferences:

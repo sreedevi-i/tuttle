@@ -83,10 +83,10 @@ function SalaryDial({ salary, target, onTargetChange }: {
   const sliderMax = Math.max(optimistic * 1.1, 1);
 
   const zone = useCallback((t: number) => {
-    if (t <= 0) return { color: "#8E8E93", label: "" };
-    if (t <= conservative) return { color: "#30D158", label: "Safe zone — this amount is covered by paid invoices." };
-    if (t <= optimistic) return { color: "#FFD60A", label: "Optimistic zone — make sure outstanding invoices get paid." };
-    return { color: "#FF453A", label: "Above the optimistic estimate — consider reducing the target." };
+    if (t <= 0) return { color: "var(--color-muted)", label: "" };
+    if (t <= conservative) return { color: "var(--color-status-success)", label: "Safe zone — this amount is covered by paid invoices." };
+    if (t <= optimistic) return { color: "var(--color-status-warning)", label: "Optimistic zone — make sure outstanding invoices get paid." };
+    return { color: "var(--color-status-danger)", label: "Above the optimistic estimate — consider reducing the target." };
   }, [conservative, optimistic]);
 
   const z = zone(target);
@@ -101,7 +101,7 @@ function SalaryDial({ salary, target, onTargetChange }: {
         <Wallet size={16} className="text-secondary" />
         <h2 className="text-sm font-semibold">Monthly Salary</h2>
       </div>
-      <div className="bg-[#ffffff08] rounded-lg px-6 py-8 text-center">
+      <div className="bg-surface-overlay rounded-lg px-6 py-8 text-center">
         <div className="text-4xl font-bold mb-1" style={{ color: z.color }}>
           {fmt(target, currency)}
         </div>
@@ -148,10 +148,10 @@ function MonthlyBreakdown({ salary }: { salary: SalaryData }) {
   if (gross <= 0) return null;
 
   const items: { label: string; amount: number; color: string; bold?: boolean }[] = [
-    { label: "Gross Revenue / month", amount: gross, color: "#0A84FF" },
-    { label: "VAT (to remit)", amount: vatReserve, color: "#FFD60A" },
-    { label: "Est. Income Tax + Soli", amount: incomeTaxReserve, color: "#FFD60A" },
-    { label: "= Available Salary", amount: optimistic, color: optimistic >= 0 ? "#30D158" : "#FF453A", bold: true },
+    { label: "Gross Revenue / month", amount: gross, color: "var(--color-status-info)" },
+    { label: "VAT (to remit)", amount: vatReserve, color: "var(--color-status-warning)" },
+    { label: "Est. Income Tax + Soli", amount: incomeTaxReserve, color: "var(--color-status-warning)" },
+    { label: "= Available Salary", amount: optimistic, color: optimistic >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)", bold: true },
   ];
 
   return (
@@ -160,7 +160,7 @@ function MonthlyBreakdown({ salary }: { salary: SalaryData }) {
         <BarChart3 size={16} className="text-secondary" />
         <h2 className="text-sm font-semibold">Monthly Breakdown</h2>
       </div>
-      <div className="bg-[#ffffff08] rounded-lg p-4 space-y-1">
+      <div className="bg-surface-overlay rounded-lg p-4 space-y-1">
         {items.map((item, i) => {
           const pct = Math.max(Math.abs(item.amount) / gross, 0.02);
           const sign = item.amount < 0 && !item.bold ? "−" : "";

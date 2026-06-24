@@ -108,19 +108,19 @@ export function DashboardView() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard title="Revenue (YTD)" value={str(kpis, "total_revenue_ytd_formatted")} icon={TrendingUp}
-          valueColor={num(kpis, "total_revenue_ytd") > 0 ? "#4ade80" : undefined} />
+          valueColor={num(kpis, "total_revenue_ytd") > 0 ? "var(--color-status-success)" : undefined} />
         <KPICard title="Outstanding" value={str(kpis, "outstanding_amount_formatted")} icon={Wallet}
-          valueColor={num(kpis, "outstanding_amount") > 0 ? "#facc15" : undefined} />
+          valueColor={num(kpis, "outstanding_amount") > 0 ? "var(--color-status-warning)" : undefined} />
         <KPICard title="Overdue" value={str(kpis, "overdue_amount_formatted")} icon={AlertTriangle}
-          valueColor={num(kpis, "overdue_amount") > 0 ? "#f87171" : undefined} />
+          valueColor={num(kpis, "overdue_amount") > 0 ? "var(--color-status-danger)" : undefined} />
         <KPICard title="Eff. Hourly Rate" value={str(kpis, "effective_hourly_rate_formatted")} icon={Gauge}
-          valueColor="#60a5fa" />
+          valueColor="var(--color-status-info)" />
         <KPICard title="Active Projects" value={String(int(kpis, "active_projects"))} icon={FolderKanban} />
         <KPICard title="Active Contracts" value={String(int(kpis, "active_contracts"))} icon={FileSignature} />
         <KPICard title="Unpaid Invoices" value={String(int(kpis, "unpaid_invoices"))} icon={FileText}
-          valueColor={int(kpis, "unpaid_invoices") > 0 ? "#facc15" : undefined} />
+          valueColor={int(kpis, "unpaid_invoices") > 0 ? "var(--color-status-warning)" : undefined} />
         <KPICard title="Spendable Income" value={str(kpis, "spendable_income_formatted")} icon={Wallet}
-          valueColor={num(kpis, "spendable_income") > 0 ? "#4ade80" : "#f87171"} />
+          valueColor={num(kpis, "spendable_income") > 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} />
       </div>
 
       {revenueBars.length > 0 && (
@@ -129,18 +129,18 @@ export function DashboardView() {
           <p className="text-[11px] text-tertiary mb-3">Invoiced + pending from past months, planned from calendar</p>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={revenueBars} barGap={0}>
-              <XAxis dataKey="label" tick={{ fill: "#b8b8bc", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#b8b8bc", fontSize: 12 }} axisLine={false} tickLine={false}
+              <XAxis dataKey="label" tick={{ fill: "var(--color-chart-label)", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "var(--color-chart-label)", fontSize: 12 }} axisLine={false} tickLine={false}
                 tickFormatter={(v: number) => v >= 1000 ? `€${(v / 1000).toFixed(0)}K` : `€${v}`} />
               <Tooltip
-                contentStyle={{ background: "#3a3a3c", border: "1px solid #4a4a4c", borderRadius: 8, color: "#fff" }}
-                labelStyle={{ color: "#b8b8bc" }}
+                contentStyle={{ background: "var(--color-bg-card)", border: "1px solid var(--color-border)", borderRadius: 8, color: "var(--color-primary)" }}
+                labelStyle={{ color: "var(--color-chart-label)" }}
                 formatter={(value: number, name: string) => {
                   if (!value) return [null, null];
                   return [`€${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, name];
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12, color: "#b8b8bc" }} />
+              <Legend wrapperStyle={{ fontSize: 12, color: "var(--color-chart-label)" }} />
               <Bar dataKey="invoiced" name="Invoiced" stackId="rev" fill="#4ADE80" radius={[0, 0, 0, 0]} />
               <Bar dataKey="pending" name="Pending" stackId="rev" fill="#FACC15" radius={[0, 0, 0, 0]} />
               <Bar dataKey="planned" name="Planned" stackId="rev" fill="#60A5FA" radius={[3, 3, 0, 0]} />

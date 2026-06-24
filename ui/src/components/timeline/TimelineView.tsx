@@ -18,20 +18,20 @@ const CATEGORIES: { id: Category; label: string; icon: typeof FileText }[] = [
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  invoice:  "#0A84FF",
-  contract: "#30D158",
-  project:  "#FFD60A",
+  invoice:  "var(--color-status-info)",
+  contract: "var(--color-status-success)",
+  project:  "var(--color-status-warning)",
   goal:     "#BF5AF2",
 };
 
 function dotColor(event: Entity): string {
   const title = str(event, "title").toLowerCase();
-  if (title.includes("reminder") && title.includes("sent")) return "#F59E0B";
-  if (title.includes("paid") || title.includes("completed") || title.includes("reached")) return "#30D158";
-  if (title.includes("overdue") || title.includes("cancelled")) return "#FF453A";
-  if (title.includes("reminder")) return "#F59E0B";
-  if (title.includes("due")) return CATEGORY_COLORS[str(event, "category")] || "#0A84FF";
-  return CATEGORY_COLORS[str(event, "category")] || "#0A84FF";
+  if (title.includes("reminder") && title.includes("sent")) return "var(--color-status-warning)";
+  if (title.includes("paid") || title.includes("completed") || title.includes("reached")) return "var(--color-status-success)";
+  if (title.includes("overdue") || title.includes("cancelled")) return "var(--color-status-danger)";
+  if (title.includes("reminder")) return "var(--color-status-warning)";
+  if (title.includes("due")) return CATEGORY_COLORS[str(event, "category")] || "var(--color-status-info)";
+  return CATEGORY_COLORS[str(event, "category")] || "var(--color-status-info)";
 }
 
 function formatDate(iso: string): string {
@@ -144,7 +144,7 @@ export function TimelineView() {
         <div className="flex gap-1.5">
           {CATEGORIES.map((cat) => {
             const active = activeFilter === cat.id;
-            const color = cat.id === "all" ? "#0A84FF" : CATEGORY_COLORS[cat.id];
+            const color = cat.id === "all" ? "var(--color-status-info)" : CATEGORY_COLORS[cat.id];
             return (
               <button
                 key={cat.id}
@@ -240,7 +240,7 @@ function EventCard({ event, isLast }: { event: Entity; isLast: boolean }) {
 
       {/* Card */}
       <div className="flex-1 ml-2 mb-1">
-        <div className="rounded-lg bg-[#ffffff08] p-3">
+        <div className="rounded-lg bg-surface-overlay p-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <CatIcon size={14} style={{ color }} />

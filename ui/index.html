@@ -6,6 +6,11 @@
     <title>Tuttle</title>
   </head>
   <body class="overflow-hidden">
+    <script>
+      try{var t=localStorage.getItem("tuttle-theme");
+      if(t==="light"||(t==="system"&&!matchMedia("(prefers-color-scheme:dark)").matches))
+        document.documentElement.classList.remove("dark")}catch(e){}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
   </body>
