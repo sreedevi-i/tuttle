@@ -4,8 +4,10 @@ declare global {
       rpc: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
       readFile: (filePath: string) => Promise<{ ok: boolean; data: string | null }>;
       platform: string;
-      onUpdateDownloaded: (cb: (info: { version: string }) => void) => void;
-      onUpdateError: (cb: (info: { message: string }) => void) => void;
+      onUpdateAvailable: (cb: (info: { version: string }) => void) => () => void;
+      onUpdateNotAvailable: (cb: (info: { version: string }) => void) => () => void;
+      onUpdateDownloaded: (cb: (info: { version: string }) => void) => () => void;
+      onUpdateError: (cb: (info: { message: string }) => void) => () => void;
       checkForUpdate: () => void;
       openExternal: (url: string) => void;
       quitAndInstall: () => void;
