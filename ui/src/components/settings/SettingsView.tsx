@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info, Image as ImageIcon, X } from "lucide-react";
+import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info, Image as ImageIcon, X, Sun, Moon, Laptop } from "lucide-react";
+import { useTheme, type ThemeChoice } from "../../hooks/useTheme";
 import { rpc } from "../../api/rpc";
 import type { Entity } from "../../api/types";
 import { str } from "../../api/entity";
@@ -883,8 +884,15 @@ const LOG_TYPE_ICONS: Record<MessageType, typeof Info> = {
   success: CheckCircle2,
 };
 
+const THEME_OPTIONS: { id: ThemeChoice; label: string; icon: typeof Sun }[] = [
+  { id: "light", label: "Light", icon: Sun },
+  { id: "dark", label: "Dark", icon: Moon },
+  { id: "system", label: "System", icon: Laptop },
+];
+
 function SystemTab() {
   const { log, showMessage } = useStatusBar();
+  const { choice, setChoice } = useTheme();
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
@@ -913,6 +921,26 @@ function SystemTab() {
 
   return (
     <section className="space-y-6">
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Appearance</h3>
+        <div className="flex rounded-lg border border-border-subtle overflow-hidden w-fit">
+          {THEME_OPTIONS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setChoice(id)}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors ${
+                choice === id
+                  ? "bg-accent/10 text-primary border-accent/30"
+                  : "text-secondary hover:bg-bg-hover hover:text-primary"
+              }`}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-1">
         <h3 className="text-sm font-semibold">About Tuttle</h3>
         <p className="text-sm text-secondary">Version {__APP_VERSION__}</p>

@@ -19,6 +19,7 @@ import { StatusBar } from "./StatusBar";
 import { StatusBarProvider } from "../shared/status-bar-context";
 import { NavigationContext, type NavigationFilter } from "../shared/NavigationContext";
 import { rpc } from "../../api/rpc";
+import { useThemeProvider, ThemeContext } from "../../hooks/useTheme";
 
 type BootState = "loading" | "welcome" | "ready";
 
@@ -40,6 +41,7 @@ const PHASE: Record<BootPhase, string> = {
 };
 
 export function Shell() {
+  const theme = useThemeProvider();
   const [bootState, setBootState] = useState<BootState>("loading");
   const [bootPhase, setBootPhase] = useState<BootPhase>("init");
   const [selected, setSelected] = useState("dashboard");
@@ -185,39 +187,41 @@ export function Shell() {
   }
 
   return (
-    <NavigationContext.Provider value={navContext}>
-      <StatusBarProvider>
-        <div className="flex h-screen w-screen bg-bg-content text-primary">
-          <Sidebar
-            selected={selected}
-            onSelect={handleSidebarSelect}
-            collapsed={collapsed}
-            onToggleCollapse={() => setCollapsed((c) => !c)}
-            activeUser={activeUser}
-            allUsers={allUsers}
-            onSwitchUser={handleSwitchUser}
-            onAddUser={() => setRegDialogOpen(true)}
-            onDeleteUser={handleDeleteUser}
+    <ThemeContext.Provider value={theme}>
+      <NavigationContext.Provider value={navContext}>
+        <StatusBarProvider>
+          <div className="flex h-screen w-screen bg-bg-content text-primary">
+            <Sidebar
+              selected={selected}
+              onSelect={handleSidebarSelect}
+              collapsed={collapsed}
+              onToggleCollapse={() => setCollapsed((c) => !c)}
+              activeUser={activeUser}
+              allUsers={allUsers}
+              onSwitchUser={handleSwitchUser}
+              onAddUser={() => setRegDialogOpen(true)}
+              onDeleteUser={handleDeleteUser}
+            />
+            <main className="flex-1 flex flex-col overflow-hidden">
+              <div className="drag-region h-13 shrink-0" />
+              <UpdateBanner />
+              <div className="flex-1 overflow-y-auto">
+                <DetailView id={selected} />
+              </div>
+              <StatusBar />
+            </main>
+          </div>
+          <OnboardingWizard
+            open={regDialogOpen}
+            overlay
+            onClose={() => setRegDialogOpen(false)}
+            onSubmit={handleRegSubmit}
+            onDemo={handleWelcomeDemo}
+            loading={regLoading}
           />
-          <main className="flex-1 flex flex-col overflow-hidden">
-            <div className="drag-region h-13 shrink-0" />
-            <UpdateBanner />
-            <div className="flex-1 overflow-y-auto">
-              <DetailView id={selected} />
-            </div>
-            <StatusBar />
-          </main>
-        </div>
-        <OnboardingWizard
-          open={regDialogOpen}
-          overlay
-          onClose={() => setRegDialogOpen(false)}
-          onSubmit={handleRegSubmit}
-          onDemo={handleWelcomeDemo}
-          loading={regLoading}
-        />
-      </StatusBarProvider>
-    </NavigationContext.Provider>
+        </StatusBarProvider>
+      </NavigationContext.Provider>
+    </ThemeContext.Provider>
   );
 }
 
