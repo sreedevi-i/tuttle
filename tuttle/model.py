@@ -20,29 +20,18 @@ See tuttle/migrations/README.md and .cursor/rules/schema-migrations.mdc
 for the full rationale.
 """
 
-from typing import Literal, Optional, List, Dict, Type
-from pydantic import constr, BaseModel, condecimal
-from enum import Enum
-import datetime
-import textwrap
+from typing import Literal, Optional, List, Type
 
 import re
 import datetime
-import decimal
-import email
-import hashlib
-import string
 import textwrap
-import uuid
 from decimal import Decimal
-from enum import Enum
 
 import pandas
 import sqlalchemy
 
-# from pydantic import str
-from pydantic import BaseModel, condecimal, constr, validator
-from sqlmodel import SQLModel, Field, Relationship, Constraint
+from pydantic import BaseModel, condecimal, validator
+from sqlmodel import SQLModel, Field, Relationship
 
 
 from pathlib import Path
@@ -736,7 +725,10 @@ class Timesheet(SQLModel, table=True):
     #     arbitrary_types_allowed = True
 
     def __repr__(self):
-        return f"Timesheet(id={self.id}, tag={self.project.tag}, period_start={self.period_start}, period_end={self.period_end})"
+        return (
+            f"Timesheet(id={self.id}, tag={self.project.tag}, "
+            f"period_start={self.period_start}, period_end={self.period_end})"
+        )
 
     @property
     def prefix(self) -> str:

@@ -2,7 +2,7 @@
 
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from loguru import logger
 from sqlmodel import Session as SqlSession, create_engine as sql_create_engine, select

@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
-from pydantic import BaseModel
 from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 

@@ -1,15 +1,13 @@
 """Electronic invoice generation via ZUGFeRD / Factur-X (python-drafthorse)."""
 
-from datetime import date, timedelta, timezone, datetime
+from datetime import timedelta, timezone, datetime
 from decimal import Decimal
-from typing import Optional
 
 import pycountry
 from loguru import logger
 
 from drafthorse.models.accounting import ApplicableTradeTax
 from drafthorse.models.document import Document
-from drafthorse.models.note import IncludedNote
 from drafthorse.models.party import TaxRegistration
 from drafthorse.models.payment import PaymentMeans, PaymentTerms
 from drafthorse.models.tradelines import LineItem

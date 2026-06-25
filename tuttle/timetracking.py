@@ -1,18 +1,15 @@
-from typing import Tuple, Union, Optional, List, Type
+from typing import Union, Optional, List, Type
 
 import datetime
 from dataclasses import dataclass
 
 import pandas
-from pandas import DataFrame
 from pandera import check_io
 from pandera.typing import DataFrame
 
-from tuttle.dev import deprecated
-
 from . import schema
 from .calendar import Calendar, ICSCalendar
-from .model import Project, Timesheet, TimeTrackingItem, User
+from .model import Project, Timesheet, TimeTrackingItem
 from .time import TimeUnit
 
 DEFAULT_WORKDAY_HOURS = 8
@@ -250,7 +247,7 @@ def progress(
     tag = project.tag
     total_time = (
         time_tracking_data.filter(["tag", "duration"])
-        .query(f"tag == @tag")
+        .query("tag == @tag")
         .groupby("tag")
         .sum()
     )

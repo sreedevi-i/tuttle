@@ -1,17 +1,14 @@
 """Calendar integration."""
 from typing import Optional
 
-from pathlib import Path
 import io
 import re
 import calendar
 
-from loguru import logger
 import ics
 import pandas
 import datetime
 
-from pandera.typing import DataFrame
 from pandera import check_io
 from pandas import DataFrame
 

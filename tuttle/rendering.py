@@ -12,10 +12,9 @@ from loguru import logger
 import base64
 import io
 import PyPDF2
-import PIL
 
 
-from .model import User, Invoice, Timesheet, Project
+from .model import User, Invoice, Timesheet
 
 LANGUAGE_TO_LOCALE = {
     "en": "en_US",

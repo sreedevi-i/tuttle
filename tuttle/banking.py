@@ -1,11 +1,6 @@
 """Online banking functionality."""
 
-import getpass
-
 # from fints.client import FinTS3PinTanClient
-from loguru import logger
-
-from .model import BankAccount, Bank
 
 
 # class Banking:

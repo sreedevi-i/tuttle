@@ -1,1 +1,1 @@
-from .intent import DashboardIntent
+from .intent import DashboardIntent  # noqa: F401

@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Optional
 
 import datetime
 
@@ -8,7 +8,7 @@ import sqlmodel
 from ..core.abstractions import SQLModelDataSourceMixin
 from ..core.intent_result import IntentResult
 
-from ...model import Invoice, Project, Timesheet
+from ...model import Invoice, Timesheet
 
 
 class InvoicingDataSource(SQLModelDataSourceMixin):

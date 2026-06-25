@@ -1,7 +1,5 @@
 """Demo data lifecycle — install and reset."""
 
-from loguru import logger
-
 from ..core.intent_result import IntentResult
 from ..core.rpc_utils import reset_all
 from ..preferences.model import PreferencesStorageKeys, DEFAULT_INVOICE_TEMPLATE

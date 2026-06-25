@@ -1,7 +1,5 @@
 """Business logic for the Salary feature."""
 
-from decimal import Decimal
-
 from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
 

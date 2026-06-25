@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any, Callable, List, Mapping, Optional, Type
+from typing import Any, List, Mapping, Optional, Type
 
 from abc import ABC, abstractmethod
 from pathlib import Path

@@ -460,8 +460,6 @@ def _store_invoice_pdfs(
             continue
 
         # We need the invoice's prefix for filename. Load it from DB.
-        from ..core.abstractions import SQLModelDataSourceMixin
-
         ds = SQLModelDataSourceMixin()
         with ds.create_session() as session:
             invoice = session.get(InvoiceModel, inv_id)

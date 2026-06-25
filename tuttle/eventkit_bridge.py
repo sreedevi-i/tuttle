@@ -15,11 +15,9 @@ from __future__ import annotations
 
 import datetime
 import json
-import os
 import platform
 import plistlib
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -239,7 +237,7 @@ def _run_helper(*args: str) -> dict:
     (required for TCC to check the helper's bundle, not the parent's)."""
     import tempfile
 
-    exe = _ensure_helper()
+    _ensure_helper()
     app_path = _helper_app_dir()
 
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
@@ -270,7 +268,7 @@ def _run_helper(*args: str) -> dict:
 
         return json.loads(out_file.read_text())
     except json.JSONDecodeError:
-        logger.error(f"Helper returned invalid JSON")
+        logger.error("Helper returned invalid JSON")
         return {"error": "invalid helper output"}
     except subprocess.TimeoutExpired:
         logger.error("Helper timed out")

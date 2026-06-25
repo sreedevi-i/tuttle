@@ -128,9 +128,9 @@ def _extract_text(file_bytes: bytes, file_name: str) -> str:
 # Extraction schemas — flat projections of SQLModel classes (no relationships)
 # ---------------------------------------------------------------------------
 
-from pydantic import create_model as _create_model
+from pydantic import create_model as _create_model  # noqa: E402
 
-from tuttle.model import (
+from tuttle.model import (  # noqa: E402
     Contact,
     Address,
     Client,
