@@ -111,6 +111,13 @@ table {
 .ts-entries .col-task  { /* flexes to fill */ }
 .ts-entries .col-hours { width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
 
+.col-task-notes {
+  font-size: 0.85em;
+  color: #777;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
 /* Footer / total row */
 
 .ts-entries tfoot th {

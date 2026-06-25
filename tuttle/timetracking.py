@@ -79,8 +79,9 @@ def generate_timesheet(
     workday = datetime.timedelta(hours=1) * project.contract.units_per_workday
     ts_table.loc[ts_table["all_day"], "duration"] = workday
     if item_description:
-        # TODO: extract item description from calendar
-        ts_table["description"] = item_description
+        # Only fill rows that have no per-event description from the calendar source.
+        mask = ts_table["description"].isna() | (ts_table["description"] == "")
+        ts_table.loc[mask, "description"] = item_description
 
     period_str = f"{period_start} - {period_end}"
     ts = Timesheet(
