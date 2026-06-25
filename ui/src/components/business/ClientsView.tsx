@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Building2, Plus, Trash2, Save, X, Search, Mail, MapPin, Users,
-  FileUp, Sparkles, Check, CheckCheck, Loader2,
+  FileUp, Sparkles, Check, CheckCheck, Loader2, UserPlus, Tag,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
-import { str, entity as subEntity, displayName } from "../../api/entity";
+import { str, num, entity as subEntity, displayName, fullName } from "../../api/entity";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -126,7 +126,13 @@ export function ClientsView() {
     setParsedClients((p) => p.map((c, i) => i === index ? updated : c));
   }
 
-  const filtered = clients.filter((c) => {
+  const sorted = [...clients].sort((a, b) => {
+    const aName = str(a, "name") || "";
+    const bName = str(b, "name") || "";
+    return aName.localeCompare(bName);
+  });
+
+  const filtered = sorted.filter((c) => {
     if (!search) return true;
     const q = search.toLowerCase();
     const name = str(c, "name").toLowerCase();
@@ -181,8 +187,8 @@ export function ClientsView() {
           ) : mode === "edit" && selected ? (
             <ClientForm client={selected} contacts={contacts} onSave={handleSave} onCancel={() => setMode("view")} error={saveError} />
           ) : selected ? (
-            <ClientDetail client={selected} onEdit={() => setMode("edit")}
-              onDelete={() => handleDelete(selected.id)} deleteError={deleteError} />
+            <ClientDetail client={selected} contacts={contacts} onEdit={() => setMode("edit")}
+              onDelete={() => handleDelete(selected.id)} deleteError={deleteError} onReload={load} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary">
               <Building2 size={36} strokeWidth={1.2} />
@@ -221,8 +227,10 @@ function ClientRow({ client, isSelected, onSelect }: {
 
 /* ---------- Detail view ---------- */
 
-function ClientDetail({ client, onEdit, onDelete, deleteError }: {
-  client: Entity; onEdit: () => void; onDelete: () => void; deleteError: string | null;
+function ClientDetail({ client, contacts, onEdit, onDelete, deleteError, onReload }: {
+  client: Entity; contacts: Record<string, Entity>;
+  onEdit: () => void; onDelete: () => void; deleteError: string | null;
+  onReload: () => void;
 }) {
   const name = str(client, "name");
   const ic = subEntity(client, "invoicing_contact");
@@ -243,6 +251,37 @@ function ClientDetail({ client, onEdit, onDelete, deleteError }: {
     [str(contactAddr, "postal_code"), str(contactAddr, "city")].filter(Boolean).join(" "),
     str(contactAddr, "country"),
   ].filter(Boolean) : [];
+
+  const [assocs, setAssocs] = useState<Entity[]>([]);
+  const [addingContact, setAddingContact] = useState(false);
+  const [newContactId, setNewContactId] = useState<number | null>(null);
+  const [newRole, setNewRole] = useState("");
+
+  useEffect(() => { loadAssocs(); }, [client.id]);
+
+  async function loadAssocs() {
+    const res = await rpc<Entity[]>("clients.get_contacts_for_client", { client_id: client.id });
+    if (res.ok && res.data) setAssocs(res.data);
+  }
+
+  async function addContact() {
+    if (!newContactId) return;
+    await rpc("clients.add_contact_to_client", {
+      client_id: client.id, contact_id: newContactId, role: newRole || null,
+    });
+    setNewContactId(null);
+    setNewRole("");
+    setAddingContact(false);
+    await loadAssocs();
+  }
+
+  async function removeAssoc(id: number) {
+    await rpc("clients.remove_client_contact", { association_id: id });
+    await loadAssocs();
+  }
+
+  const contactList = Object.values(contacts);
+  const linkedContactIds = new Set(assocs.map((a) => num(a, "contact_id")));
 
   return (
     <div className="p-5 space-y-5">
@@ -306,6 +345,70 @@ function ClientDetail({ client, onEdit, onDelete, deleteError }: {
           )}
         </div>
       )}
+
+      {/* Contacts (many-to-many) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wider text-secondary">Contacts</div>
+          {!addingContact && (
+            <button onClick={() => setAddingContact(true)}
+              className="flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors">
+              <UserPlus size={13} /> Add
+            </button>
+          )}
+        </div>
+
+        {assocs.length === 0 && !addingContact && (
+          <div className="text-sm text-tertiary">No contacts linked yet.</div>
+        )}
+
+        {assocs.map((a) => {
+          const ct = contacts[String(num(a, "contact_id"))];
+          const ctName = ct ? displayName(ct) : `Contact #${num(a, "contact_id")}`;
+          const role = str(a, "role");
+          return (
+            <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg bg-bg-card border border-border-subtle group">
+              <span className="text-tertiary"><Users size={14} /></span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{ctName}</div>
+                {role && (
+                  <div className="flex items-center gap-1 text-xs text-tertiary">
+                    <Tag size={10} /> {role}
+                  </div>
+                )}
+              </div>
+              <button onClick={() => removeAssoc(a.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded text-secondary hover:text-red-400 transition-all"
+                title="Remove contact">
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+
+        {addingContact && (
+          <div className="p-3 rounded-lg bg-bg-card border border-border-subtle space-y-2">
+            <select value={newContactId ?? ""} onChange={(e) => setNewContactId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 rounded-md text-sm bg-bg-sidebar text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
+              <option value="">— Select contact —</option>
+              {contactList.filter((c) => !linkedContactIds.has(c.id)).map((c) => (
+                <option key={c.id} value={c.id}>{displayName(c)}</option>
+              ))}
+            </select>
+            <input type="text" placeholder="Role (optional), e.g. project lead, accountant" value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full px-3 py-2 rounded-md text-sm bg-bg-sidebar text-primary border border-border-subtle outline-none focus:border-accent transition-colors placeholder:text-muted" />
+            <div className="flex items-center gap-2 justify-end">
+              <button onClick={() => { setAddingContact(false); setNewContactId(null); setNewRole(""); }}
+                className="px-2.5 py-1 rounded text-xs text-secondary hover:text-primary transition-colors">Cancel</button>
+              <button onClick={addContact} disabled={!newContactId}
+                className="px-2.5 py-1 rounded text-xs font-medium text-primary bg-accent/20 hover:bg-accent/30 border border-accent/30 transition-colors disabled:opacity-40">
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

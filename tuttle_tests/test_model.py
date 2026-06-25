@@ -15,6 +15,7 @@ from tuttle import model, time
 from tuttle.model import (
     Address,
     Client,
+    ClientContact,
     Contact,
     Contract,
     Project,
@@ -188,6 +189,116 @@ class TestClient:
     def test_missing_fields_instantiation(self):
         with pytest.raises(ValidationError):
             Client.validate(dict())
+
+
+class TestClientContact:
+    """Tests for the ClientContact many-to-many association."""
+
+    def test_basic_association(self):
+        """A contact can be linked to a client with a role."""
+        engine = create_engine("sqlite:///")
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as s:
+            contact = Contact(first_name="Sam", last_name="Lowry")
+            client = Client(name="Acme Corp")
+            s.add_all([contact, client])
+            s.commit()
+            s.refresh(contact)
+            s.refresh(client)
+            cid, ctid = client.id, contact.id
+            s.add(ClientContact(client_id=cid, contact_id=ctid, role="invoicing"))
+            s.commit()
+        with Session(engine) as s:
+            rows = s.exec(select(ClientContact)).all()
+            assert len(rows) == 1
+            assert rows[0].role == "invoicing"
+            assert rows[0].client_id == cid
+            assert rows[0].contact_id == ctid
+
+    def test_multiple_contacts_per_client(self):
+        """A client can have multiple contact associations."""
+        engine = create_engine("sqlite:///")
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as s:
+            c1 = Contact(first_name="Alice", last_name="A")
+            c2 = Contact(first_name="Bob", last_name="B")
+            client = Client(name="MultiCo")
+            s.add_all([c1, c2, client])
+            s.commit()
+            s.refresh(c1)
+            s.refresh(c2)
+            s.refresh(client)
+            client_id = client.id
+            s.add(ClientContact(client_id=client.id, contact_id=c1.id, role="lead"))
+            s.add(ClientContact(client_id=client.id, contact_id=c2.id, role="billing"))
+            s.commit()
+        with Session(engine) as s:
+            cl = s.get(Client, client_id)
+            assert len(cl.client_contacts) == 2
+            roles = {a.role for a in cl.client_contacts}
+            assert roles == {"lead", "billing"}
+
+    def test_multiple_clients_per_contact(self):
+        """A contact can represent multiple clients."""
+        engine = create_engine("sqlite:///")
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as s:
+            contact = Contact(first_name="Eve", last_name="E")
+            cl1 = Client(name="Foo Inc")
+            cl2 = Client(name="Bar Ltd")
+            s.add_all([contact, cl1, cl2])
+            s.commit()
+            s.refresh(contact)
+            s.refresh(cl1)
+            s.refresh(cl2)
+            contact_id, cl1_id, cl2_id = contact.id, cl1.id, cl2.id
+            s.add(ClientContact(client_id=cl1_id, contact_id=contact_id, role="CEO"))
+            s.add(ClientContact(client_id=cl2_id, contact_id=contact_id, role="CEO"))
+            s.commit()
+        with Session(engine) as s:
+            ct = s.get(Contact, contact_id)
+            assert len(ct.client_contacts) == 2
+            client_ids = {a.client_id for a in ct.client_contacts}
+            assert client_ids == {cl1_id, cl2_id}
+
+    def test_cascade_delete_client(self):
+        """Deleting a client cascades to its ClientContact rows."""
+        engine = create_engine("sqlite:///")
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as s:
+            contact = Contact(first_name="Z", last_name="Z")
+            client = Client(name="Gone Corp")
+            s.add_all([contact, client])
+            s.commit()
+            s.refresh(contact)
+            s.refresh(client)
+            client_id, contact_id = client.id, contact.id
+            s.add(ClientContact(client_id=client_id, contact_id=contact_id))
+            s.commit()
+        with Session(engine) as s:
+            cl = s.get(Client, client_id)
+            s.delete(cl)
+            s.commit()
+        with Session(engine) as s:
+            assert s.exec(select(ClientContact)).first() is None
+            assert s.get(Contact, contact_id) is not None
+
+    def test_role_is_optional(self):
+        """Association works without a role."""
+        engine = create_engine("sqlite:///")
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as s:
+            contact = Contact(first_name="No", last_name="Role")
+            client = Client(name="Roleless Inc")
+            s.add_all([contact, client])
+            s.commit()
+            s.refresh(contact)
+            s.refresh(client)
+            s.add(ClientContact(client_id=client.id, contact_id=contact.id))
+            s.commit()
+        with Session(engine) as s:
+            row = s.exec(select(ClientContact)).first()
+            assert row.role is None
 
 
 class TestContract:
