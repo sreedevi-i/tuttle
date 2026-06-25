@@ -265,7 +265,11 @@ class Contact(RpcMixin, SQLModel, table=True):
         back_populates="invoicing_contact",
         sa_relationship_kwargs={"lazy": "subquery", "passive_deletes": "all"},
     )
-    # post address
+    # Many-to-many clients via association object
+    client_contacts: List["ClientContact"] = Relationship(
+        back_populates="contact",
+        sa_relationship_kwargs={"lazy": "subquery", "cascade": "all, delete-orphan"},
+    )
 
     # VALIDATORS
     @validator("email")
@@ -312,6 +316,33 @@ class Contact(RpcMixin, SQLModel, table=True):
         )
 
 
+class ClientContact(SQLModel, table=True):
+    """Association between Client and Contact with an optional role.
+
+    Enables many-to-many: a client can have multiple contacts (project lead,
+    accountant, …) and a contact can represent multiple clients.
+    """
+
+    __tablename__ = "clientcontact"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_id: int = Field(foreign_key="client.id", ondelete="CASCADE")
+    contact_id: int = Field(foreign_key="contact.id", ondelete="CASCADE")
+    role: Optional[str] = Field(
+        default=None,
+        description="Role of the contact for this client, e.g. 'invoicing', 'project lead'.",
+    )
+
+    client: "Client" = Relationship(
+        back_populates="client_contacts",
+        sa_relationship_kwargs={"lazy": "subquery"},
+    )
+    contact: "Contact" = Relationship(
+        back_populates="client_contacts",
+        sa_relationship_kwargs={"lazy": "subquery"},
+    )
+
+
 class Client(RpcMixin, SQLModel, table=True):
     """A client the freelancer has contracted with.
 
@@ -338,7 +369,7 @@ class Client(RpcMixin, SQLModel, table=True):
         back_populates="clients",
         sa_relationship_kwargs={"lazy": "subquery"},
     )
-    # Client n:1 invoicing Contact (optional)
+    # Client n:1 invoicing Contact (kept for backward compat)
     invoicing_contact_id: Optional[int] = Field(
         default=None, foreign_key="contact.id", ondelete="RESTRICT"
     )
@@ -349,6 +380,11 @@ class Client(RpcMixin, SQLModel, table=True):
     contracts: List["Contract"] = Relationship(
         back_populates="client",
         sa_relationship_kwargs={"lazy": "subquery", "passive_deletes": "all"},
+    )
+    # Many-to-many contacts via association object
+    client_contacts: List["ClientContact"] = Relationship(
+        back_populates="client",
+        sa_relationship_kwargs={"lazy": "subquery", "cascade": "all, delete-orphan"},
     )
 
     @property

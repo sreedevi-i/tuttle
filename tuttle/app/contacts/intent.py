@@ -1,6 +1,6 @@
 from ..core.abstractions import CrudIntent
 from ..core.intent_result import IntentResult
-from ...model import Address, Contact
+from ...model import Address, Contact, ClientContact
 
 
 class ContactsIntent(CrudIntent):
@@ -12,7 +12,65 @@ class ContactsIntent(CrudIntent):
         ("invoicing_contact_of", "clients", lambda c: c.name),
     ]
     __save_nested__ = {"address": Address}
-    __save_skip__ = {"invoicing_contact_of"}
+    __save_skip__ = {"invoicing_contact_of", "client_contacts"}
+
+    def get_all_clients_as_map(self) -> dict:
+        """Return all clients as {id: {id, name}} for the association picker."""
+        from ...model import Client
+
+        try:
+            clients = self.query(Client)
+            return {c.id: {"id": c.id, "name": c.name} for c in clients}
+        except Exception:
+            return {}
+
+    def get_clients_for_contact(self, contact_id: int) -> IntentResult:
+        """Return ClientContact associations enriched with client_name."""
+        try:
+            assocs = self.query_where(ClientContact, "contact_id", contact_id)
+            result = []
+            for a in assocs:
+                d = a.model_dump()
+                if a.client:
+                    d["client_name"] = a.client.name
+                result.append(d)
+            return IntentResult(was_intent_successful=True, data=result)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to load clients for this contact.",
+                log_message=f"get_clients_for_contact({contact_id}): {e}",
+                exception=e,
+            )
+
+    def add_client_to_contact(
+        self, contact_id: int, client_id: int, role: str | None = None
+    ) -> IntentResult:
+        """Create a ClientContact association from the contact side."""
+        try:
+            assoc = ClientContact(client_id=client_id, contact_id=contact_id, role=role)
+            self.store(assoc)
+            return IntentResult(was_intent_successful=True, data=assoc)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to add client to contact.",
+                log_message=f"add_client_to_contact({contact_id}, {client_id}): {e}",
+                exception=e,
+            )
+
+    def remove_client_contact(self, association_id: int) -> IntentResult:
+        """Delete a ClientContact association by its id."""
+        try:
+            self.delete_by_id(ClientContact, association_id)
+            return IntentResult(was_intent_successful=True)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to remove client from contact.",
+                log_message=f"remove_client_contact({association_id}): {e}",
+                exception=e,
+            )
 
     def _validated_save(self, contact: Contact) -> IntentResult:
         if not contact.first_name or not contact.last_name:

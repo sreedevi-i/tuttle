@@ -1,16 +1,17 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Users, Plus, Trash2, Save, X, Mail, Building2, MapPin, Search,
-  FileUp, Sparkles, Check, CheckCheck, Loader2,
+  FileUp, Sparkles, Check, CheckCheck, Loader2, Tag, UserPlus,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
-import { str, entity as subEntity, fullName, initials, displayName } from "../../api/entity";
+import { str, num, entity as subEntity, fullName, initials, displayName } from "../../api/entity";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
 
 export function ContactsView() {
   const [contacts, setContacts] = useState<Entity[]>([]);
+  const [clients, setClients] = useState<Record<string, Entity>>({});
   const [selected, setSelected] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -25,7 +26,10 @@ export function ContactsView() {
 
   async function load() {
     setLoading(true);
-    const res = await rpc<Entity[]>("contacts.get_all");
+    const [res, clRes] = await Promise.all([
+      rpc<Entity[]>("contacts.get_all"),
+      rpc<Record<string, Entity>>("contacts.get_all_clients"),
+    ]);
     if (res.ok && res.data) {
       setContacts(res.data);
       const currentId = selectedIdRef.current;
@@ -34,6 +38,7 @@ export function ContactsView() {
         setSelected(updated || null);
       }
     }
+    if (clRes.ok && clRes.data) setClients(clRes.data);
     setLoading(false);
   }
 
@@ -58,7 +63,6 @@ export function ContactsView() {
     const contact: Record<string, unknown> = {
       first_name: data.firstName,
       last_name: data.lastName,
-      company: data.company,
       email: data.email,
       address: {
         street: data.street,
@@ -144,7 +148,13 @@ export function ContactsView() {
     setParsedContacts((prev) => prev.map((c, i) => i === index ? updated : c));
   }
 
-  const filtered = contacts.filter((c) => {
+  const sorted = [...contacts].sort((a, b) => {
+    const aLast = str(a, "last_name") || str(a, "company") || str(a, "name") || "";
+    const bLast = str(b, "last_name") || str(b, "company") || str(b, "name") || "";
+    return aLast.localeCompare(bLast);
+  });
+
+  const filtered = sorted.filter((c) => {
     if (!search) return true;
     const q = search.toLowerCase();
     const name = displayName(c).toLowerCase();
@@ -203,12 +213,12 @@ export function ContactsView() {
               onClose={() => setMode("view")}
             />
           ) : mode === "create" ? (
-            <ContactForm onSave={handleSave} onCancel={() => { setMode("view"); }} />
+            <ContactForm clients={clients} onSave={handleSave} onCancel={() => { setMode("view"); }} />
           ) : mode === "edit" && selected ? (
-            <ContactForm contact={selected} onSave={handleSave}
+            <ContactForm contact={selected} clients={clients} onSave={handleSave}
               onCancel={() => setMode("view")} />
           ) : selected ? (
-            <ContactDetail contact={selected}
+            <ContactDetail contact={selected} clients={clients}
               onEdit={() => setMode("edit")}
               onDelete={() => handleDelete(selected.id)} />
           ) : (
@@ -232,6 +242,7 @@ function ContactRow({ contact, isSelected, onSelect }: {
   const email = str(contact, "email");
   const company = str(contact, "company");
   const ini = initials(contact);
+  const subtitle = company || email;
 
   return (
     <button onClick={onSelect}
@@ -242,11 +253,11 @@ function ContactRow({ contact, isSelected, onSelect }: {
       </div>
       <div className="min-w-0">
         <div className="text-sm font-medium truncate">{name}</div>
-        <div className="flex items-center gap-1.5 text-xs text-tertiary truncate">
-          {company && <span>{company}</span>}
-          {company && email && <span>·</span>}
-          {email && <span>{email}</span>}
-        </div>
+        {subtitle && (
+          <div className="flex items-center gap-1.5 text-xs text-tertiary truncate">
+            <span>{subtitle}</span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -254,13 +265,13 @@ function ContactRow({ contact, isSelected, onSelect }: {
 
 /* ---------- Detail view ---------- */
 
-function ContactDetail({ contact, onEdit, onDelete }: {
-  contact: Entity; onEdit: () => void; onDelete: () => void;
+function ContactDetail({ contact, clients, onEdit, onDelete }: {
+  contact: Entity; clients: Record<string, Entity>;
+  onEdit: () => void; onDelete: () => void;
 }) {
   const name = displayName(contact);
   const ini = initials(contact);
   const email = str(contact, "email");
-  const company = str(contact, "company");
   const addr = subEntity(contact, "address");
 
   const addrParts = addr ? [
@@ -268,6 +279,38 @@ function ContactDetail({ contact, onEdit, onDelete }: {
     [str(addr, "postal_code"), str(addr, "city")].filter(Boolean).join(" "),
     str(addr, "country"),
   ].filter(Boolean) : [];
+
+  const [assocs, setAssocs] = useState<Entity[]>([]);
+  const [addingClient, setAddingClient] = useState(false);
+  const [newClientId, setNewClientId] = useState<number | null>(null);
+  const [newRole, setNewRole] = useState("");
+
+  useEffect(() => { loadAssocs(); }, [contact.id]);
+
+  async function loadAssocs() {
+    const res = await rpc<Entity[]>("contacts.get_clients_for_contact", { contact_id: contact.id });
+    if (res.ok && res.data) setAssocs(res.data);
+    else setAssocs([]);
+  }
+
+  async function addClient() {
+    if (!newClientId) return;
+    await rpc("contacts.add_client_to_contact", {
+      contact_id: contact.id, client_id: newClientId, role: newRole || null,
+    });
+    setNewClientId(null);
+    setNewRole("");
+    setAddingClient(false);
+    await loadAssocs();
+  }
+
+  async function removeAssoc(id: number) {
+    await rpc("contacts.remove_client_contact", { association_id: id });
+    await loadAssocs();
+  }
+
+  const clientList = Object.values(clients);
+  const linkedClientIds = new Set(assocs.map((a) => num(a, "client_id")));
 
   return (
     <div className="p-5 space-y-5">
@@ -278,12 +321,6 @@ function ContactDetail({ contact, onEdit, onDelete }: {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-semibold">{name}</h1>
-          {company && str(contact, "first_name") && (
-            <div className="flex items-center gap-1.5 text-sm text-secondary">
-              <Building2 size={14} className="text-tertiary" />
-              <span>{company}</span>
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button onClick={onEdit}
@@ -303,9 +340,6 @@ function ContactDetail({ contact, onEdit, onDelete }: {
         {email && (
           <InfoRow icon={<Mail size={14} />} label="Email" value={email} />
         )}
-        {company && (
-          <InfoRow icon={<Building2 size={14} />} label="Company" value={company} />
-        )}
         {addrParts.length > 0 && (
           <div className="flex items-start gap-3 p-3 rounded-lg bg-bg-card border border-border-subtle">
             <span className="text-tertiary mt-0.5"><MapPin size={14} /></span>
@@ -314,6 +348,69 @@ function ContactDetail({ contact, onEdit, onDelete }: {
               {addrParts.map((line, i) => (
                 <div key={i} className="text-sm">{line}</div>
               ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Companies (many-to-many via ClientContact) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wider text-secondary">Companies</div>
+          {!addingClient && (
+            <button onClick={() => setAddingClient(true)}
+              className="flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors">
+              <UserPlus size={13} /> Add
+            </button>
+          )}
+        </div>
+
+        {assocs.length === 0 && !addingClient && (
+          <div className="text-sm text-tertiary">No companies linked yet.</div>
+        )}
+
+        {assocs.map((a) => {
+          const clientName = str(a, "client_name");
+          const role = str(a, "role");
+          return (
+            <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg bg-bg-card border border-border-subtle group">
+              <span className="text-tertiary"><Building2 size={14} /></span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{clientName || `Client #${num(a, "client_id")}`}</div>
+                {role && (
+                  <div className="flex items-center gap-1 text-xs text-tertiary">
+                    <Tag size={10} /> {role}
+                  </div>
+                )}
+              </div>
+              <button onClick={() => removeAssoc(a.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded text-secondary hover:text-red-400 transition-all"
+                title="Remove company">
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+
+        {addingClient && (
+          <div className="p-3 rounded-lg bg-bg-card border border-border-subtle space-y-2">
+            <select value={newClientId ?? ""} onChange={(e) => setNewClientId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 rounded-md text-sm bg-bg-sidebar text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
+              <option value="">— Select client —</option>
+              {clientList.filter((c) => !linkedClientIds.has(c.id)).map((c) => (
+                <option key={c.id} value={c.id}>{str(c, "name")}</option>
+              ))}
+            </select>
+            <input type="text" placeholder="Role (optional), e.g. project lead, accountant" value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full px-3 py-2 rounded-md text-sm bg-bg-sidebar text-primary border border-border-subtle outline-none focus:border-accent transition-colors placeholder:text-muted" />
+            <div className="flex items-center gap-2 justify-end">
+              <button onClick={() => { setAddingClient(false); setNewClientId(null); setNewRole(""); }}
+                className="px-2.5 py-1 rounded text-xs text-secondary hover:text-primary transition-colors">Cancel</button>
+              <button onClick={addClient} disabled={!newClientId}
+                className="px-2.5 py-1 rounded text-xs font-medium text-primary bg-accent/20 hover:bg-accent/30 border border-accent/30 transition-colors disabled:opacity-40">
+                Add
+              </button>
             </div>
           </div>
         )}
@@ -339,7 +436,6 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 interface ContactFormData {
   firstName: string;
   lastName: string;
-  company: string;
   email: string;
   street: string;
   number: string;
@@ -349,12 +445,11 @@ interface ContactFormData {
 }
 
 function formDataFromEntity(contact?: Entity): ContactFormData {
-  if (!contact) return { firstName: "", lastName: "", company: "", email: "", street: "", number: "", city: "", postalCode: "", country: "" };
+  if (!contact) return { firstName: "", lastName: "", email: "", street: "", number: "", city: "", postalCode: "", country: "" };
   const addr = subEntity(contact, "address");
   return {
     firstName: str(contact, "first_name"),
     lastName: str(contact, "last_name"),
-    company: str(contact, "company"),
     email: str(contact, "email"),
     street: addr ? str(addr, "street") : "",
     number: addr ? str(addr, "number") : "",
@@ -364,12 +459,42 @@ function formDataFromEntity(contact?: Entity): ContactFormData {
   };
 }
 
-function ContactForm({ contact, onSave, onCancel }: {
-  contact?: Entity; onSave: (data: ContactFormData) => void; onCancel: () => void;
+function ContactForm({ contact, clients, onSave, onCancel }: {
+  contact?: Entity; clients: Record<string, Entity>;
+  onSave: (data: ContactFormData) => void; onCancel: () => void;
 }) {
   const [form, setForm] = useState<ContactFormData>(() => formDataFromEntity(contact));
   const [saving, setSaving] = useState(false);
   const isNew = !contact;
+
+  const [assocs, setAssocs] = useState<Entity[]>([]);
+  const [addingClient, setAddingClient] = useState(false);
+  const [newClientId, setNewClientId] = useState<number | null>(null);
+  const [newRole, setNewRole] = useState("");
+
+  useEffect(() => { if (contact) loadAssocs(); }, [contact?.id]);
+
+  async function loadAssocs() {
+    if (!contact) return;
+    const res = await rpc<Entity[]>("contacts.get_clients_for_contact", { contact_id: contact.id });
+    if (res.ok && res.data) setAssocs(res.data);
+  }
+
+  async function addClient() {
+    if (!newClientId || !contact) return;
+    await rpc("contacts.add_client_to_contact", {
+      contact_id: contact.id, client_id: newClientId, role: newRole || null,
+    });
+    setNewClientId(null);
+    setNewRole("");
+    setAddingClient(false);
+    await loadAssocs();
+  }
+
+  async function removeAssoc(id: number) {
+    await rpc("contacts.remove_client_contact", { association_id: id });
+    await loadAssocs();
+  }
 
   function update(field: keyof ContactFormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -382,7 +507,9 @@ function ContactForm({ contact, onSave, onCancel }: {
     setSaving(false);
   }
 
-  const hasName = form.firstName.trim() || form.lastName.trim() || form.company.trim();
+  const hasName = form.firstName.trim() || form.lastName.trim();
+  const clientList = Object.values(clients);
+  const linkedClientIds = new Set(assocs.map((a) => num(a, "client_id")));
 
   return (
     <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -408,10 +535,7 @@ function ContactForm({ contact, onSave, onCancel }: {
       </Section>
 
       <Section title="Details">
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Company" value={form.company} onChange={(v) => update("company", v)} />
-          <FormField label="Email" value={form.email} onChange={(v) => update("email", v)} type="email" />
-        </div>
+        <FormField label="Email" value={form.email} onChange={(v) => update("email", v)} type="email" />
       </Section>
 
       <Section title="Address">
@@ -423,6 +547,66 @@ function ContactForm({ contact, onSave, onCancel }: {
           <FormField label="Country" value={form.country} onChange={(v) => update("country", v)} />
         </div>
       </Section>
+
+      {/* Companies — live-managed via RPC (only for existing contacts) */}
+      {contact && (
+        <Section title="Companies">
+          {assocs.length === 0 && !addingClient && (
+            <div className="text-sm text-tertiary">No companies linked yet.</div>
+          )}
+          <div className="space-y-2">
+            {assocs.map((a) => {
+              const clientName = str(a, "client_name");
+              const role = str(a, "role");
+              return (
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg bg-bg-card border border-border-subtle group">
+                  <span className="text-tertiary"><Building2 size={14} /></span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{clientName || `Client #${num(a, "client_id")}`}</div>
+                    {role && (
+                      <div className="flex items-center gap-1 text-xs text-tertiary">
+                        <Tag size={10} /> {role}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => removeAssoc(a.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-secondary hover:text-red-400 transition-all"
+                    title="Remove company">
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {addingClient ? (
+            <div className="p-3 rounded-lg bg-bg-card border border-border-subtle space-y-2 mt-2">
+              <select value={newClientId ?? ""} onChange={(e) => setNewClientId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 rounded-md text-sm bg-bg-sidebar text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
+                <option value="">— Select client —</option>
+                {clientList.filter((c) => !linkedClientIds.has(c.id)).map((c) => (
+                  <option key={c.id} value={c.id}>{str(c, "name")}</option>
+                ))}
+              </select>
+              <input type="text" placeholder="Role (optional), e.g. project lead, accountant" value={newRole}
+                onChange={(e) => setNewRole(e.target.value)}
+                className="w-full px-3 py-2 rounded-md text-sm bg-bg-sidebar text-primary border border-border-subtle outline-none focus:border-accent transition-colors placeholder:text-muted" />
+              <div className="flex items-center gap-2 justify-end">
+                <button type="button" onClick={() => { setAddingClient(false); setNewClientId(null); setNewRole(""); }}
+                  className="px-2.5 py-1 rounded text-xs text-secondary hover:text-primary transition-colors">Cancel</button>
+                <button type="button" onClick={addClient} disabled={!newClientId}
+                  className="px-2.5 py-1 rounded text-xs font-medium text-primary bg-accent/20 hover:bg-accent/30 border border-accent/30 transition-colors disabled:opacity-40">
+                  Add
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setAddingClient(true)}
+              className="flex items-center gap-1 text-xs text-secondary hover:text-primary transition-colors mt-2">
+              <UserPlus size={13} /> Add company
+            </button>
+          )}
+        </Section>
+      )}
     </form>
   );
 }

@@ -147,7 +147,13 @@ export function ContractsView() {
     setParsedContracts((p) => p.map((c, i) => i === index ? updated : c));
   }
 
-  const filtered = contracts.filter((c) => {
+  const sorted = [...contracts].sort((a, b) => {
+    const aDate = str(a, "start_date") || str(a, "signature_date") || "";
+    const bDate = str(b, "start_date") || str(b, "signature_date") || "";
+    return bDate.localeCompare(aDate);
+  });
+
+  const filtered = sorted.filter((c) => {
     const status = contractStatus(c);
     if (statusFilter !== "All" && status !== statusFilter) return false;
     if (!search) return true;
