@@ -8,15 +8,16 @@ alwaysApply: true
 This project uses **uv** for dependency management. The virtualenv lives at `.venv/`.
 
 ```bash
-# ✅ Run Python
-.venv/bin/python -m pytest ...
-.venv/bin/python -c "..."
+# ✅ Run Python via uv
+uv run pytest ...
+uv run python -c "..."
 
-# ✅ Or use just (which uses .venv/bin/python internally)
+# ✅ Or use just (which uses uv internally)
 just test
 
-# ❌ NEVER use system python or miniforge
+# ❌ NEVER use system python, miniforge, or direct .venv paths
 python -m pytest ...
+.venv/bin/python -m pytest ...
 ```
 
-When running any Python command (tests, scripts, imports), always prefix with `.venv/bin/python` or use `just`.
+When running any Python command (tests, scripts, imports), always use `uv run` or `just`.
