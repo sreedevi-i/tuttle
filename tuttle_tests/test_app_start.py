@@ -8,7 +8,6 @@ Verifies that:
 
 import importlib
 import sqlite3
-from pathlib import Path
 
 import pytest
 from sqlmodel import SQLModel, create_engine

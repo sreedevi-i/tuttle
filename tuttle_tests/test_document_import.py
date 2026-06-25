@@ -2,21 +2,18 @@
 
 import datetime
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from tuttle.model import (
-    Address,
     Client,
     Contract,
     Invoice,
     InvoiceItem,
     Project,
-    Contact,
 )
-from tuttle.app.imports.intent import ImportsIntent, _save_invoice, _model_fields
+from tuttle.app.imports.intent import ImportsIntent, _model_fields
 from tuttle.app.core.abstractions import SQLModelDataSourceMixin
 
 

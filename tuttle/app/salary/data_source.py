@@ -1,8 +1,7 @@
 """Data-access layer for the Salary feature."""
 
-from typing import List, Optional
+from typing import List
 
-from loguru import logger
 import sqlmodel
 
 from ..core.abstractions import SQLModelDataSourceMixin

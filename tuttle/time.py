@@ -1,6 +1,5 @@
 import enum
 import datetime
-from typing import Optional
 
 
 class Cycle(enum.Enum):

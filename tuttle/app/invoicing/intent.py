@@ -3,7 +3,7 @@ import textwrap
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Mapping, Optional, Type, Union
+from typing import Mapping, Optional
 
 from loguru import logger
 from pandas import DataFrame
@@ -27,7 +27,7 @@ from ..projects.intent import ProjectsIntent
 from ..timetracking.data_source import TimeTrackingDataFrameSource
 from ..timetracking.intent import TimeTrackingIntent
 from ...app_db import AppDatabase
-from ... import invoicing, mail, os_functions, rendering, timetracking
+from ... import invoicing, mail, rendering, timetracking
 from ...model import Invoice, InvoiceItem, Project, Timesheet, User
 
 from .data_source import InvoicingDataSource

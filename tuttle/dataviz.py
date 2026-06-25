@@ -1,7 +1,5 @@
 """Data visualization."""
 
-import datetime
-from decimal import Decimal
 from typing import List, Optional
 
 import altair
@@ -9,8 +7,6 @@ import altair
 # from pandera.typing import DataFrame
 from pandas import DataFrame
 import pandas
-
-from .dev import deprecated
 
 # ALTAIR THEMES
 
@@ -21,7 +17,7 @@ default_color_scheme = "category20"
 def tuttle_dark():
     return {
         "config": {
-            #'view': {'continuousHeight': 300, 'continuousWidth': 400},  # from the default theme
+            # 'view': {'continuousHeight': 300, 'continuousWidth': 400},  # from the default theme
             "range": {"category": {"scheme": "category20"}}
         }
     }

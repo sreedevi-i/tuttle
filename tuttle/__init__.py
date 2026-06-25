@@ -7,11 +7,11 @@ __authors__ = [
 __version__ = "3.9.0"
 
 try:
-    from . import app
+    from . import app  # noqa: F401
 except ImportError:
     pass
 
-from . import (
+from . import (  # noqa: F401
     banking,
     calendar,
     invoicing,

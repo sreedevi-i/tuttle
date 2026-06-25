@@ -9,9 +9,8 @@ from decimal import Decimal
 import faker
 import ics
 import numpy
-import sqlalchemy
 from loguru import logger
-from sqlmodel import Field, Session, create_engine, select
+from sqlmodel import Session, create_engine
 
 from tuttle import rendering
 from tuttle.calendar import Calendar, ICSCalendar
@@ -360,7 +359,7 @@ def create_fake_invoice(
         unit_price = abs(round(numpy.random.normal(75, 20), 2))
         item_end = inv_date - timedelta(days=random.randint(1, 10))
         item_start = item_end - timedelta(days=random.randint(5, 25))
-        invoice_item = InvoiceItem(
+        InvoiceItem(
             start_date=item_start,
             end_date=item_end,
             quantity=fake.random_int(min=1, max=8),
@@ -702,7 +701,8 @@ def install_demo_data(
     Args:
     n_projects (int): The number of projects to create.
     db_path (str): The path to the database.
-    on_cache_timetracking_dataframe (Optional[Callable], optional): A callback function to be called when the timetracking dataframe is cached. Defaults to None.
+    on_cache_timetracking_dataframe (Optional[Callable], optional): A callback function
+        to be called when the timetracking dataframe is cached. Defaults to None.
     """
     db_url = f"""sqlite:///{db_path}"""
     logger.info(f"Installing demo data in {db_url}...")

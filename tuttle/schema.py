@@ -1,10 +1,8 @@
 """Pandera schemata."""
-import pandera.pandas as pa
 from pandera.pandas import (
     # SchemaModel,
     DataFrameSchema,
     Column,
-    Index,
     DateTime,
     Timedelta,
     String,

@@ -8,7 +8,6 @@ import pandas
 
 from tuttle.model import (
     Address,
-    BankAccount,
     Client,
     Contact,
     Contract,
@@ -17,8 +16,6 @@ from tuttle.model import (
     Project,
     Timesheet,
     TimeTrackingItem,
-    User,
-    FinancialGoal,
 )
 from tuttle.time import Cycle, TimeUnit
 from tuttle.forecasting import (

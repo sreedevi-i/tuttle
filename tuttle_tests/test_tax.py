@@ -17,7 +17,6 @@ from tuttle.kpi import monthly_spendable_breakdown
 from tuttle.model import (
     Address,
     Client,
-    Contact,
     Contract,
     Invoice,
     InvoiceItem,

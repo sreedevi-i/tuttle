@@ -4,14 +4,11 @@ import datetime
 import os
 import sqlite3
 from pathlib import Path
-from tracemalloc import stop
 
 import pytest
-from loguru import logger
-from pydantic import EmailStr, ValidationError
+from pydantic import ValidationError
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from tuttle import model, time
 from tuttle.model import (
     Address,
     Client,
@@ -33,7 +30,7 @@ def store_and_retrieve(model_object):
         session.add(model_object)
         session.commit()
     with Session(db_engine) as session:
-        retrieved = session.exec((select(type(model_object)))).first()
+        session.exec((select(type(model_object)))).first()
     return True
 
 
@@ -56,7 +53,7 @@ def test_model_creation():
             ORDER BY name;
             """
         )
-        tables = cursor.fetchall()
+        cursor.fetchall()
         conn.close()
     finally:
         try:
@@ -69,7 +66,7 @@ class TestUser:
     """Tests for the User model."""
 
     def test_valid_instantiation(self):
-        user = User.validate(
+        User.validate(
             dict(
                 name="Harry Tuttle",
                 subtitle="Heating Engineer",
@@ -179,11 +176,10 @@ class TestClient:
             Client.validate(dict())
 
         try:
-            client = Client.validate(dict())
+            Client.validate(dict())
         except ValidationError as ve:
             for error in ve.errors():
                 field_name = error.get("loc")[0]
-                error_message = error.get("msg")
                 assert field_name == "name"
 
     def test_missing_fields_instantiation(self):
