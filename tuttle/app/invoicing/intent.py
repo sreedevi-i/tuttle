@@ -297,6 +297,14 @@ class InvoicingIntent(Intent):
                     project_id=project.id,
                     items=[item],
                 )
+            elif project.contract.is_fixed_price:
+                # ── Fixed-price path ──────────────────────────────
+                invoice: Invoice = invoicing.generate_fixed_price_invoice(
+                    date=invoice_date,
+                    number=invoice_number,
+                    contract=project.contract,
+                    project=project,
+                )
             else:
                 # ── Time-tracking path (existing) ─────────────────
                 timetracking_data = self._timetracking_data_source.get_data_frame()

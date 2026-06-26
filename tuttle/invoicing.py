@@ -51,6 +51,35 @@ def generate_invoice(
     return invoice
 
 
+def generate_fixed_price_invoice(
+    contract: Contract,
+    project: Project,
+    number: str,
+    date: datetime.date = datetime.date.today(),
+) -> Invoice:
+    """Create a lump-sum invoice for a fixed-price contract (no timesheets)."""
+    invoice = Invoice(
+        date=date,
+        contract=contract,
+        contract_id=contract.id,
+        project=project,
+        project_id=project.id,
+        number=number,
+    )
+    vat_rate = Decimal(str(contract.VAT_rate))
+    while vat_rate > Decimal("1"):
+        vat_rate = vat_rate / Decimal("100")
+    item = InvoiceItem(
+        quantity=1,
+        unit="fixed price",
+        unit_price=Decimal(str(contract.fixed_price)),
+        VAT_rate=vat_rate,
+        description=contract.title,
+    )
+    invoice.items.append(item)
+    return invoice
+
+
 def generate_invoice_email(
     invoice: Invoice,
     user: User,

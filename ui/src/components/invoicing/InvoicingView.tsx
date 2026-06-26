@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   FileText, Send, CheckCircle, XCircle, Mail, Trash2,
-  Building2, FolderKanban, Calendar, Banknote, Eye,
+  Building2, FolderKanban, Calendar, Banknote, Eye, DollarSign,
   Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight, Search,
 } from "lucide-react";
 import { rpc, readFileAsDataURL } from "../../api/rpc";
-import { str, num, bool, list as entityList, formatDate, invoiceStatus, deepStr, isReminder, reminderLevel } from "../../api/entity";
+import { str, num, bool, entity as subEntity, list as entityList, formatDate, invoiceStatus, deepStr, isReminder, reminderLevel } from "../../api/entity";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ViewModeToggle } from "../shared/ViewModeToggle";
 import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBoard";
@@ -271,6 +271,7 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [customNoteText, setCustomNoteText] = useState("");
 
   const selectedProject = projects.find((p) => p.id === projectId) ?? null;
+  const isFixedPrice = selectedProject ? bool(selectedProject, "is_fixed_price") : false;
 
   useEffect(() => {
     (async () => {
@@ -329,7 +330,9 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
       from_date: fromDate,
       to_date: toDate,
     };
-    if (mode === "manual") {
+    if (isFixedPrice) {
+      // fixed-price: backend handles everything from the contract
+    } else if (mode === "manual") {
       if (!itemsValid()) { setError("Fill in all line items with valid values"); setSubmitting(false); return; }
       params.manual_items = lineItems.map((it) => ({
         description: it.description.trim(),
@@ -376,29 +379,46 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
             </select>
           </label>
 
-          {/* Mode toggle */}
-          <div>
-            <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Source</span>
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => setMode("timetracking")} disabled={!hasTimeData}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors border
-                  ${mode === "timetracking" ? "border-accent bg-accent/15 text-primary" : "border-border-subtle text-tertiary"}
-                  ${!hasTimeData ? "opacity-40 cursor-not-allowed" : ""}`}>
-                <Clock size={14} /> Time Tracking
-              </button>
-              <button onClick={() => setMode("manual")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors border
-                  ${mode === "manual" ? "border-accent bg-accent/15 text-primary" : "border-border-subtle text-tertiary"}`}>
-                <FileText size={14} /> Manual
-              </button>
+          {/* Fixed-price notice */}
+          {isFixedPrice && selectedProject && (() => {
+            const ct = subEntity(selectedProject, "contract");
+            const price = ct ? num(ct, "fixed_price") : 0;
+            const currency = ct ? str(ct, "currency") : "EUR";
+            return (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-accent/10 border border-accent/20">
+                <DollarSign size={14} className="text-accent shrink-0" />
+                <span className="text-xs text-primary">
+                  Fixed price contract — <span className="font-medium">{price} {currency}</span>
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Mode toggle (time-based only) */}
+          {!isFixedPrice && (
+            <div>
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Source</span>
+              <div className="flex gap-2 mt-1">
+                <button onClick={() => setMode("timetracking")} disabled={!hasTimeData}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors border
+                    ${mode === "timetracking" ? "border-accent bg-accent/15 text-primary" : "border-border-subtle text-tertiary"}
+                    ${!hasTimeData ? "opacity-40 cursor-not-allowed" : ""}`}>
+                  <Clock size={14} /> Time Tracking
+                </button>
+                <button onClick={() => setMode("manual")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors border
+                    ${mode === "manual" ? "border-accent bg-accent/15 text-primary" : "border-border-subtle text-tertiary"}`}>
+                  <FileText size={14} /> Manual
+                </button>
+              </div>
+              {!hasTimeData && (
+                <p className="text-[10px] text-muted mt-1">Import calendar data in Time Tracking to use this option.</p>
+              )}
             </div>
-            {!hasTimeData && (
-              <p className="text-[10px] text-muted mt-1">Import calendar data in Time Tracking to use this option.</p>
-            )}
-          </div>
+          )}
 
           {/* Timesheet opt-out (time-tracking mode only) */}
-          {mode === "timetracking" && (
+          {!isFixedPrice && mode === "timetracking" && (
             <div>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" checked={withTimesheet}
@@ -421,34 +441,36 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
               <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)}
                 className="mt-1 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
             </label>
-            <div>
-              <span className="text-[10px] font-semibold text-muted uppercase">Billing Period</span>
-              <div className="mt-1 flex items-center gap-2">
-                <button type="button" onClick={() => shiftMonth(-1)}
-                  className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Previous month">
-                  <ChevronLeft size={14} />
-                </button>
-                <label className="block flex-1">
-                  <span className="text-[10px] font-semibold text-muted uppercase">From</span>
-                  <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-                    className="mt-0.5 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
-                </label>
-                <span className="text-muted text-xs pt-3">–</span>
-                <label className="block flex-1">
-                  <span className="text-[10px] font-semibold text-muted uppercase">To</span>
-                  <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
-                    className="mt-0.5 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
-                </label>
-                <button type="button" onClick={() => shiftMonth(1)}
-                  className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Next month">
-                  <ChevronRight size={14} />
-                </button>
+            {!isFixedPrice && (
+              <div>
+                <span className="text-[10px] font-semibold text-muted uppercase">Billing Period</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <button type="button" onClick={() => shiftMonth(-1)}
+                    className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Previous month">
+                    <ChevronLeft size={14} />
+                  </button>
+                  <label className="block flex-1">
+                    <span className="text-[10px] font-semibold text-muted uppercase">From</span>
+                    <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                      className="mt-0.5 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
+                  </label>
+                  <span className="text-muted text-xs pt-3">–</span>
+                  <label className="block flex-1">
+                    <span className="text-[10px] font-semibold text-muted uppercase">To</span>
+                    <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                      className="mt-0.5 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
+                  </label>
+                  <button type="button" onClick={() => shiftMonth(1)}
+                    className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Next month">
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Line items editor */}
-          {mode === "manual" && (
+          {/* Line items editor (time-based manual only) */}
+          {!isFixedPrice && mode === "manual" && (
             <div>
               <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Line Items</span>
               <div className="mt-1 space-y-2">
