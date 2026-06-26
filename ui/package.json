@@ -44,6 +44,7 @@
     },
     "mac": {
       "artifactName": "Tuttle-${version}-macOS-${arch}.${ext}",
+      "identity": "-",
       "category": "public.app-category.business",
       "target": [
         "zip",
