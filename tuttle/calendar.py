@@ -1,19 +1,14 @@
 """Calendar integration."""
 from typing import Optional
 
-from pathlib import Path
 import io
 import re
 import calendar
 
-from loguru import logger
 import ics
-import icloudpy
-import getpass
 import pandas
 import datetime
 
-from pandera.typing import DataFrame
 from pandera import check_io
 from pandas import DataFrame
 
@@ -29,12 +24,6 @@ def extract_hashtag(string) -> str:
         return ""
 
 
-def parse_pyicloud_datetime(dt_list):
-    """Parse the dates returned by pyicloud."""
-    _, year, month, day, hour, minute, _ = dt_list
-    return datetime.datetime(year, month, day, hour, minute)
-
-
 class Calendar:
     """Abstract base class for calendars."""
 
@@ -45,12 +34,6 @@ class Calendar:
     def to_data(self) -> DataFrame:
         """Convert events to dataframe."""
         raise NotImplementedError("Abstract base class")
-
-
-class CloudCalendar(Calendar):
-    """Abstract base class for calendars in the cloud."""
-
-    pass
 
 
 class ICSCalendar(Calendar):
@@ -131,73 +114,6 @@ class ICSCalendar(Calendar):
         event_data = pandas.DataFrame(rows)
         event_data = event_data.set_index("begin")
         return event_data
-
-
-class ICloudCalendar(CloudCalendar):
-    """iCloud calendar."""
-
-    def __init__(
-        self,
-        icloud_connector: icloudpy.ICloudPyService,
-        name: str,
-    ):
-        super().__init__(name)
-        self.icloud = icloud_connector
-        calendars = icloud_connector.calendar.calendars()
-        calendars_df = pandas.DataFrame(calendars)
-        cal_to_guid = dict(
-            (cal_name, guid)
-            for (cal_name, guid) in zip(calendars_df["title"], calendars_df["guid"])
-        )
-        try:
-            # calendar id
-            self.guid = cal_to_guid[self.name]
-        except KeyError:
-            raise ValueError(f"iCloud calendar {self.name} not found")
-
-    def to_raw_data(self) -> DataFrame:
-        """Convert iCloud calendar events to DataFrame"""
-        all_events = self.icloud.calendar.events(
-            from_dt=datetime.datetime(1, 1, 1), to_dt=datetime.datetime(2100, 1, 1)
-        )
-        event_data_raw = pandas.DataFrame(all_events)
-        return event_data_raw
-
-    @check_io(out=schema.time_tracking)
-    def to_data(self) -> DataFrame:
-        """Convert iCloud calendar events to time tracking data format."""
-
-        event_data_raw = self.to_raw_data()
-        guid = self.guid
-        event_data = event_data_raw.query("pGuid == @guid")
-        timetracking_data = pandas.DataFrame().assign(
-            **{
-                "begin": event_data["startDate"].apply(parse_pyicloud_datetime),
-                "end": event_data["endDate"].apply(parse_pyicloud_datetime),
-                "title": event_data["title"],
-                # TODO: extract tag
-                "tag": extract_hashtag(event_data["title"]),
-                "description": event_data["description"],
-                "all_day": event_data["allDay"],
-            }
-        )
-        # TODO: handle timezones
-        timetracking_data = timetracking_data.assign(
-            **{
-                "duration": event_data["duration"].apply(
-                    lambda m: datetime.timedelta(minutes=m)
-                )
-            }
-        )
-        timetracking_data = timetracking_data.set_index("begin")
-        return timetracking_data
-
-
-class GoogleCalendar(CloudCalendar):
-    """Google calendar"""
-
-    def to_data(self) -> DataFrame:
-        raise NotImplementedError("TODO")
 
 
 def get_month_start_end(month_str):

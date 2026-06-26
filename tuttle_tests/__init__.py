@@ -1,3 +1,3 @@
 """Unit test package for tuttle."""
 
-from . import conftest
+from . import conftest  # noqa: F401

@@ -5,6 +5,12 @@ contextBridge.exposeInMainWorld("tuttle", {
     ipcRenderer.invoke("rpc", method, params),
   readFile: (filePath: string) => ipcRenderer.invoke("read-file", filePath),
   platform: process.platform,
+  onUpdateAvailable: (cb: (info: { version: string }) => void) => {
+    ipcRenderer.on("update-available", (_e, info) => cb(info));
+  },
+  onUpdateNotAvailable: (cb: (info: { version: string }) => void) => {
+    ipcRenderer.on("update-not-available", (_e, info) => cb(info));
+  },
   onUpdateDownloaded: (cb: (info: { version: string }) => void) => {
     ipcRenderer.on("update-downloaded", (_e, info) => cb(info));
   },

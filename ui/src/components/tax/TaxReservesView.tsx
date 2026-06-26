@@ -88,10 +88,10 @@ export function TaxReservesView() {
           <p className="text-sm text-muted">No revenue data yet.</p>
         ) : (
           <div className="space-y-1">
-            <WaterfallBar label="Gross Revenue" amount={num(sp!, "gross_revenue_ytd")} total={num(sp!, "gross_revenue_ytd")} color="#0A84FF" currency={currency} />
-            <WaterfallBar label="VAT (to remit)" amount={num(sp!, "vat_reserve")} total={num(sp!, "gross_revenue_ytd")} color="#FFD60A" currency={currency} />
-            <WaterfallBar label="Est. Income Tax + Soli" amount={num(sp!, "income_tax_reserve")} total={num(sp!, "gross_revenue_ytd")} color="#FFD60A" currency={currency} />
-            <WaterfallBar label="= Spendable Income" amount={num(sp!, "spendable")} total={num(sp!, "gross_revenue_ytd")} color={num(sp!, "spendable") >= 0 ? "#30D158" : "#FF453A"} currency={currency} bold />
+            <WaterfallBar label="Gross Revenue" amount={num(sp!, "gross_revenue_ytd")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-info)" currency={currency} />
+            <WaterfallBar label="VAT (to remit)" amount={num(sp!, "vat_reserve")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
+            <WaterfallBar label="Est. Income Tax + Soli" amount={num(sp!, "income_tax_reserve")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
+            <WaterfallBar label="= Spendable Income" amount={num(sp!, "spendable")} total={num(sp!, "gross_revenue_ytd")} color={num(sp!, "spendable") >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
             <div className="border-t border-border-subtle mt-3 pt-3 flex justify-between text-xs text-muted">
               <span>Effective reserve rate</span>
               <span className="text-secondary">
@@ -117,13 +117,13 @@ export function TaxReservesView() {
                 <div key={i} className="grid grid-cols-3 gap-2 py-1.5 text-sm border-b border-border-subtle/50 last:border-0">
                   <span className="font-semibold">{str(m, "month")}</span>
                   <span className="text-right">{num(m, "invoice_count")}</span>
-                  <span className={`text-right font-medium ${vat > 0 ? "text-yellow-400" : "text-muted"}`}>{fmt(vat, currency)}</span>
+                  <span className="text-right font-medium" style={vat > 0 ? { color: "var(--color-status-warning)" } : undefined}>{fmt(vat, currency)}</span>
                 </div>
               );
             })}
             <div className="flex justify-between pt-2 mt-1 border-t border-border-subtle font-semibold text-sm">
               <span>Total</span>
-              <span className={months.reduce((s, m) => s + num(m, "vat_collected"), 0) > 0 ? "text-yellow-400" : "text-muted"}>
+              <span style={months.reduce((s, m) => s + num(m, "vat_collected"), 0) > 0 ? { color: "var(--color-status-warning)" } : undefined}>
                 {fmt(months.reduce((s, m) => s + num(m, "vat_collected"), 0), currency)}
               </span>
             </div>
@@ -145,7 +145,7 @@ function YearSelector({ years, selected, onChange }: {
       <select
         value={selected}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="appearance-none bg-[#ffffff08] border border-border-subtle rounded-md px-3 py-1.5 pr-8 text-sm font-medium text-primary cursor-pointer hover:bg-[#ffffff12] transition-colors"
+        className="appearance-none bg-surface-overlay border border-border-subtle rounded-md px-3 py-1.5 pr-8 text-sm font-medium text-primary cursor-pointer hover:bg-surface-overlay-hover transition-colors"
       >
         {years.map((y) => (
           <option key={y} value={y}>{y}</option>
@@ -168,9 +168,9 @@ function IncomeTaxSection({ data, currency }: { data: Entity; currency: string }
         <SummaryRow label="Annualized Income" value={fmt(num(data, "annualized_income"), currency)} />
         {supported && tr && (
           <>
-            <SummaryRow label="Estimated Income Tax" value={fmt(num(tr, "estimated_annual_tax"), currency)} color="#FFD60A" />
-            <SummaryRow label="Solidarity Surcharge" value={fmt(num(tr, "solidarity_surcharge"), currency)} color="#FFD60A" />
-            <SummaryRow label="Total Annual Reserve" value={fmt(num(tr, "total_annual_reserve"), currency)} color="#FFD60A" bold />
+            <SummaryRow label="Estimated Income Tax" value={fmt(num(tr, "estimated_annual_tax"), currency)} color="var(--color-status-warning)" />
+            <SummaryRow label="Solidarity Surcharge" value={fmt(num(tr, "solidarity_surcharge"), currency)} color="var(--color-status-warning)" />
+            <SummaryRow label="Total Annual Reserve" value={fmt(num(tr, "total_annual_reserve"), currency)} color="var(--color-status-warning)" bold />
             <SummaryRow label="Effective Tax Rate" value={fmtPct(num(tr, "effective_rate"))} />
           </>
         )}
@@ -183,7 +183,7 @@ function IncomeTaxSection({ data, currency }: { data: Entity; currency: string }
                 return (
                   <div
                     key={i}
-                    className={`flex justify-between px-3 py-1.5 rounded-md text-sm ${current ? "bg-accent text-white font-semibold" : "bg-[#ffffff08] text-secondary"}`}
+                    className={`flex justify-between px-3 py-1.5 rounded-md text-sm ${current ? "bg-accent text-white font-semibold" : "bg-surface-overlay text-secondary"}`}
                   >
                     <span>{str(b, "label")}</span>
                     <span>
@@ -213,7 +213,7 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
         {icon && <span className="text-secondary">{icon}</span>}
         <h2 className="text-sm font-semibold">{title}</h2>
       </div>
-      <div className="bg-[#ffffff08] rounded-lg p-4">{children}</div>
+      <div className="bg-surface-overlay rounded-lg p-4">{children}</div>
     </div>
   );
 }

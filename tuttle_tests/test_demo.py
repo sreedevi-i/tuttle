@@ -1,7 +1,7 @@
 import faker
 import pytest
 
-from tuttle.model import Contact, Client, Contract, Project, User
+from tuttle.model import Contact, Client, Contract, Project
 from tuttle import demo
 
 

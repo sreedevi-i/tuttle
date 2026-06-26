@@ -1,18 +1,14 @@
-from typing import Type, Union, Any, Optional
+from typing import Optional
 
 from pathlib import Path
 
 from loguru import logger
-import icloudpy
 
-from ..core.abstractions import SQLModelDataSourceMixin
-from ..core.intent_result import IntentResult
 from ..core.rpc_utils import register_reset
 from pandas import DataFrame
 
-from ...calendar import ICSCalendar, ICloudCalendar, CloudCalendar
+from ...calendar import ICSCalendar
 from ...dev import singleton
-from ...cloud import CloudConnector, CloudProvider
 from ... import timetracking
 from ...app_db import AppDatabase
 
@@ -159,59 +155,3 @@ class TimeTrackingFileCalendarSource:
         )
         calendar_data: DataFrame = file_calendar.to_data()
         return calendar_data
-
-
-class TimeTrackingCloudCalendarSource:
-    """Configures and processes calendar data from the cloud"""
-
-    def __init__(self):
-        super().__init__()
-
-    def load_data(
-        self,
-        calendar_name: str,
-        cloud_connector: CloudConnector,
-    ) -> DataFrame:
-        """Loads data from a cloud calendar"""
-        calendar = None
-        if cloud_connector.provider == CloudProvider.ICloud.value:
-            icloud_connector: icloudpy.ICloudPyService = (
-                cloud_connector.concrete_connector
-            )
-            calendar: CloudCalendar = ICloudCalendar(
-                name=calendar_name,
-                icloud_connector=icloud_connector,
-            )
-        else:
-            raise NotImplementedError
-
-        calendar_data: DataFrame = calendar.to_data()
-        return calendar_data
-
-    def login_to_icloud(
-        self,
-        apple_id: str,
-        password: str,
-    ) -> CloudConnector:
-        """Attempts to authenticate user with their icloud account"""
-        # TODO: error handling - login may fail
-        logger.info(f"Logging in to iCloud with {apple_id}...")
-        icloud_connector = icloudpy.ICloudPyService(
-            apple_id=apple_id,
-            password=password,
-            cookie_directory=Path.home() / ".tuttle" / "cookies",
-        )
-        return CloudConnector(
-            cloud_connector=icloud_connector,
-            account_name=apple_id,
-        )
-
-    """ GOOGLE LOGIN STEPS """
-
-    def login_to_google(
-        self,
-        google_account: str,
-        google_account_password: str,
-    ):
-        """TODO Attempts to authenticate user with their google account"""
-        raise NotImplementedError

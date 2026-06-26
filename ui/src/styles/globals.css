@@ -1,6 +1,30 @@
 @import "tailwindcss";
 
+/* Light palette (default) — Apple HIG light-inspired */
 @theme {
+  --color-bg-sidebar: #f5f5f7;
+  --color-bg-content: #ffffff;
+  --color-bg-card: #f0f0f2;
+  --color-bg-hover: #e8e8ed;
+  --color-bg-selected: #dcdce0;
+  --color-border: #d1d1d6;
+  --color-border-subtle: #e0e0e5;
+  --color-primary: #1d1d1f;
+  --color-secondary: #3a3a3c;
+  --color-tertiary: #6e6e73;
+  --color-muted: #8e8e93;
+  --color-accent: #007AFF;
+  --color-chart-label: #6e6e73;
+  --color-surface-overlay: rgba(0, 0, 0, 0.05);
+  --color-surface-overlay-hover: rgba(0, 0, 0, 0.08);
+  --color-status-success: #15803d;
+  --color-status-warning: #c2410c;
+  --color-status-danger: #dc2626;
+  --color-status-info: #2563eb;
+}
+
+/* Dark palette — activated by .dark on <html> */
+.dark {
   --color-bg-sidebar: #2c2c2e;
   --color-bg-content: #292929;
   --color-bg-card: #3a3a3c;
@@ -12,7 +36,13 @@
   --color-secondary: #e0e0e4;
   --color-tertiary: #bbbbc1;
   --color-muted: #a1a1a6;
-  --color-accent: #007AFF;
+  --color-chart-label: #b8b8bc;
+  --color-surface-overlay: rgba(255, 255, 255, 0.03);
+  --color-surface-overlay-hover: rgba(255, 255, 255, 0.07);
+  --color-status-success: #4ade80;
+  --color-status-warning: #facc15;
+  --color-status-danger: #f87171;
+  --color-status-info: #60a5fa;
 }
 
 :root {
@@ -20,6 +50,13 @@
     Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 html, body {
@@ -39,10 +76,16 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
 

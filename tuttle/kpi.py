@@ -6,9 +6,9 @@ from typing import List, Optional, NamedTuple
 
 from pandas import DataFrame
 
-from .model import Contract, Invoice, Project, User
+from .model import Contract, Invoice, Project
 from .time import TimeUnit
-from .timetracking import event_hours, sum_hours_by_tag
+from .timetracking import sum_hours_by_tag
 from .tax import get_tax_system
 from .tax_reserves import compute_spendable_income
 

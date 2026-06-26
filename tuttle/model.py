@@ -20,29 +20,18 @@ See tuttle/migrations/README.md and .cursor/rules/schema-migrations.mdc
 for the full rationale.
 """
 
-from typing import Literal, Optional, List, Dict, Type
-from pydantic import constr, BaseModel, condecimal
-from enum import Enum
-import datetime
-import textwrap
+from typing import Literal, Optional, List, Type
 
 import re
 import datetime
-import decimal
-import email
-import hashlib
-import string
 import textwrap
-import uuid
 from decimal import Decimal
-from enum import Enum
 
 import pandas
 import sqlalchemy
 
-# from pydantic import str
-from pydantic import BaseModel, condecimal, constr, validator
-from sqlmodel import SQLModel, Field, Relationship, Constraint
+from pydantic import BaseModel, condecimal, validator
+from sqlmodel import SQLModel, Field, Relationship
 
 
 from pathlib import Path
@@ -204,17 +193,6 @@ class User(RpcMixin, SQLModel, table=True):
         default=None,
         description="Value Added Tax number of the user, legally required for invoices.",
     )
-    # User 1:1* ICloudAccount
-    icloud_account_id: Optional[int] = Field(
-        default=None, foreign_key="icloudaccount.id"
-    )
-    icloud_account: Optional["ICloudAccount"] = Relationship(back_populates="user")
-    # User 1:1* Google Account
-    # TODO: Google account
-    # google_account_id: Optional[int] = Field(
-    #     default=None, foreign_key="googleaccount.id"
-    # )
-    # google_account: Optional["GoogleAccount"] = Relationship(back_populates="user")
     # User 1:1 business BankAccount
     bank_account_id: Optional[int] = Field(default=None, foreign_key="bankaccount.id")
     bank_account: Optional["BankAccount"] = Relationship(
@@ -238,18 +216,6 @@ class User(RpcMixin, SQLModel, table=True):
         ):
             return True
         return False
-
-
-class ICloudAccount(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_name: str
-    user: User = OneToOneRelationship(back_populates="icloud_account")
-
-
-class GoogleAccount(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_name: str
-    # user: User = OneToOneRelationship(back_populates="google_account")
 
 
 class Bank(SQLModel, table=True):
@@ -288,7 +254,11 @@ class Contact(RpcMixin, SQLModel, table=True):
         back_populates="invoicing_contact",
         sa_relationship_kwargs={"lazy": "subquery", "passive_deletes": "all"},
     )
-    # post address
+    # Many-to-many clients via association object
+    client_contacts: List["ClientContact"] = Relationship(
+        back_populates="contact",
+        sa_relationship_kwargs={"lazy": "subquery", "cascade": "all, delete-orphan"},
+    )
 
     # VALIDATORS
     @validator("email")
@@ -335,6 +305,33 @@ class Contact(RpcMixin, SQLModel, table=True):
         )
 
 
+class ClientContact(SQLModel, table=True):
+    """Association between Client and Contact with an optional role.
+
+    Enables many-to-many: a client can have multiple contacts (project lead,
+    accountant, …) and a contact can represent multiple clients.
+    """
+
+    __tablename__ = "clientcontact"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_id: int = Field(foreign_key="client.id", ondelete="CASCADE")
+    contact_id: int = Field(foreign_key="contact.id", ondelete="CASCADE")
+    role: Optional[str] = Field(
+        default=None,
+        description="Role of the contact for this client, e.g. 'invoicing', 'project lead'.",
+    )
+
+    client: "Client" = Relationship(
+        back_populates="client_contacts",
+        sa_relationship_kwargs={"lazy": "subquery"},
+    )
+    contact: "Contact" = Relationship(
+        back_populates="client_contacts",
+        sa_relationship_kwargs={"lazy": "subquery"},
+    )
+
+
 class Client(RpcMixin, SQLModel, table=True):
     """A client the freelancer has contracted with.
 
@@ -361,7 +358,7 @@ class Client(RpcMixin, SQLModel, table=True):
         back_populates="clients",
         sa_relationship_kwargs={"lazy": "subquery"},
     )
-    # Client n:1 invoicing Contact (optional)
+    # Client n:1 invoicing Contact (kept for backward compat)
     invoicing_contact_id: Optional[int] = Field(
         default=None, foreign_key="contact.id", ondelete="RESTRICT"
     )
@@ -372,6 +369,11 @@ class Client(RpcMixin, SQLModel, table=True):
     contracts: List["Contract"] = Relationship(
         back_populates="client",
         sa_relationship_kwargs={"lazy": "subquery", "passive_deletes": "all"},
+    )
+    # Many-to-many contacts via association object
+    client_contacts: List["ClientContact"] = Relationship(
+        back_populates="client",
+        sa_relationship_kwargs={"lazy": "subquery", "cascade": "all, delete-orphan"},
     )
 
     @property
@@ -482,7 +484,8 @@ class Contract(RpcMixin, SQLModel, table=True):
         default=31,
     )
     billing_cycle: Cycle = Field(
-        sa_column=sqlalchemy.Column(sqlalchemy.Enum(Cycle)),
+        default=Cycle.monthly,
+        sa_column=sqlalchemy.Column(sqlalchemy.Enum(Cycle), default=Cycle.monthly),
         description="How often is an invoice sent?",
     )
     projects: List["Project"] = Relationship(
@@ -722,7 +725,10 @@ class Timesheet(SQLModel, table=True):
     #     arbitrary_types_allowed = True
 
     def __repr__(self):
-        return f"Timesheet(id={self.id}, tag={self.project.tag}, period_start={self.period_start}, period_end={self.period_end})"
+        return (
+            f"Timesheet(id={self.id}, tag={self.project.tag}, "
+            f"period_start={self.period_start}, period_end={self.period_end})"
+        )
 
     @property
     def prefix(self) -> str:
@@ -964,7 +970,8 @@ class Invoice(RpcMixin, SQLModel, table=True):
         client_suffix = ""
         if self.client:
             client_suffix = "-".join(self.client.name.lower().split())
-        base = f"{self.number}-{client_suffix}"
+        safe_number = self.number.replace("/", "-")
+        base = f"{safe_number}-{client_suffix}"
         if self.is_reminder:
             return f"{base}-M{self.reminder_level}"
         return base
@@ -1018,9 +1025,11 @@ class InvoiceItem(RpcMixin, SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     # date and time
-    start_date: datetime.date = Field(description="Start date of the invoice item.")
+    start_date: Optional[datetime.date] = Field(
+        default=None, description="Start date of the invoice item."
+    )
     end_date: Optional[datetime.date] = Field(
-        description="End date of the invoice item."
+        default=None, description="End date of the invoice item."
     )
     #
     quantity: float

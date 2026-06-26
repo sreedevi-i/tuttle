@@ -12,10 +12,9 @@ from loguru import logger
 import base64
 import io
 import PyPDF2
-import PIL
 
 
-from .model import User, Invoice, Timesheet, Project
+from .model import User, Invoice, Timesheet
 
 LANGUAGE_TO_LOCALE = {
     "en": "en_US",
@@ -332,8 +331,20 @@ def render_timesheet(
             return (item.description or "").strip()
         return title
 
+    def _clean_notes(item) -> str:
+        """Return description only when it adds information beyond the title."""
+        desc = (item.description or "").strip()
+        if not desc:
+            return ""
+        title_raw = (item.title or "").strip()
+        title_clean = _clean_title(item)
+        if desc == title_raw or desc == title_clean:
+            return ""
+        return desc
+
     template_env.filters["time_range"] = _time_range
     template_env.filters["clean_title"] = _clean_title
+    template_env.filters["clean_notes"] = _clean_notes
 
     timesheet_template = template_env.get_template("timesheet.html")
     html = timesheet_template.render(user=user, timesheet=timesheet, style=style)

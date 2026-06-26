@@ -1,5 +1,4 @@
 """Test timetracking module"""
-from time import time
 import pandas
 import datetime
 from decimal import Decimal
@@ -83,7 +82,7 @@ def test_create_timesheet(
     assert timesheet.comment == ""
     assert timesheet.date == datetime.date.today()
     assert timesheet.total == datetime.timedelta(hours=8)
-    assert timesheet.empty == False
+    assert not timesheet.empty
     # period dates must be date objects (not strings) for SQLite persistence
     assert isinstance(timesheet.period_start, datetime.date)
     assert isinstance(timesheet.period_end, datetime.date)
@@ -224,3 +223,36 @@ def test_generate_timesheet_all_day_expansion_day_unit():
     )
 
     assert timesheet.total == datetime.timedelta(hours=8)
+
+
+def test_generate_timesheet_preserves_per_event_descriptions():
+    """item_description fallback must not overwrite per-event calendar descriptions."""
+    tag = "#DescProj"
+    project = _make_project(tag, TimeUnit.hour)
+
+    df = pandas.DataFrame(
+        {
+            "begin": pandas.to_datetime(["2022-03-01 09:00:00", "2022-03-02 09:00:00"]),
+            "end": pandas.to_datetime(["2022-03-01 11:00:00", "2022-03-02 11:00:00"]),
+            "title": ["Meeting", "Deep work"],
+            "tag": [tag, tag],
+            "description": ["Notes from meeting", ""],
+            "all_day": [False, False],
+        }
+    )
+    df["duration"] = df["end"] - df["begin"]
+    df = df.set_index("begin")
+
+    timesheet = timetracking.generate_timesheet(
+        timetracking_data=df,
+        project=project,
+        period_start=datetime.date(2022, 3, 1),
+        period_end=datetime.date(2022, 3, 31),
+        item_description="Fallback description",
+    )
+
+    items = {item.title: item for item in timesheet.items}
+    # Row with an existing description must keep it.
+    assert items["Meeting"].description == "Notes from meeting"
+    # Row with no description gets the fallback.
+    assert items["Deep work"].description == "Fallback description"

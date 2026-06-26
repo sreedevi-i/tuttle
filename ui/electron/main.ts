@@ -89,7 +89,18 @@ app.whenReady().then(async () => {
   }
 
   ipcMain.on("check-for-update", () => {
-    autoUpdater.checkForUpdates().catch(() => {});
+    if (!mainWindow) return;
+    if (process.env.VITE_DEV_SERVER_URL) {
+      mainWindow.webContents.send("update-not-available", {
+        version: "dev",
+      });
+      return;
+    }
+    autoUpdater.checkForUpdates().catch((err) => {
+      mainWindow!.webContents.send("update-error", {
+        message: err?.message ?? String(err),
+      });
+    });
   });
 
   ipcMain.on("open-external", (_event, url: string) => {

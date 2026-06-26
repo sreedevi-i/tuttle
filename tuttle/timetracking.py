@@ -1,18 +1,15 @@
-from typing import Tuple, Union, Optional, List, Type
+from typing import Union, Optional, List, Type
 
 import datetime
 from dataclasses import dataclass
 
 import pandas
-from pandas import DataFrame
 from pandera import check_io
 from pandera.typing import DataFrame
 
-from tuttle.dev import deprecated
-
 from . import schema
-from .calendar import Calendar, ICloudCalendar, ICSCalendar
-from .model import Project, Timesheet, TimeTrackingItem, User
+from .calendar import Calendar, ICSCalendar
+from .model import Project, Timesheet, TimeTrackingItem
 from .time import TimeUnit
 
 DEFAULT_WORKDAY_HOURS = 8
@@ -82,8 +79,9 @@ def generate_timesheet(
     workday = datetime.timedelta(hours=1) * project.contract.units_per_workday
     ts_table.loc[ts_table["all_day"], "duration"] = workday
     if item_description:
-        # TODO: extract item description from calendar
-        ts_table["description"] = item_description
+        # Only fill rows that have no per-event description from the calendar source.
+        mask = ts_table["description"].isna() | (ts_table["description"] == "")
+        ts_table.loc[mask, "description"] = item_description
 
     period_str = f"{period_start} - {period_end}"
     ts = Timesheet(
@@ -117,10 +115,7 @@ def export_timesheet(
 @check_io(out=schema.time_tracking)
 def import_from_calendar(cal: Calendar) -> DataFrame:
     """Convert the raw calendar to time tracking data table."""
-    if issubclass(type(cal), ICloudCalendar):
-        timetracking_data = cal.to_data()
-        return timetracking_data
-    elif issubclass(type(cal), ICSCalendar):
+    if issubclass(type(cal), ICSCalendar):
         timetracking_data = cal.to_data()
         return timetracking_data
     else:
@@ -253,7 +248,7 @@ def progress(
     tag = project.tag
     total_time = (
         time_tracking_data.filter(["tag", "duration"])
-        .query(f"tag == @tag")
+        .query("tag == @tag")
         .groupby("tag")
         .sum()
     )

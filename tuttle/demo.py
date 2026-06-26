@@ -9,9 +9,8 @@ from decimal import Decimal
 import faker
 import ics
 import numpy
-import sqlalchemy
 from loguru import logger
-from sqlmodel import Field, Session, create_engine, select
+from sqlmodel import Session, create_engine
 
 from tuttle import rendering
 from tuttle.calendar import Calendar, ICSCalendar
@@ -21,6 +20,7 @@ from tuttle.model import (
     Address,
     BankAccount,
     Client,
+    ClientContact,
     Contact,
     Contract,
     Cycle,
@@ -359,7 +359,7 @@ def create_fake_invoice(
         unit_price = abs(round(numpy.random.normal(75, 20), 2))
         item_end = inv_date - timedelta(days=random.randint(1, 10))
         item_start = item_end - timedelta(days=random.randint(5, 25))
-        invoice_item = InvoiceItem(
+        InvoiceItem(
             start_date=item_start,
             end_date=item_end,
             quantity=fake.random_int(min=1, max=8),
@@ -440,8 +440,53 @@ def create_heating_data(
     )
     sam_lowry = Client(name="Sam Lowry", invoicing_contact=sam_lowry_contact)
 
-    contacts = [sam_lowry_contact]
+    # Extra contact shared across multiple clients
+    central_services_accountant = Contact(
+        first_name="Jill",
+        last_name="Layton",
+        email="layton@centralservices.com",
+        company="Central Services",
+        address=Address(
+            street="Main Street",
+            number="42",
+            postal_code="55555",
+            city="Somewhere",
+            country="Brazil",
+        ),
+    )
+
+    # Archibald Buttle — wrongly arrested instead of Tuttle
+    archibald_buttle = Contact(
+        first_name="Archibald",
+        last_name="Buttle",
+        email="buttle@centralservices.com",
+        address=Address(
+            street="Shangri-La Towers",
+            number="412",
+            postal_code="55555",
+            city="Somewhere",
+            country="Brazil",
+        ),
+    )
+
+    contacts = [sam_lowry_contact, central_services_accountant, archibald_buttle]
     clients = [central_services, sam_lowry]
+
+    # Many-to-many: contacts ↔ clients with roles
+    client_contacts = [
+        ClientContact(
+            client=central_services, contact=sam_lowry_contact, role="project lead"
+        ),
+        ClientContact(
+            client=central_services,
+            contact=central_services_accountant,
+            role="accountant",
+        ),
+        ClientContact(
+            client=central_services, contact=archibald_buttle, role="shoe repair"
+        ),
+        ClientContact(client=sam_lowry, contact=sam_lowry_contact, role="invoicing"),
+    ]
 
     # -- randomly generated heating-industry clients ---------------------------
 
@@ -453,6 +498,9 @@ def create_heating_data(
         vat_number = f"DE{fake.unique.random_number(digits=9, fix_len=True)}"
         client = Client(name=name, vat_number=vat_number, invoicing_contact=contact)
         clients.append(client)
+        client_contacts.append(
+            ClientContact(client=client, contact=contact, role="invoicing")
+        )
 
     # -- contracts (one per client) --------------------------------------------
 
@@ -527,7 +575,7 @@ def create_heating_data(
         else:
             inv = create_fake_invoice(fake, project=project, user=user)
         invoices.append(inv)
-    return projects, invoices
+    return projects, invoices, client_contacts
 
 
 def create_fake_data(
@@ -653,7 +701,8 @@ def install_demo_data(
     Args:
     n_projects (int): The number of projects to create.
     db_path (str): The path to the database.
-    on_cache_timetracking_dataframe (Optional[Callable], optional): A callback function to be called when the timetracking dataframe is cached. Defaults to None.
+    on_cache_timetracking_dataframe (Optional[Callable], optional): A callback function
+        to be called when the timetracking dataframe is cached. Defaults to None.
     """
     db_url = f"""sqlite:///{db_path}"""
     logger.info(f"Installing demo data in {db_url}...")
@@ -668,7 +717,7 @@ def install_demo_data(
         session.refresh(user)
 
     logger.info(f"Creating {n_projects} fake projects...")
-    projects, invoices = create_fake_data(user, n_projects)
+    projects, invoices, client_contacts = create_fake_data(user, n_projects)
 
     # create a fake calendar and add time tracking data from it
     logger.info("Creating a fake calendar...")
@@ -708,6 +757,12 @@ def install_demo_data(
         logger.info("Adding fake projects...")
         for project in projects:
             session.merge(project)
+        session.commit()
+
+        # add client-contact many-to-many associations
+        logger.info("Adding client-contact associations...")
+        for cc in client_contacts:
+            session.merge(cc)
         session.commit()
 
         # render all invoices to PDF while objects are still session-bound

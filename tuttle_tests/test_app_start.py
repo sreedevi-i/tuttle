@@ -8,7 +8,6 @@ Verifies that:
 
 import importlib
 import sqlite3
-from pathlib import Path
 
 import pytest
 from sqlmodel import SQLModel, create_engine
@@ -27,7 +26,6 @@ CORE_MODULES = [
     "tuttle.rendering",
     "tuttle.tax",
     "tuttle.banking",
-    "tuttle.cloud",
     "tuttle.time",
     "tuttle.dataviz",
     "tuttle.os_functions",

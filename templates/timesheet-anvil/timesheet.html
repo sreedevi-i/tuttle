@@ -79,7 +79,7 @@
       <tr>
         <th class="col-date">Date</th>
         <th class="col-time">Time</th>
-        <th class="col-task">Task</th>
+        <th class="col-task">Notes</th>
         <th class="col-hours">Hours</th>
       </tr>
     </thead>
@@ -88,7 +88,7 @@
       <tr>
         <td class="col-date">{{ item.begin | date }}</td>
         <td class="col-time">{{ item | time_range }}</td>
-        <td class="col-task">{{ item | clean_title }}</td>
+        <td class="col-task">{{ item | clean_title }}{% if item | clean_notes %}<div class="col-task-notes">{{ item | clean_notes }}</div>{% endif %}</td>
         <td class="col-hours">{{ item.duration | hours_minutes }}</td>
       </tr>
       {% endfor %}
