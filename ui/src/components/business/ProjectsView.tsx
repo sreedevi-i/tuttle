@@ -203,8 +203,12 @@ export function ProjectsView() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
         <h2 className="text-sm font-semibold">Projects</h2>
-        <ToolbarButton icon={<Plus size={15} />} onClick={startCreate} />
-        <ToolbarButton icon={<FileUp size={15} />} label="Import" onClick={startImport} />
+        {viewMode === "list" && (
+          <>
+            <ToolbarButton icon={<Plus size={15} />} onClick={startCreate} />
+            <ToolbarButton icon={<FileUp size={15} />} label="Import" onClick={startImport} />
+          </>
+        )}
         <div className="flex-1" />
         {viewMode === "list" && (
           <div className="flex items-center gap-1">

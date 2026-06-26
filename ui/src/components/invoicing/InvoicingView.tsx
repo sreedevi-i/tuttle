@@ -132,10 +132,12 @@ export function InvoicingView() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
         <h2 className="text-sm font-semibold">Invoicing</h2>
-        <button onClick={() => setCreateOpen(true)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
-          <Plus size={13} /> Create Invoice
-        </button>
+        {viewMode === "list" && (
+          <button onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
+            <Plus size={13} /> Create Invoice
+          </button>
+        )}
         <div className="flex-1" />
         {viewMode === "list" && (
           <div className="flex items-center gap-1">
