@@ -1,14 +1,15 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   FileText, Send, CheckCircle, XCircle, Mail, Trash2,
-  Building2, FolderKanban, Calendar, Banknote, Eye, Search,
-  Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight,
+  Building2, FolderKanban, Calendar, Banknote, Eye,
+  Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight, Search,
 } from "lucide-react";
 import { rpc, readFileAsDataURL } from "../../api/rpc";
 import { str, num, bool, list as entityList, formatDate, invoiceStatus, deepStr, isReminder, reminderLevel } from "../../api/entity";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ViewModeToggle } from "../shared/ViewModeToggle";
 import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBoard";
+import { Toolbar, ToolbarButtonPrimary, ToolbarFilterGroup, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { useNavigation } from "../shared/NavigationContext";
 import type { Entity } from "../../api/types";
 
@@ -129,39 +130,16 @@ export function InvoicingView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
-        <h2 className="text-sm font-semibold">Invoicing</h2>
-        <button onClick={() => setCreateOpen(true)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
-          <Plus size={13} /> Create Invoice
-        </button>
-        <div className="flex-1" />
-        {viewMode === "list" && (
-          <div className="flex items-center gap-1">
-            {STATUS_FILTERS.map((s) => {
-              const c = FILTER_COLORS[s];
-              return (
-                <button key={s} onClick={() => setStatusFilter(s)}
-                  className="px-2 py-1 rounded-md text-xs font-medium transition-colors"
-                  style={{
-                    background: statusFilter === s ? `${c}22` : "transparent",
-                    color: statusFilter === s ? c : "var(--color-tertiary)",
-                    border: statusFilter === s ? `1px solid ${c}44` : "1px solid transparent",
-                  }}>{s}</button>
-              );
-            })}
-          </div>
-        )}
-        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-        <div className="flex-1" />
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="text" placeholder="Search…" value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-md text-sm outline-none w-44 bg-bg-card text-primary border border-border-subtle placeholder:text-muted" />
-        </div>
-      </div>
+      <Toolbar title="Invoicing"
+        actions={viewMode === "list"
+          ? <ToolbarButtonPrimary icon={<Plus size={13} />} label="Create Invoice" onClick={() => setCreateOpen(true)} />
+          : undefined}
+        center={viewMode === "list"
+          ? <ToolbarFilterGroup options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} colors={FILTER_COLORS} />
+          : undefined}
+        right={<ViewModeToggle mode={viewMode} onChange={setViewMode} />}
+        search={{ value: search, onChange: setSearch }}
+      />
 
       {renderWarning && (
         <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 rounded-md text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30">
@@ -172,37 +150,29 @@ export function InvoicingView() {
       )}
 
       {viewMode === "list" ? (
-        <div className="flex flex-1 overflow-hidden">
-          {/* List */}
-          <div className="w-[420px] shrink-0 flex flex-col overflow-hidden border-r border-border-subtle">
-            <div className="flex-1 overflow-y-auto">
-              {chains.length === 0
-                ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No invoices."}</div>
-                : chains.map((chain) => {
-                  const inv = chain.root;
-                  const isSelected = selected?.id === inv.id;
-                  const isHighlighted = !isSelected && (inv.id === newlyCreatedId || (navFilter.contractId != null && num(inv, "contract_id") === navFilter.contractId));
-                  return (
-                    <div key={inv.id}>
-                      <InvoiceRow invoice={inv} isSelected={isSelected} isHighlighted={isHighlighted}
-                        reminderCount={chain.reminders.length}
-                        onSelect={() => { setNewlyCreatedId(null); setSelected(inv); }} />
-                      {chain.reminders.map((rem) => {
-                        const remSelected = selected?.id === rem.id;
-                        return <ReminderRow key={rem.id} invoice={rem} isSelected={remSelected}
-                          onSelect={() => { setNewlyCreatedId(null); setSelected(rem); }} />;
-                      })}
-                    </div>
-                  );
-                })}
-            </div>
-            <div className="px-4 py-2 text-xs text-tertiary border-t border-border-subtle">
-              {filtered.length} invoice{filtered.length !== 1 ? "s" : ""}
-            </div>
-          </div>
-          {/* Detail */}
-          <div className="flex-1 overflow-y-auto">
-            {selected ? (
+        <ListDetailLayout
+          footer={<>{filtered.length} invoice{filtered.length !== 1 ? "s" : ""}</>}
+          list={chains.length === 0
+            ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No invoices."}</div>
+            : chains.map((chain) => {
+              const inv = chain.root;
+              const isSelected = selected?.id === inv.id;
+              const isHighlighted = !isSelected && (inv.id === newlyCreatedId || (navFilter.contractId != null && num(inv, "contract_id") === navFilter.contractId));
+              return (
+                <div key={inv.id}>
+                  <InvoiceRow invoice={inv} isSelected={isSelected} isHighlighted={isHighlighted}
+                    reminderCount={chain.reminders.length}
+                    onSelect={() => { setNewlyCreatedId(null); setSelected(inv); }} />
+                  {chain.reminders.map((rem) => {
+                    const remSelected = selected?.id === rem.id;
+                    return <ReminderRow key={rem.id} invoice={rem} isSelected={remSelected}
+                      onSelect={() => { setNewlyCreatedId(null); setSelected(rem); }} />;
+                  })}
+                </div>
+              );
+            })
+          }
+          detail={selected ? (
               <InvoiceDetail invoice={selected} allInvoices={invoices}
                 onToggleSent={() => toggleSent(selected.id)}
                 onTogglePaid={() => togglePaid(selected.id)} onToggleCancelled={() => toggleCancelled(selected.id)}
@@ -215,9 +185,9 @@ export function InvoicingView() {
               <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary">
                 <FileText size={36} strokeWidth={1.2} /><span className="text-sm">Select an invoice</span>
               </div>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       ) : (
         <div className="flex-1 overflow-hidden">
           <KanbanBoard entities={boardRoots} columns={INVOICE_COLUMNS}
@@ -580,7 +550,7 @@ function InvoiceRow({ invoice, isSelected, isHighlighted, reminderCount, onSelec
   const status = invoiceStatus(invoice);
   return (
     <button onClick={onSelect}
-      className={`w-full text-left px-4 py-3 border-b transition-colors
+      className={`w-full text-left ${LIST_ROW_PADDING} border-b transition-colors
         ${isSelected ? "bg-bg-selected border-border-subtle" : isHighlighted ? "bg-accent/10 border-accent/30" : "border-border-subtle hover:bg-bg-hover"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">

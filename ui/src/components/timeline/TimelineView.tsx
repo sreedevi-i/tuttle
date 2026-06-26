@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   FileText, FileSignature, FolderKanban, Flag,
-  ListFilter, Search, CalendarDays,
+  ListFilter, CalendarDays,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
+import { Toolbar, ToolbarFilterGroup } from "../shared/ToolbarButtons";
 import type { Entity } from "../../api/types";
 import { str, bool } from "../../api/entity";
 
@@ -18,10 +19,18 @@ const CATEGORIES: { id: Category; label: string; icon: typeof FileText }[] = [
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
+  all:      "var(--color-status-info)",
   invoice:  "var(--color-status-info)",
   contract: "var(--color-status-success)",
   project:  "var(--color-status-warning)",
   goal:     "#BF5AF2",
+};
+
+const FILTER_OPTIONS = ["all", "invoice", "contract", "project", "goal"] as const;
+const FILTER_LABELS: Record<string, string> = { all: "All", invoice: "Invoices", contract: "Contracts", project: "Projects", goal: "Goals" };
+const FILTER_ICONS: Record<string, React.ReactNode> = {
+  all: <ListFilter size={12} />, invoice: <FileText size={12} />,
+  contract: <FileSignature size={12} />, project: <FolderKanban size={12} />, goal: <Flag size={12} />,
 };
 
 function dotColor(event: Entity): string {
@@ -120,49 +129,26 @@ export function TimelineView() {
 
   if (!events.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-secondary">
-        <CalendarDays size={40} strokeWidth={1.2} />
-        <span className="text-lg font-medium">No Events Yet</span>
-        <span className="text-sm text-muted">Create invoices, contracts, or projects to see them here.</span>
+      <div className="flex flex-col h-full">
+        <Toolbar title="Timeline" />
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 text-secondary">
+          <CalendarDays size={40} strokeWidth={1.2} />
+          <span className="text-lg font-medium">No Events Yet</span>
+          <span className="text-sm text-muted">Create invoices, contracts, or projects to see them here.</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-3xl">
-      {/* Search + Filter bar */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search events…"
-            className="w-full pl-8 pr-3 py-1.5 rounded-md border border-border-subtle bg-bg-content text-sm text-primary placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </div>
-        <div className="flex gap-1.5">
-          {CATEGORIES.map((cat) => {
-            const active = activeFilter === cat.id;
-            const color = cat.id === "all" ? "var(--color-status-info)" : CATEGORY_COLORS[cat.id];
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setActiveFilter(cat.id)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
-                style={{
-                  borderColor: color,
-                  backgroundColor: active ? color : "transparent",
-                  color: active ? "#fff" : color,
-                }}
-              >
-                <cat.icon size={12} />
-                {cat.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+    <div className="flex flex-col h-full">
+      <Toolbar title="Timeline"
+        center={<ToolbarFilterGroup options={FILTER_OPTIONS} value={activeFilter} onChange={setActiveFilter}
+          colors={CATEGORY_COLORS} icons={FILTER_ICONS} labels={FILTER_LABELS} />}
+        search={{ value: searchQuery, onChange: setSearchQuery, placeholder: "Search events…" }}
+      />
+
+      <div className="flex-1 overflow-y-auto p-6 max-w-3xl">
 
       {/* Filtered-empty state */}
       {!filtered.length && (
@@ -199,6 +185,7 @@ export function TimelineView() {
             </div>
           ))}
       </div>
+    </div>
     </div>
   );
 }

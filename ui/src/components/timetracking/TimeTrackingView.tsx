@@ -4,6 +4,7 @@ import {
   FolderKanban, Trash2, MonitorSmartphone, Settings, RefreshCw,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
+import { Toolbar, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -217,45 +218,18 @@ export function TimeTrackingView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
-        <h2 className="text-sm font-semibold">Time Tracking</h2>
-        <div className="flex-1" />
-        {monthHasEvents && (
-          <div className="flex items-center gap-3 text-xs text-primary">
-            <div className="flex items-center gap-1.5">
-              <Clock size={13} className="text-secondary" />
-              <span className="tabular-nums font-bold">{calData!.summary.total_hours}h</span>
-              <span className="text-secondary">across</span>
-              <span className="tabular-nums font-bold">{calData!.summary.total_events}</span>
-              <span className="text-secondary">events</span>
-            </div>
-            {calData!.summary.planned_hours > 0 && (
-              <div className="flex items-center gap-1.5 text-blue-400">
-                <span className="text-secondary">·</span>
-                <span className="tabular-nums font-bold">{calData!.summary.planned_hours}h</span>
-                <span className="text-blue-400/70">planned</span>
-              </div>
-            )}
-          </div>
-        )}
-        {hasAnyData && (
-          <>
-            <button onClick={syncCalendar} disabled={syncing}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-secondary hover:text-primary hover:bg-bg-hover transition-colors disabled:opacity-50"
-              title="Re-sync with calendar">
-              <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
-              <span>{syncing ? "Syncing…" : "Sync"}</span>
-            </button>
-            <button onClick={clearData}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted hover:text-red-400 hover:bg-bg-hover transition-colors"
-              title="Clear imported data and choose a different source">
-              <Trash2 size={13} />
-              <span>Change source</span>
-            </button>
-          </>
-        )}
-      </div>
+      <Toolbar title="Time Tracking"
+        actions={hasAnyData ? <>
+          <ToolbarButtonSecondary
+            icon={<RefreshCw size={13} className={syncing ? "animate-spin" : ""} />}
+            label={syncing ? "Syncing…" : "Sync"}
+            onClick={syncCalendar} />
+          <ToolbarButtonSecondary
+            icon={<Trash2 size={13} />}
+            label="Change source"
+            onClick={clearData} />
+        </> : undefined}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main area */}
@@ -371,6 +345,11 @@ export function TimeTrackingView() {
               <div className="text-[11px] font-bold uppercase tracking-wider text-primary mb-1">Total</div>
               <div className="text-xl font-bold tabular-nums text-primary">{calData!.summary.total_hours}h</div>
               <div className="text-xs text-secondary">{calData!.summary.total_events} events</div>
+              {calData!.summary.planned_hours > 0 && (
+                <div className="text-xs text-blue-400 mt-1">
+                  {calData!.summary.planned_hours}h planned
+                </div>
+              )}
             </div>
           </div>
         )}
