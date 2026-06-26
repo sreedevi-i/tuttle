@@ -126,6 +126,13 @@ check-migrations:
     TUTTLE_DB_URL="sqlite:///$tmp" {{venv}}/bin/alembic upgrade head
     TUTTLE_DB_URL="sqlite:///$tmp" {{venv}}/bin/alembic check
 
+# Capture a single view screenshot: just screenshot <sidebar-id> <output-path>
+screenshot view out="": build-renderer
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{electron}}"
+    npx --yes tsx scripts/capture-view.ts {{view}} {{out}}
+
 # ── Utilities ───────────────────────────────────────────────────────────────
 
 # Install/sync Python dependencies
