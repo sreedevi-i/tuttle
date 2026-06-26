@@ -30,8 +30,5 @@ export function initUpdater(win: BrowserWindow) {
 
   autoUpdater.checkForUpdates().catch((err) => {
     console.error("[updater] check failed:", err);
-    win.webContents.send("update-error", {
-      message: err?.message ?? String(err),
-    });
   });
 }
