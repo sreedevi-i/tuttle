@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, entity as subEntity, fullName, initials, displayName } from "../../api/entity";
+import { ToolbarButtonPrimary, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -171,8 +172,8 @@ export function ContactsView() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
         <h2 className="text-sm font-semibold">Contacts</h2>
-        <ToolbarButton icon={<Plus size={15} />} onClick={startCreate} />
-        <ToolbarButton icon={<FileUp size={15} />} label="Import" onClick={startImport} />
+        <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
+        <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
         <div className="relative ml-auto">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
           <input type="text" placeholder="Search…" value={search}
@@ -630,18 +631,6 @@ function FormField({ label, value, onChange, type = "text", autoFocus }: {
         className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none
           focus:border-accent transition-colors placeholder:text-muted" />
     </div>
-  );
-}
-
-function ToolbarButton({ icon, label, onClick }: {
-  icon: React.ReactNode; label?: string; onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm text-secondary hover:text-primary hover:bg-bg-hover transition-colors">
-      {icon}
-      {label && <span>{label}</span>}
-    </button>
   );
 }
 

@@ -10,6 +10,7 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { ProgressBar } from "../shared/ProgressBar";
 import { ViewModeToggle } from "../shared/ViewModeToggle";
 import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBoard";
+import { ToolbarButtonPrimary, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
 import { useNavigation } from "../shared/NavigationContext";
 import type { Entity } from "../../api/types";
 
@@ -205,8 +206,8 @@ export function ProjectsView() {
         <h2 className="text-sm font-semibold">Projects</h2>
         {viewMode === "list" && (
           <>
-            <ToolbarButton icon={<Plus size={15} />} onClick={startCreate} />
-            <ToolbarButton icon={<FileUp size={15} />} label="Import" onClick={startImport} />
+            <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
+            <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
           </>
         )}
         <div className="flex-1" />
@@ -574,18 +575,6 @@ function FormField({ label, value, onChange, autoFocus, required }: {
       <input type="text" value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} required={required}
         className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
     </div>
-  );
-}
-
-function ToolbarButton({ icon, label, onClick }: {
-  icon: React.ReactNode; label?: string; onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm text-secondary hover:text-primary hover:bg-bg-hover transition-colors">
-      {icon}
-      {label && <span>{label}</span>}
-    </button>
   );
 }
 

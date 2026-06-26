@@ -9,6 +9,7 @@ import { str, num, bool, list as entityList, formatDate, invoiceStatus, deepStr,
 import { StatusBadge } from "../shared/StatusBadge";
 import { ViewModeToggle } from "../shared/ViewModeToggle";
 import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBoard";
+import { ToolbarButtonPrimary } from "../shared/ToolbarButtons";
 import { useNavigation } from "../shared/NavigationContext";
 import type { Entity } from "../../api/types";
 
@@ -133,10 +134,7 @@ export function InvoicingView() {
       <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
         <h2 className="text-sm font-semibold">Invoicing</h2>
         {viewMode === "list" && (
-          <button onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
-            <Plus size={13} /> Create Invoice
-          </button>
+          <ToolbarButtonPrimary icon={<Plus size={13} />} label="Create Invoice" onClick={() => setCreateOpen(true)} />
         )}
         <div className="flex-1" />
         {viewMode === "list" && (

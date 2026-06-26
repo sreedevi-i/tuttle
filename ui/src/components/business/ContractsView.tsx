@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, bool, entity as subEntity, list as entityList, displayName, formatDate } from "../../api/entity";
+import { ToolbarButtonPrimary, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
 import { useNavigation } from "../shared/NavigationContext";
 import type { Entity } from "../../api/types";
 
@@ -171,8 +172,8 @@ export function ContractsView() {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
         <h2 className="text-sm font-semibold">Contracts</h2>
-        <ToolbarButton icon={<Plus size={15} />} onClick={startCreate} />
-        <ToolbarButton icon={<FileUp size={15} />} label="Import" onClick={startImport} />
+        <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
+        <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
         <div className="flex items-center gap-1 ml-3">
           {(["All", "Active", "Upcoming", "Completed"] as StatusFilter[]).map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
@@ -628,18 +629,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="text-xs font-semibold uppercase tracking-wider text-secondary mb-2">{title}</div>
       {children}
     </div>
-  );
-}
-
-function ToolbarButton({ icon, label, onClick }: {
-  icon: React.ReactNode; label?: string; onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm text-secondary hover:text-primary hover:bg-bg-hover transition-colors">
-      {icon}
-      {label && <span>{label}</span>}
-    </button>
   );
 }
 
