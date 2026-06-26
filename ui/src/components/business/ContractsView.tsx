@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
-  FileText, Plus, Trash2, Save, X, Search, DollarSign, Calendar,
+  FileText, Plus, Trash2, Save, X, DollarSign, Calendar,
   FileUp, Sparkles, Check, CheckCheck, Loader2, CheckCircle2,
   FolderKanban, Receipt, ArrowRight,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, bool, entity as subEntity, list as entityList, displayName, formatDate } from "../../api/entity";
-import { ToolbarButtonPrimary, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
+import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ToolbarFilterGroup, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
+import { StatusBadge } from "../shared/StatusBadge";
 import { useNavigation } from "../shared/NavigationContext";
 import type { Entity } from "../../api/types";
 
@@ -170,44 +171,26 @@ export function ContractsView() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
-        <h2 className="text-sm font-semibold">Contracts</h2>
-        <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
-        <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
-        <div className="flex items-center gap-1 ml-3">
-          {(["All", "Active", "Upcoming", "Completed"] as StatusFilter[]).map((s) => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-2 py-1 rounded text-xs transition-colors ${statusFilter === s ? "bg-bg-card text-primary font-medium border border-border-subtle" : "text-tertiary hover:text-secondary"}`}>
-              {s}
-            </button>
-          ))}
-        </div>
-        <div className="relative ml-auto">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="text" placeholder="Search…" value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-md text-sm outline-none w-44 bg-bg-card text-primary border border-border-subtle placeholder:text-muted" />
-        </div>
-      </div>
+      <Toolbar title="Contracts"
+        actions={<>
+          <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
+          <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
+        </>}
+        center={<ToolbarFilterGroup options={["All", "Active", "Upcoming", "Completed"] as const} value={statusFilter} onChange={setStatusFilter} />}
+        search={{ value: search, onChange: setSearch }}
+      />
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-[320px] shrink-0 flex flex-col overflow-hidden border-r border-border-subtle">
-          <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0
-              ? <div className="p-4 text-sm text-center text-tertiary">{search || statusFilter !== "All" ? "No matches." : "No contracts."}</div>
-              : filtered.map((c) => (
-                <ContractRow key={c.id} contract={c}
-                  isSelected={selected?.id === c.id && mode !== "create" && mode !== "import"}
-                  onSelect={() => selectContract(c)} />
-              ))}
-          </div>
-          <div className="px-4 py-2 text-xs text-tertiary border-t border-border-subtle">
-            {filtered.length} contract{filtered.length !== 1 ? "s" : ""}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {mode === "import" ? (
+      <ListDetailLayout
+        footer={<>{filtered.length} contract{filtered.length !== 1 ? "s" : ""}</>}
+        list={filtered.length === 0
+          ? <div className="p-4 text-sm text-center text-tertiary">{search || statusFilter !== "All" ? "No matches." : "No contracts."}</div>
+          : filtered.map((c) => (
+            <ContractRow key={c.id} contract={c}
+              isSelected={selected?.id === c.id && mode !== "create" && mode !== "import"}
+              onSelect={() => selectContract(c)} />
+          ))
+        }
+        detail={mode === "import" ? (
             <ContractImportPanel
               parsing={parsing} parseError={parseError} parsedContracts={parsedContracts}
               clients={clients}
@@ -229,9 +212,9 @@ export function ContractsView() {
               <FileText size={36} strokeWidth={1.2} />
               <span className="text-sm">Select a contract</span>
             </div>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
     </div>
   );
 }
@@ -248,17 +231,13 @@ function ContractRow({ contract, isSelected, onSelect }: {
   const currency = str(contract, "currency") || "EUR";
   const status = contractStatus(contract);
 
-  const statusColors: Record<string, string> = {
-    Active: "text-green-400", Upcoming: "text-blue-400", Completed: "text-tertiary",
-  };
-
   return (
     <button onClick={onSelect}
-      className={`w-full text-left px-4 py-3 border-b border-border-subtle transition-colors
+      className={`w-full text-left ${LIST_ROW_PADDING} border-b border-border-subtle transition-colors
         ${isSelected ? "bg-bg-selected" : "hover:bg-bg-hover"}`}>
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium truncate">{title}</div>
-        <span className={`text-xs ${statusColors[status] || "text-tertiary"}`}>{status}</span>
+        <StatusBadge status={status} />
       </div>
       <div className="flex items-center gap-2 text-xs text-tertiary mt-0.5">
         {clientName && <span>{clientName}</span>}
@@ -285,12 +264,6 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
   const projects = entityList(contract, "projects");
   const invoices = entityList(contract, "invoices");
 
-  const statusColors: Record<string, string> = {
-    Active: "bg-green-500/15 text-green-400 border-green-500/30",
-    Upcoming: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    Completed: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
-  };
-
   const startDate = str(contract, "start_date");
   const endDate = str(contract, "end_date");
   const durationLabel = endDate
@@ -305,9 +278,7 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
           <h1 className="text-lg font-semibold">{title}</h1>
           <div className="text-sm text-secondary mt-0.5">{clientName}</div>
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${statusColors[status] || statusColors.Completed}`}>
-          {status}
-        </span>
+        <StatusBadge status={status} />
       </div>
 
       {/* Actions */}

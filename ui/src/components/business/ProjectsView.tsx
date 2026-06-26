@@ -1,16 +1,16 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
-  FolderKanban, Building2, FileSignature, Calendar, Clock, FileText, Search,
+  FolderKanban, Building2, FileSignature, Calendar, Clock, FileText,
   Plus, Trash2, Save, X, FileUp, Sparkles, Check, CheckCheck, Loader2, CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, int, num, bool, entity, dateRange, projectStatus } from "../../api/entity";
-import { StatusBadge } from "../shared/StatusBadge";
+import { StatusBadge, TagBadge } from "../shared/StatusBadge";
 import { ProgressBar } from "../shared/ProgressBar";
 import { ViewModeToggle } from "../shared/ViewModeToggle";
 import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBoard";
-import { ToolbarButtonPrimary, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
+import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ToolbarFilterGroup, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { useNavigation } from "../shared/NavigationContext";
 import type { Entity } from "../../api/types";
 
@@ -202,70 +202,45 @@ export function ProjectsView() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
-        <h2 className="text-sm font-semibold">Projects</h2>
-        {viewMode === "list" && (
-          <>
-            <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
-            <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
-          </>
-        )}
-        <div className="flex-1" />
-        {viewMode === "list" && (
-          <div className="flex items-center gap-1">
-            {STATUS_FILTERS.map((s) => {
-              const c = FILTER_COLORS[s];
-              return (
-                <button key={s} onClick={() => setStatusFilter(s)}
-                  className="px-2 py-1 rounded-md text-xs font-medium transition-colors"
-                  style={{
-                    background: statusFilter === s ? `${c}22` : "transparent",
-                    color: statusFilter === s ? c : "var(--color-tertiary)",
-                    border: statusFilter === s ? `1px solid ${c}44` : "1px solid transparent",
-                  }}>{s}</button>
-              );
-            })}
-          </div>
-        )}
-        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-        <div className="flex-1" />
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="text" placeholder="Search…" value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-md text-sm outline-none w-44 bg-bg-card text-primary border border-border-subtle placeholder:text-muted" />
-        </div>
-      </div>
+      <Toolbar title="Projects"
+        actions={viewMode === "list" ? <>
+          <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
+          <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
+        </> : undefined}
+        center={viewMode === "list"
+          ? <ToolbarFilterGroup options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} colors={FILTER_COLORS} />
+          : undefined}
+        right={<ViewModeToggle mode={viewMode} onChange={setViewMode} />}
+        search={{ value: search, onChange: setSearch }}
+      />
 
       {viewMode === "list" ? (
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-72 shrink-0 flex flex-col border-r border-border-subtle">
-            <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0
-                ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No projects."}</div>
-                : filtered.map((p) => {
-                  const isSelected = selected?.id === p.id && mode === "view";
-                  const isHighlighted = !isSelected && navFilter.contractId != null && num(p, "contract_id") === navFilter.contractId;
-                  return (
-                    <button key={p.id} onClick={() => selectProject(p)}
-                      className={`w-full text-left px-4 py-2.5 border-b transition-colors
-                        ${isSelected ? "bg-bg-selected border-border-subtle" : isHighlighted ? "bg-accent/10 border-accent/30" : "border-border-subtle hover:bg-bg-hover"}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">{str(p, "title")}</span>
-                        <StatusBadge status={projectStatus(p)} />
-                      </div>
-                      <div className="text-xs text-secondary mt-0.5 truncate">{str(p, "tag")}</div>
-                    </button>
-                  );
-                })}
-            </div>
-            <div className="px-4 py-2 text-xs text-tertiary border-t border-border-subtle">
-              {filtered.length} project{filtered.length !== 1 ? "s" : ""}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {mode === "import" ? (
+        <ListDetailLayout
+          footer={<>{filtered.length} project{filtered.length !== 1 ? "s" : ""}</>}
+          list={filtered.length === 0
+            ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No projects."}</div>
+            : filtered.map((p) => {
+              const isSelected = selected?.id === p.id && mode === "view";
+              const isHighlighted = !isSelected && navFilter.contractId != null && num(p, "contract_id") === navFilter.contractId;
+              return (
+                <button key={p.id} onClick={() => selectProject(p)}
+                  className={`w-full text-left ${LIST_ROW_PADDING} border-b transition-colors
+                    ${isSelected ? "bg-bg-selected border-border-subtle" : isHighlighted ? "bg-accent/10 border-accent/30" : "border-border-subtle hover:bg-bg-hover"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium truncate">{str(p, "title")}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <TagBadge tag={str(p, "tag")} />
+                      <StatusBadge status={projectStatus(p)} />
+                    </div>
+                  </div>
+                  {clientName(p) && (
+                    <div className="text-xs text-tertiary mt-0.5 truncate">{clientName(p)}</div>
+                  )}
+                </button>
+              );
+            })
+          }
+          detail={mode === "import" ? (
               <ProjectImportPanel
                 parsing={parsing} parseError={parseError} parsedProjects={parsedProjects}
                 contracts={contractsMap}
@@ -284,7 +259,7 @@ export function ProjectsView() {
                   </div>
                   <div>
                     <h1 className="text-lg font-semibold">{str(selected, "title")}</h1>
-                    <p className="text-xs text-secondary">{str(selected, "tag")}</p>
+                    <TagBadge tag={str(selected, "tag")} className="mt-1" />
                   </div>
                   <StatusBadge status={projectStatus(selected)} className="ml-auto" />
                 </div>
@@ -338,9 +313,9 @@ export function ProjectsView() {
               <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary">
                 <FolderKanban size={36} strokeWidth={1.2} /><span className="text-sm">Select a project</span>
               </div>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       ) : (
         <div className="flex-1 overflow-hidden">
           <KanbanBoard entities={boardFiltered} columns={PROJECT_COLUMNS}
@@ -367,9 +342,7 @@ function ProjectCard({ project, budgetsMap }: { project: Entity; color: string; 
     <div className="space-y-2">
       <div>
         <div className="text-sm font-semibold leading-snug">{str(project, "title")}</div>
-        {str(project, "tag") && (
-          <span className="text-xs font-medium text-tertiary">{str(project, "tag")}</span>
-        )}
+        <TagBadge tag={str(project, "tag")} />
       </div>
       {cName && (
         <div className="flex items-center gap-1.5 text-secondary">

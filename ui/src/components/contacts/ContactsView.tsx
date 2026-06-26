@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
-  Users, Plus, Trash2, Save, X, Mail, Building2, MapPin, Search,
+  Users, Plus, Trash2, Save, X, Mail, Building2, MapPin,
   FileUp, Sparkles, Check, CheckCheck, Loader2, Tag, UserPlus,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, entity as subEntity, fullName, initials, displayName } from "../../api/entity";
-import { ToolbarButtonPrimary, ToolbarButtonSecondary } from "../shared/ToolbarButtons";
+import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -169,39 +169,25 @@ export function ContactsView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0 border-b border-border-subtle">
-        <h2 className="text-sm font-semibold">Contacts</h2>
-        <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
-        <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
-        <div className="relative ml-auto">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="text" placeholder="Search…" value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-md text-sm outline-none w-44 bg-bg-card text-primary border border-border-subtle placeholder:text-muted" />
-        </div>
-      </div>
+      <Toolbar title="Contacts"
+        actions={<>
+          <ToolbarButtonPrimary icon={<Plus size={13} />} label="New" onClick={startCreate} />
+          <ToolbarButtonSecondary icon={<FileUp size={13} />} label="Import" onClick={startImport} />
+        </>}
+        search={{ value: search, onChange: setSearch }}
+      />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* List */}
-        <div className="w-[320px] shrink-0 flex flex-col overflow-hidden border-r border-border-subtle">
-          <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0
-              ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No contacts."}</div>
-              : filtered.map((c) => (
-                <ContactRow key={c.id} contact={c}
-                  isSelected={selected?.id === c.id && mode !== "create" && mode !== "import"}
-                  onSelect={() => selectContact(c)} />
-              ))}
-          </div>
-          <div className="px-4 py-2 text-xs text-tertiary border-t border-border-subtle">
-            {filtered.length} contact{filtered.length !== 1 ? "s" : ""}
-          </div>
-        </div>
-
-        {/* Detail / Form / Import */}
-        <div className="flex-1 overflow-y-auto">
-          {mode === "import" ? (
+      <ListDetailLayout
+        footer={<>{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</>}
+        list={filtered.length === 0
+          ? <div className="p-4 text-sm text-center text-tertiary">{search ? "No matches." : "No contacts."}</div>
+          : filtered.map((c) => (
+            <ContactRow key={c.id} contact={c}
+              isSelected={selected?.id === c.id && mode !== "create" && mode !== "import"}
+              onSelect={() => selectContact(c)} />
+          ))
+        }
+        detail={mode === "import" ? (
             <DocumentImportPanel
               parsing={parsing}
               parseError={parseError}
@@ -227,9 +213,9 @@ export function ContactsView() {
               <Users size={36} strokeWidth={1.2} />
               <span className="text-sm">Select a contact</span>
             </div>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
     </div>
   );
 }
@@ -247,7 +233,7 @@ function ContactRow({ contact, isSelected, onSelect }: {
 
   return (
     <button onClick={onSelect}
-      className={`w-full text-left px-4 py-3 border-b border-border-subtle transition-colors flex items-center gap-3
+      className={`w-full text-left ${LIST_ROW_PADDING} border-b border-border-subtle transition-colors flex items-center gap-3
         ${isSelected ? "bg-bg-selected" : "hover:bg-bg-hover"}`}>
       <div className="w-9 h-9 rounded-full bg-bg-card flex items-center justify-center text-sm font-semibold text-secondary shrink-0">
         {ini}
