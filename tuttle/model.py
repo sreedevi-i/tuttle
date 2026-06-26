@@ -429,7 +429,7 @@ class Contract(RpcMixin, SQLModel, table=True):
         "projects": ("id", "title"),
         "invoices": ("id",),
     }
-    __rpc_computed__ = ("unit_abbrev",)
+    __rpc_computed__ = ("unit_abbrev", "is_fixed_price")
 
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(
@@ -456,8 +456,14 @@ class Contract(RpcMixin, SQLModel, table=True):
         foreign_key="client.id",
         ondelete="RESTRICT",
     )
-    rate: condecimal(decimal_places=2) = Field(
-        description="Rate of remuneration",
+    rate: Optional[condecimal(decimal_places=2)] = Field(
+        default=None,
+        description="Rate of remuneration per billing unit (for time-based contracts).",
+    )
+    fixed_price: Optional[Decimal] = Field(
+        default=None,
+        sa_column=sqlalchemy.Column(sqlalchemy.Numeric(12, 2), nullable=True),
+        description="Total agreed price (for fixed-price contracts).",
     )
     is_completed: bool = Field(
         default=False, description="flag marking if contract has been completed"
@@ -498,8 +504,14 @@ class Contract(RpcMixin, SQLModel, table=True):
     )
 
     @property
+    def is_fixed_price(self) -> bool:
+        return self.fixed_price is not None
+
+    @property
     def unit_abbrev(self) -> str:
         """Short display label for the billing unit, e.g. 'h' or 'd'."""
+        if self.is_fixed_price and self.rate is None:
+            return ""
         return self.unit.abbrev
 
     @property
@@ -515,6 +527,8 @@ class Contract(RpcMixin, SQLModel, table=True):
         not a calendar day.  Used by ``invoicing.generate_invoice`` to
         convert tracked time to billable quantity.
         """
+        if self.is_fixed_price:
+            raise ValueError("unit_duration is not applicable to fixed-price contracts")
         if self.unit == TimeUnit.hour:
             return datetime.timedelta(hours=1)
         if self.unit == TimeUnit.day:
@@ -559,6 +573,7 @@ class Project(RpcMixin, SQLModel, table=True):
     """A project is a group of contract work for a client."""
 
     __rpc_relationships__ = ("contract",)
+    __rpc_computed__ = ("is_fixed_price",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(
@@ -605,6 +620,10 @@ class Project(RpcMixin, SQLModel, table=True):
         return f"Project(id={self.id}, title={self.title}, tag={self.tag})"
 
     # PROPERTIES
+    @property
+    def is_fixed_price(self) -> bool:
+        return self.contract is not None and self.contract.is_fixed_price
+
     @property
     def client(self) -> Optional[Client]:
         if self.contract:

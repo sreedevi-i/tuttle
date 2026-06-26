@@ -214,6 +214,116 @@ def test_generate_invoice_respects_day_unit():
 
 
 # ---------------------------------------------------------------------------
+# Fixed-price contracts
+# ---------------------------------------------------------------------------
+
+
+def _build_fixed_price_project(fixed_price, tag: str) -> Project:
+    client = Client(
+        name="FixedCo",
+        address=Address(
+            street="Main",
+            number="1",
+            postal_code="00000",
+            city="Nowhere",
+            country="N/A",
+        ),
+    )
+    contract = Contract(
+        title="Fixed Price Contract",
+        client=client,
+        start_date=datetime.date(2022, 1, 1),
+        fixed_price=fixed_price,
+        currency="EUR",
+        VAT_rate=Decimal("0.19"),
+        billing_cycle=Cycle.monthly,
+    )
+    return Project(
+        title=f"Fixed Project {tag}",
+        description="Fixed-price project",
+        tag=tag,
+        contract=contract,
+        start_date=datetime.date(2022, 1, 1),
+        end_date=datetime.date(2022, 12, 31),
+    )
+
+
+class TestFixedPriceInvoicing:
+    """Business-level tests for fixed-price contracts and invoicing."""
+
+    def test_fixed_price_project_bills_agreed_amount(self):
+        """Invoicing a fixed-price project charges the full agreed amount."""
+        project = _build_fixed_price_project(Decimal("4500"), tag="#FPBill")
+        invoice = invoicing.generate_fixed_price_invoice(
+            contract=project.contract,
+            project=project,
+            number="FP-001",
+            date=datetime.date(2022, 2, 1),
+        )
+        assert invoice.sum == Decimal("4500")
+        assert invoice.total == Decimal("5355.00")  # 4500 + 19% VAT
+
+    def test_fixed_price_invoice_has_single_line_item(self):
+        """A fixed-price invoice contains exactly one lump-sum line."""
+        project = _build_fixed_price_project(Decimal("10000"), tag="#FPSingle")
+        invoice = invoicing.generate_fixed_price_invoice(
+            contract=project.contract,
+            project=project,
+            number="FP-002",
+            date=datetime.date(2022, 3, 1),
+        )
+        assert len(invoice.items) == 1
+
+    def test_project_knows_it_is_fixed_price(self):
+        """A project with a fixed-price contract exposes that fact."""
+        project = _build_fixed_price_project(Decimal("3000"), tag="#FPFlag")
+        assert project.is_fixed_price
+
+    def test_time_based_project_is_not_fixed_price(self):
+        """A project with a rate-based contract is not fixed-price."""
+        client = Client(
+            name="HourlyCo",
+            address=Address(
+                street="Clock St",
+                number="2",
+                postal_code="11111",
+                city="Timeville",
+                country="N/A",
+            ),
+        )
+        contract = Contract(
+            title="Hourly Contract",
+            client=client,
+            start_date=datetime.date(2022, 1, 1),
+            rate=Decimal("100"),
+            currency="EUR",
+            VAT_rate=Decimal("0.19"),
+            billing_cycle=Cycle.monthly,
+        )
+        project = Project(
+            title="Hourly Project",
+            description="Time-based project",
+            tag="#HourlyProj",
+            contract=contract,
+            start_date=datetime.date(2022, 1, 1),
+            end_date=datetime.date(2022, 12, 31),
+        )
+        assert not project.is_fixed_price
+
+    def test_vat_applied_correctly_to_fixed_price(self):
+        """VAT is computed on top of the fixed price, not included in it."""
+        project = _build_fixed_price_project(Decimal("1000"), tag="#FPVAT")
+        invoice = invoicing.generate_fixed_price_invoice(
+            contract=project.contract,
+            project=project,
+            number="FP-003",
+            date=datetime.date(2022, 4, 1),
+        )
+        assert invoice.VAT_total == Decimal("190.00")
+        assert invoice.total == Decimal("1190.00")
+
+
+# ---------------------------------------------------------------------------
 # Invoice notes
 # ---------------------------------------------------------------------------
 

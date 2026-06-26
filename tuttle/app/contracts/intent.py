@@ -47,6 +47,13 @@ class ContractsIntent(CrudIntent):
 
     def _validated_save(self, contract: Contract) -> IntentResult:
         is_updating = contract.id is not None
+        has_rate = contract.rate is not None and contract.rate > 0
+        has_fixed = contract.fixed_price is not None and contract.fixed_price > 0
+        if not has_rate and not has_fixed:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="A contract needs either a rate or a fixed price.",
+            )
         try:
             contract.VAT_rate = normalize_vat_rate(contract.VAT_rate)
         except ValueError as e:

@@ -77,7 +77,8 @@ export function ContractsView() {
     const contract: Record<string, unknown> = {
       title: data.title,
       client_id: data.clientId,
-      rate: data.rate,
+      fixed_price: data.fixedPrice || null,
+      rate: data.rate || null,
       currency: data.currency,
       unit: data.unit,
       billing_cycle: data.billingCycle,
@@ -227,9 +228,13 @@ function ContractRow({ contract, isSelected, onSelect }: {
   const title = str(contract, "title");
   const cl = subEntity(contract, "client");
   const clientName = cl ? str(cl, "name") : "";
+  const fixedPrice = num(contract, "fixed_price");
   const rate = num(contract, "rate");
   const currency = str(contract, "currency") || "EUR";
   const status = contractStatus(contract);
+  const priceLabel = fixedPrice > 0
+    ? `${fixedPrice} ${currency}`
+    : rate > 0 ? `${rate} ${currency}/${str(contract, "unit_abbrev") || "h"}` : "";
 
   return (
     <button onClick={onSelect}
@@ -241,8 +246,8 @@ function ContractRow({ contract, isSelected, onSelect }: {
       </div>
       <div className="flex items-center gap-2 text-xs text-tertiary mt-0.5">
         {clientName && <span>{clientName}</span>}
-        {clientName && rate > 0 && <span>·</span>}
-        {rate > 0 && <span>{rate} {currency}/{str(contract, "unit_abbrev") || "h"}</span>}
+        {clientName && priceLabel && <span>·</span>}
+        {priceLabel && <span>{priceLabel}</span>}
       </div>
     </button>
   );
@@ -258,9 +263,11 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
   const cl = subEntity(contract, "client");
   const clientName = cl ? str(cl, "name") : "—";
   const status = contractStatus(contract);
+  const fixedPrice = num(contract, "fixed_price");
   const rate = num(contract, "rate");
   const currency = str(contract, "currency") || "EUR";
   const unit = str(contract, "unit") || "hour";
+  const isFixed = fixedPrice > 0;
   const projects = entityList(contract, "projects");
   const invoices = entityList(contract, "invoices");
 
@@ -304,9 +311,10 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
       {/* Terms */}
       <DetailSection label="Terms">
         <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-          <TermItem label="Rate" value={`${rate} ${currency}`} sub={`per ${unit}`} />
-          <TermItem label="Volume" value={str(contract, "volume") || "—"} sub={str(contract, "volume") ? `${unit}s` : ""} />
-          <TermItem label="Billing" value={str(contract, "billing_cycle") || "—"} />
+          {isFixed && <TermItem label="Fixed Price" value={`${fixedPrice} ${currency}`} />}
+          {rate > 0 && <TermItem label="Rate" value={`${rate} ${currency}`} sub={`per ${unit}`} />}
+          {!isFixed && <TermItem label="Volume" value={str(contract, "volume") || "—"} sub={str(contract, "volume") ? `${unit}s` : ""} />}
+          {!isFixed && <TermItem label="Billing" value={str(contract, "billing_cycle") || "—"} />}
           <TermItem
             label="VAT"
             value={(() => {
@@ -316,7 +324,7 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
             })()}
           />
           <TermItem label="Payment" value={str(contract, "term_of_payment") ? `${str(contract, "term_of_payment")} days` : "—"} />
-          <TermItem label="Workday" value={`${str(contract, "units_per_workday") || "8"} ${unit}s`} />
+          {!isFixed && <TermItem label="Workday" value={`${str(contract, "units_per_workday") || "8"} ${unit}s`} />}
         </div>
       </DetailSection>
 
@@ -389,7 +397,8 @@ function RelatedCard({ icon, count, label, onClick }: { icon: React.ReactNode; c
 interface ContractFormData {
   title: string;
   clientId: number | null;
-  rate: number;
+  fixedPrice: number | null;
+  rate: number | null;
   currency: string;
   unit: string;
   billingCycle: string;
@@ -402,6 +411,8 @@ interface ContractFormData {
   unitsPerWorkday: number;
 }
 
+type PricingMode = "time_based" | "fixed_price";
+
 function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, error }: {
   contract?: Entity;
   clients: Record<string, Entity>;
@@ -411,11 +422,14 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
   error?: string | null;
 }) {
   const cl = contract ? subEntity(contract, "client") : null;
+  const initFixed = contract ? (num(contract, "fixed_price") || null) : null;
+  const [pricingMode, setPricingMode] = useState<PricingMode>(initFixed ? "fixed_price" : "time_based");
   const [form, setForm] = useState<ContractFormData>(() => {
     if (contract) return {
       title: str(contract, "title"),
       clientId: cl?.id ?? null,
-      rate: num(contract, "rate"),
+      fixedPrice: initFixed,
+      rate: num(contract, "rate") || null,
       currency: str(contract, "currency") || defaultCurrency,
       unit: str(contract, "unit") || "hour",
       billingCycle: str(contract, "billing_cycle") || "monthly",
@@ -432,14 +446,15 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       unitsPerWorkday: num(contract, "units_per_workday") || 8,
     };
     return {
-      title: "", clientId: null, rate: 0, currency: defaultCurrency, unit: "hour",
-      billingCycle: "monthly", volume: null, vatRate: 0.19, signatureDate: "",
-      startDate: "", endDate: "", termOfPayment: 31, unitsPerWorkday: 8,
+      title: "", clientId: null, fixedPrice: null, rate: null, currency: defaultCurrency,
+      unit: "hour", billingCycle: "monthly", volume: null, vatRate: 0.19,
+      signatureDate: "", startDate: "", endDate: "", termOfPayment: 31, unitsPerWorkday: 8,
     };
   });
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const isNew = !contract;
+  const isFixed = pricingMode === "fixed_price";
 
   const clientList = Object.values(clients);
 
@@ -448,10 +463,24 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
     setValidationError(null);
   }
 
+  function switchPricingMode(mode: PricingMode) {
+    setPricingMode(mode);
+    setValidationError(null);
+    if (mode === "fixed_price") {
+      setForm((prev) => ({ ...prev, rate: null }));
+    } else {
+      setForm((prev) => ({ ...prev, fixedPrice: null }));
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title.trim()) { setValidationError("Title is required"); return; }
-    if (form.rate <= 0) { setValidationError("Rate must be greater than 0"); return; }
+    if (isFixed) {
+      if (!form.fixedPrice || form.fixedPrice <= 0) { setValidationError("Fixed price is required"); return; }
+    } else {
+      if (!form.rate || form.rate <= 0) { setValidationError("Rate is required"); return; }
+    }
     if (form.endDate && form.startDate && form.endDate < form.startDate) {
       setValidationError("End date must be on or after start date"); return;
     }
@@ -459,6 +488,8 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
     await onSave(form);
     setSaving(false);
   }
+
+  const inputCls = "w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors";
 
   return (
     <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -471,7 +502,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
           </button>
           <button type="submit" disabled={saving}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-primary hover:bg-bg-hover transition-colors disabled:opacity-40">
-            <Save size={14} /> {saving ? "Saving…" : "Save"}
+            <Save size={14} /> {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
@@ -486,106 +517,120 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="block text-xs text-tertiary mb-1">Title <span className="text-accent">*</span></label>
-            <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} autoFocus
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
+            <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} autoFocus className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-tertiary mb-1">Client</label>
-            <select value={form.clientId ?? ""} onChange={(e) => update("clientId", e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
-              <option value="">— Select —</option>
+            <select value={form.clientId ?? ""} onChange={(e) => update("clientId", e.target.value ? Number(e.target.value) : null)} className={inputCls}>
+              <option value="">-- Select --</option>
               {clientList.map((c) => <option key={c.id} value={c.id}>{str(c, "name")}</option>)}
             </select>
           </div>
         </div>
       </Section>
 
-      <Section title="Rates">
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs text-tertiary mb-1">Rate <span className="text-accent">*</span></label>
-            <input type="number" step="0.01" value={form.rate || ""} onChange={(e) => update("rate", parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
-          </div>
-          <div>
-            <label className="block text-xs text-tertiary mb-1">Currency</label>
-            <select value={form.currency} onChange={(e) => update("currency", e.target.value)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
-              {["EUR", "USD", "GBP", "CHF"].map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-tertiary mb-1">Unit</label>
-            <select value={form.unit} onChange={(e) => update("unit", e.target.value)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
-              <option value="hour">Hour</option>
-              <option value="day">Day</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-tertiary mb-1">VAT Rate (%)</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              value={Math.round(form.vatRate * 10000) / 100}
-              onChange={(e) => {
-                const pct = parseFloat(e.target.value);
-                update("vatRate", Number.isFinite(pct) ? pct / 100 : 0.19);
-              }}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-tertiary mb-1">Billing Cycle</label>
-            <select value={form.billingCycle} onChange={(e) => update("billingCycle", e.target.value)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors">
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-tertiary mb-1">Volume</label>
-            <input type="number" value={form.volume ?? ""} onChange={(e) => update("volume", e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
-          </div>
+      <Section title="Pricing">
+        <div className="flex rounded-md border border-border-subtle overflow-hidden mb-4 w-fit">
+          {(["time_based", "fixed_price"] as const).map((mode) => (
+            <button key={mode} type="button" onClick={() => switchPricingMode(mode)}
+              className={`px-4 py-1.5 text-xs font-medium transition-colors ${pricingMode === mode
+                ? "bg-accent text-white" : "bg-bg-card text-secondary hover:text-primary hover:bg-bg-hover"}`}>
+              {mode === "time_based" ? "Time-Based" : "Fixed Price"}
+            </button>
+          ))}
         </div>
+
+        {isFixed ? (
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Fixed Price <span className="text-accent">*</span></label>
+              <input type="number" step="0.01" value={form.fixedPrice ?? ""} onChange={(e) => update("fixedPrice", e.target.value ? parseFloat(e.target.value) : null)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Currency</label>
+              <select value={form.currency} onChange={(e) => update("currency", e.target.value)} className={inputCls}>
+                {["EUR", "USD", "GBP", "CHF"].map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">VAT Rate (%)</label>
+              <input type="number" step="0.1" min="0" max="100"
+                value={Math.round(form.vatRate * 10000) / 100}
+                onChange={(e) => { const pct = parseFloat(e.target.value); update("vatRate", Number.isFinite(pct) ? pct / 100 : 0.19); }}
+                className={inputCls} />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Rate <span className="text-accent">*</span></label>
+              <input type="number" step="0.01" value={form.rate ?? ""} onChange={(e) => update("rate", e.target.value ? parseFloat(e.target.value) : null)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Currency</label>
+              <select value={form.currency} onChange={(e) => update("currency", e.target.value)} className={inputCls}>
+                {["EUR", "USD", "GBP", "CHF"].map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Unit</label>
+              <select value={form.unit} onChange={(e) => update("unit", e.target.value)} className={inputCls}>
+                <option value="hour">Hour</option>
+                <option value="day">Day</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">VAT Rate (%)</label>
+              <input type="number" step="0.1" min="0" max="100"
+                value={Math.round(form.vatRate * 10000) / 100}
+                onChange={(e) => { const pct = parseFloat(e.target.value); update("vatRate", Number.isFinite(pct) ? pct / 100 : 0.19); }}
+                className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Billing Cycle</label>
+              <select value={form.billingCycle} onChange={(e) => update("billingCycle", e.target.value)} className={inputCls}>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Volume</label>
+              <input type="number" value={form.volume ?? ""} onChange={(e) => update("volume", e.target.value ? parseInt(e.target.value) : null)} className={inputCls} />
+            </div>
+          </div>
+        )}
       </Section>
 
       <Section title="Dates">
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs text-tertiary mb-1">Signature Date <span className="text-muted">(optional)</span></label>
-            <input type="date" value={form.signatureDate} onChange={(e) => update("signatureDate", e.target.value)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
+            <input type="date" value={form.signatureDate} onChange={(e) => update("signatureDate", e.target.value)} className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-tertiary mb-1">Start Date <span className="text-accent">*</span></label>
-            <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
+            <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-tertiary mb-1">End Date</label>
-            <input type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
+            <input type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} className={inputCls} />
           </div>
         </div>
       </Section>
 
       <Section title="Other">
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${isFixed ? "grid-cols-1 max-w-[50%]" : "grid-cols-2"}`}>
           <div>
             <label className="block text-xs text-tertiary mb-1">Term of Payment (days)</label>
-            <input type="number" value={form.termOfPayment ?? ""} onChange={(e) => update("termOfPayment", e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
+            <input type="number" value={form.termOfPayment ?? ""} onChange={(e) => update("termOfPayment", e.target.value ? parseInt(e.target.value) : null)} className={inputCls} />
           </div>
-          <div>
-            <label className="block text-xs text-tertiary mb-1">Units per Workday</label>
-            <input type="number" value={form.unitsPerWorkday} onChange={(e) => update("unitsPerWorkday", parseInt(e.target.value) || 8)}
-              className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
-          </div>
+          {!isFixed && (
+            <div>
+              <label className="block text-xs text-tertiary mb-1">Units per Workday</label>
+              <input type="number" value={form.unitsPerWorkday} onChange={(e) => update("unitsPerWorkday", parseInt(e.target.value) || 8)} className={inputCls} />
+            </div>
+          )}
         </div>
       </Section>
     </form>
@@ -607,6 +652,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 interface ParsedContract {
   title: string;
+  fixed_price: number | null;
   rate: number | null;
   currency: string;
   unit: string;

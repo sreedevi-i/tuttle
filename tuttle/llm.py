@@ -198,6 +198,7 @@ _ContractExtract = _flat_schema(
     include=[
         "title",
         "rate",
+        "fixed_price",
         "currency",
         "unit",
         "billing_cycle",
@@ -458,10 +459,12 @@ def _map_contracts(result: ContractExtractionResult) -> List[Dict[str, Any]]:
             except ValueError as e:
                 logger.warning(f"LLM extraction returned invalid VAT rate {vat!r}: {e}")
                 vat_normalized = None
+        fixed_price = getattr(c, "fixed_price", None)
         results.append(
             {
                 "title": getattr(c, "title", "") or "",
                 "rate": float(rate) if rate is not None else None,
+                "fixed_price": float(fixed_price) if fixed_price is not None else None,
                 "currency": getattr(c, "currency", "") or "",
                 "unit": unit.value if unit else "",
                 "billing_cycle": billing_cycle.value if billing_cycle else "",
