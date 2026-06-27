@@ -14,6 +14,7 @@ from sqlmodel import Session, create_engine
 
 from tuttle import rendering
 from tuttle.calendar import Calendar, ICSCalendar
+from tuttle.data_dir import get_data_dir
 from tuttle.db_schema import ensure_schema
 
 from tuttle.model import (
@@ -382,7 +383,7 @@ def create_fake_invoice(
             rendering.render_invoice(
                 user=user,
                 invoice=invoice,
-                out_dir=Path.home() / ".tuttle" / "Invoices",
+                out_dir=get_data_dir() / "Invoices",
                 only_final=True,
             )
             logger.info(f"✅ rendered invoice for {project.title}")
@@ -394,7 +395,7 @@ def create_fake_invoice(
             rendering.render_timesheet(
                 user=user,
                 timesheet=timesheet,
-                out_dir=Path.home() / ".tuttle" / "Timesheets",
+                out_dir=get_data_dir() / "Timesheets",
                 only_final=True,
             )
             logger.info(f"✅ rendered timesheet for {project.title}")
@@ -735,7 +736,7 @@ def install_demo_data(
     from .rendering import render_invoice
     from pathlib import Path
 
-    out_dir = Path.home() / ".tuttle" / "Invoices"
+    out_dir = get_data_dir() / "Invoices"
 
     with Session(db_engine, expire_on_commit=False) as session:
         for invoice in invoices:

@@ -156,6 +156,19 @@ cd ui
 npm run dev
 ```
 
+### Dev vs production data
+
+`just dev` stores data in `~/.tuttle-dev/` (via the `TUTTLE_DATA_DIR`
+env var) so that development never touches your production database in
+`~/.tuttle/`. To test with your real data, copy it once:
+
+```shell
+just sync-data   # one-way copy ~/.tuttle → ~/.tuttle-dev
+```
+
+The dev app will auto-migrate the copies to the current schema on next
+launch. Use `just reset-dev` to wipe the dev data directory.
+
 ## Building for Production
 
 ```shell

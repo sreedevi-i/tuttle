@@ -8,6 +8,7 @@ from ..core.rpc_utils import register_reset
 from pandas import DataFrame
 
 from ...calendar import ICSCalendar
+from ...data_dir import get_data_dir
 from ...dev import singleton
 from ... import timetracking
 from ...app_db import AppDatabase
@@ -18,7 +19,7 @@ _SETTING_CALENDAR_NAME = "timetracking.calendar_name"
 
 
 def _cache_dir() -> Path:
-    d = Path.home() / ".tuttle" / "cache"
+    d = get_data_dir() / "cache"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

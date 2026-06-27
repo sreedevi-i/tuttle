@@ -13,6 +13,7 @@ from ..auth.intent import AuthIntent
 from ..core.abstractions import Intent
 from ..core.intent_result import IntentResult
 from ..preferences.intent import PreferencesIntent
+from ...data_dir import get_data_dir
 from ..preferences.model import (
     DEFAULT_E_INVOICE_PROFILE,
     DEFAULT_INVOICE_NUMBER_SCHEME,
@@ -338,7 +339,7 @@ class InvoicingIntent(Intent):
                         rendering.render_timesheet(
                             user=user,
                             timesheet=timesheet,
-                            out_dir=Path.home() / ".tuttle" / "Timesheets",
+                            out_dir=get_data_dir() / "Timesheets",
                             only_final=True,
                         )
                     except Exception as ex:
@@ -370,7 +371,7 @@ class InvoicingIntent(Intent):
                     rendering.render_invoice(
                         user=user,
                         invoice=invoice,
-                        out_dir=Path.home() / ".tuttle" / "Invoices",
+                        out_dir=get_data_dir() / "Invoices",
                         template_name=resolved_template,
                         only_final=True,
                         language=language,
@@ -498,7 +499,7 @@ class InvoicingIntent(Intent):
                     rendering.render_invoice(
                         user=user,
                         invoice=reminder,
-                        out_dir=Path.home() / ".tuttle" / "Invoices",
+                        out_dir=get_data_dir() / "Invoices",
                         template_name=resolved_template,
                         only_final=True,
                         language=language,
@@ -529,7 +530,7 @@ class InvoicingIntent(Intent):
 
     def send_reminder_by_mail(self, invoice: Invoice) -> IntentResult[None]:
         """Compose and open a reminder email in the user's mail client."""
-        invoice_path = Path.home() / ".tuttle" / "Invoices" / invoice.file_name
+        invoice_path = get_data_dir() / "Invoices" / invoice.file_name
         if not invoice.rendered:
             return IntentResult(
                 was_intent_successful=False,
@@ -592,7 +593,7 @@ Best regards,
 
     def send_invoice_by_mail(self, invoice: Invoice) -> IntentResult[None]:
         """attempts to trigger the mail client to send the intent as attachment"""
-        invoice_path = Path.home() / ".tuttle" / "Invoices" / invoice.file_name
+        invoice_path = get_data_dir() / "Invoices" / invoice.file_name
         if not invoice.rendered:
             return IntentResult(
                 was_intent_successful=False,
@@ -741,7 +742,7 @@ Best regards,
                 error_msg="The invoice has not been rendered.",
             )
         try:
-            pdf_path = Path().home() / ".tuttle" / "Invoices" / invoice.file_name
+            pdf_path = get_data_dir() / "Invoices" / invoice.file_name
             if not pdf_path.exists():
                 return IntentResult(
                     was_intent_successful=False,
@@ -767,9 +768,7 @@ Best regards,
         invoice = result.data
         try:
             timesheet = self._invoicing_data_source.get_timesheet_for_invoice(invoice)
-            timesheet_path = (
-                Path().home() / ".tuttle" / "Timesheets" / f"{timesheet.prefix}.pdf"
-            )
+            timesheet_path = get_data_dir() / "Timesheets" / f"{timesheet.prefix}.pdf"
             if not timesheet_path.exists():
                 return IntentResult(
                     was_intent_successful=False,
@@ -818,7 +817,7 @@ Best regards,
             rendering.render_timesheet(
                 user=user,
                 timesheet=timesheet,
-                out_dir=Path.home() / ".tuttle" / "Timesheets",
+                out_dir=get_data_dir() / "Timesheets",
                 only_final=True,
             )
             self._invoicing_data_source.save_timesheet(timesheet)

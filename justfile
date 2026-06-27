@@ -15,6 +15,7 @@ app      := electron / "release/mac-arm64/Tuttle.app"
 dev:
     #!/usr/bin/env bash
     set -euo pipefail
+    export TUTTLE_DATA_DIR="${TUTTLE_DATA_DIR:-$HOME/.tuttle-dev}"
     cd "{{electron}}"
     npm run build
     VITE_DEV_SERVER_URL=http://localhost:5173 npx vite
@@ -150,10 +151,32 @@ deps-all: deps deps-node
 demo-reset:
     {{python}} -c "from tuttle.app.demo.intent import DemoIntent; DemoIntent().reset(); print('Demo user reset')"
 
-# Wipe all app data and start fresh (dev only)
+# Wipe all production app data and start fresh
 reset:
     rm -rf ~/.tuttle
     @echo "✓ ~/.tuttle removed – next launch will recreate everything from scratch"
+
+# Wipe the dev data directory
+reset-dev:
+    rm -rf "${TUTTLE_DATA_DIR:-$HOME/.tuttle-dev}"
+    @echo "✓ Dev data removed – next 'just dev' will recreate everything from scratch"
+
+# Copy production databases into the dev data directory for testing on real data.
+# One-way: dev will auto-migrate the copies on next launch.
+sync-data:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="$HOME/.tuttle"
+    dst="${TUTTLE_DATA_DIR:-$HOME/.tuttle-dev}"
+    if [[ "$src" == "$dst" ]]; then echo "Error: source and destination are the same"; exit 1; fi
+    if [[ ! -d "$src" ]]; then echo "No production data at $src"; exit 1; fi
+    mkdir -p "$dst"
+    cp "$src"/app.db "$dst"/ 2>/dev/null || true
+    for f in "$src"/*.db; do
+        [[ -e "$f" ]] && cp "$f" "$dst"/
+    done
+    echo "✓ Copied production databases to $dst"
+    echo "  Next 'just dev' will auto-migrate them to the current dev schema."
 
 # ── Release ─────────────────────────────────────────────────────────────────
 
