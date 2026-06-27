@@ -6,6 +6,10 @@
   }
 }
 
+:root {
+  --invoice-accent: #2563eb;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -44,7 +48,7 @@ body {
 .return-line {
   font-size: 6.5pt;
   color: #888;
-  border-bottom: 0.25pt solid #2563eb;
+  border-bottom: 0.25pt solid var(--invoice-accent);
   padding-bottom: 3pt;
   margin-bottom: 6pt;
   letter-spacing: 0.2pt;
@@ -93,7 +97,7 @@ body {
 /* ── Accent Rule ──────────────────────────────── */
 
 .accent-rule {
-  border-top: 2pt solid #2563eb;
+  border-top: 2pt solid var(--invoice-accent);
   margin: 14pt 0 16pt 0;
 }
 
@@ -115,7 +119,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1.2pt;
-  color: #2563eb;
+  color: var(--invoice-accent);
   padding-right: 14pt;
   white-space: nowrap;
 }
@@ -133,7 +137,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1.2pt;
-  color: #2563eb;
+  color: var(--invoice-accent);
   margin-bottom: 4pt;
 }
 
@@ -150,10 +154,10 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8pt;
-  color: #2563eb;
+  color: var(--invoice-accent);
   text-align: left;
   padding: 0 8pt 8pt 8pt;
-  border-bottom: 1.5pt solid #2563eb;
+  border-bottom: 1.5pt solid var(--invoice-accent);
 }
 
 .items-table tbody tr {
@@ -253,7 +257,7 @@ body {
 }
 
 .totals-rule {
-  border-top: 1pt solid #2563eb;
+  border-top: 1pt solid var(--invoice-accent);
   margin: 5pt 0;
 }
 

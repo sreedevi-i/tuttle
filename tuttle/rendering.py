@@ -150,6 +150,7 @@ def render_invoice(
     language: str = "en",
     e_invoice_profile: Optional[str] = None,
     include_logo: bool = True,
+    accent_color: Optional[str] = None,
 ):
     """Render an Invoice using an HTML template.
 
@@ -163,6 +164,8 @@ def render_invoice(
         language: Language code for labels and date/currency formatting ("en", "de", "es").
         e_invoice_profile: If set, embed ZUGFeRD/Factur-X XML into the PDF.
             One of "EN16931", "EXTENDED", "BASIC", "MINIMUM", "XRECHNUNG", or None.
+        accent_color: Hex color string (e.g. "#C8281E") to use as the invoice accent color.
+            Falls back to the template's hardcoded default when None or empty.
     """
     babel_locale = LANGUAGE_TO_LOCALE.get(language, "en_US")
     labels = INVOICE_LABELS.get(language, INVOICE_LABELS["en"])
@@ -229,6 +232,7 @@ def render_invoice(
         reminder_title=reminder_title,
         notes=invoice.notes,
         include_logo=include_logo,
+        accent_color=accent_color or "",
     )
     if out_dir is None:
         return html

@@ -6,6 +6,10 @@
   }
 }
 
+:root {
+  --invoice-accent: #14b8a6;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -35,7 +39,7 @@ body {
   padding: 22mm 20mm 12pt 20mm;
   background: #0f172a;
   color: #fff;
-  border-bottom: 3pt solid #14b8a6;
+  border-bottom: 3pt solid var(--invoice-accent);
 }
 
 .hb-logo {
@@ -75,7 +79,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.4pt;
-  color: #14b8a6;
+  color: var(--invoice-accent);
   margin-bottom: 5pt;
 }
 

@@ -5,6 +5,7 @@
   <title>{% if is_reminder %}{{ reminder_title }} – {{ invoice.number }}{% else %}{{ l.invoice_no }} {{ invoice.number }}{% endif %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="./invoice.css">
+  {% if accent_color %}<style>:root { --invoice-accent: {{ accent_color }}; }</style>{% endif %}
 </head>
 <body>
 
