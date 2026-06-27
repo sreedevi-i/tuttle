@@ -267,6 +267,9 @@ class UsersIntent:
                         error_msg=f"Could not process logo image: {ex}",
                     )
 
+        if "accent_color" in profile_data:
+            profile.accent_color = profile_data["accent_color"] or None
+
         addr = profile_data.get("address")
         if addr:
             if profile.address:

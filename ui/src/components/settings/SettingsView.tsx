@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info, Image as ImageIcon, X, Sun, Moon, Laptop } from "lucide-react";
+import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info, Image as ImageIcon, X, Sun, Moon, Laptop, Palette } from "lucide-react";
 import { useTheme, type ThemeChoice } from "../../hooks/useTheme";
 import { rpc } from "../../api/rpc";
 import type { Entity } from "../../api/types";
@@ -45,6 +45,7 @@ interface ProfileForm {
   phone_number: string;
   website: string;
   logo: string;
+  accent_color: string;
   VAT_number: string;
   operating_country: string;
   street: string;
@@ -59,6 +60,7 @@ interface ProfileForm {
 
 const EMPTY_PROFILE: ProfileForm = {
   name: "", subtitle: "", email: "", phone_number: "", website: "", logo: "",
+  accent_color: "#2563eb",
   VAT_number: "", operating_country: "Germany",
   street: "", number: "", postal_code: "", city: "", country: "Germany",
   bank_name: "", bank_IBAN: "", bank_BIC: "",
@@ -89,10 +91,11 @@ const SCHEME_EXAMPLES: Record<string, string> = {
   plain: "01",
 };
 
-type Tab = "profile" | "invoicing" | "llm" | "system";
+type Tab = "profile" | "branding" | "invoicing" | "llm" | "system";
 
 const TABS: { id: Tab; label: string; icon: typeof User }[] = [
   { id: "profile", label: "Profile", icon: User },
+  { id: "branding", label: "Branding", icon: Palette },
   { id: "invoicing", label: "Invoicing", icon: FileText },
   { id: "llm", label: "AI / LLM", icon: Bot },
   { id: "system", label: "System", icon: Monitor },
@@ -206,6 +209,7 @@ export function SettingsView() {
           phone_number: str(p, "phone_number"),
           website: str(p, "website"),
           logo: str(p, "logo"),
+          accent_color: str(p, "accent_color") || "#2563eb",
           VAT_number: str(p, "VAT_number"),
           operating_country: str(p, "operating_country") || "Germany",
           street: addr ? str(addr, "street") : "",
@@ -233,6 +237,7 @@ export function SettingsView() {
         phone_number: profile.phone_number,
         website: profile.website,
         logo: profile.logo,
+        accent_color: profile.accent_color,
         VAT_number: profile.VAT_number,
         operating_country: profile.operating_country,
         address: {
@@ -409,66 +414,38 @@ export function SettingsView() {
 
           <p className="text-xs text-muted"><span className="text-accent">*</span> Required</p>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className={labelCls}>Full name <span className="text-accent">*</span></label>
-              <input className={inputCls} value={profile.name} onChange={pset("name")} />
-            </div>
-            <div className="col-span-2">
-              <label className={labelCls}>Subtitle / profession</label>
-              <input className={inputCls} value={profile.subtitle} onChange={pset("subtitle")} placeholder="Freelance consultant" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Email <span className="text-accent">*</span></label>
-              <input className={inputCls} type="email" value={profile.email} onChange={pset("email")} />
-            </div>
-            <div>
-              <label className={labelCls}>Phone</label>
-              <input className={inputCls} value={profile.phone_number} onChange={pset("phone_number")} />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Website</label>
-            <input className={inputCls} value={profile.website} onChange={pset("website")} placeholder="https://…" />
-          </div>
-
-          <div>
-            <label className={labelCls}>Logo</label>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-20 h-20 shrink-0 rounded-md border border-border-subtle bg-bg-card overflow-hidden">
-                {profile.logo ? (
-                  <img src={profile.logo} alt="Logo preview" className="max-w-full max-h-full object-contain" />
-                ) : (
-                  <ImageIcon size={20} className="text-muted" />
-                )}
+          <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
+            <legend className="text-xs font-medium text-secondary px-1">Contact</legend>
+            <div className="space-y-3 mt-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className={labelCls}>Full name <span className="text-accent">*</span></label>
+                  <input className={inputCls} value={profile.name} onChange={pset("name")} />
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Subtitle / profession</label>
+                  <input className={inputCls} value={profile.subtitle} onChange={pset("subtitle")} placeholder="Freelance consultant" />
+                </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-bg-card text-secondary hover:text-primary border border-border-subtle hover:bg-bg-hover transition-colors cursor-pointer w-fit">
-                  <ImageIcon size={13} />
-                  {profile.logo ? "Replace logo" : "Upload logo"}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
-                </label>
-                {profile.logo && (
-                  <button
-                    type="button"
-                    onClick={() => setProfile((p) => ({ ...p, logo: "" }))}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-secondary hover:text-red-400 border border-border-subtle hover:bg-bg-hover transition-colors w-fit"
-                  >
-                    <X size={13} />
-                    Remove
-                  </button>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Email <span className="text-accent">*</span></label>
+                  <input className={inputCls} type="email" value={profile.email} onChange={pset("email")} />
+                </div>
+                <div>
+                  <label className={labelCls}>Phone</label>
+                  <input className={inputCls} value={profile.phone_number} onChange={pset("phone_number")} />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Website</label>
+                <input className={inputCls} value={profile.website} onChange={pset("website")} placeholder="https://…" />
               </div>
             </div>
-            <p className="mt-1 text-xs text-muted">Shown on invoices and timesheets. PNG or JPG, max 2 MB.</p>
-          </div>
+          </fieldset>
 
           <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
-            <legend className="text-xs font-medium text-secondary px-1">Address <span className="text-accent">*</span></legend>
+            <legend className="text-xs font-medium text-secondary px-1">Address</legend>
             <div className="grid grid-cols-4 gap-3 mt-1">
               <div className="col-span-3">
                 <label className={labelCls}>Street</label>
@@ -493,27 +470,28 @@ export function SettingsView() {
             </div>
           </fieldset>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>VAT number <span className="text-accent">*</span></label>
-              <input className={inputCls} value={profile.VAT_number} onChange={pset("VAT_number")} placeholder="DE123456789" />
+          <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
+            <legend className="text-xs font-medium text-secondary px-1">Tax &amp; Legal</legend>
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              <div>
+                <label className={labelCls}>VAT number <span className="text-accent">*</span></label>
+                <input className={inputCls} value={profile.VAT_number} onChange={pset("VAT_number")} placeholder="DE123456789" />
+              </div>
+              <div>
+                <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
+                <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
+                  {supportedCountries.length > 0 ? (
+                    supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
+                  ) : (
+                    <option value={profile.operating_country}>{profile.operating_country}</option>
+                  )}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
-              <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
-                {supportedCountries.length > 0 ? (
-                  supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
-                ) : (
-                  <option value={profile.operating_country}>{profile.operating_country}</option>
-                )}
-              </select>
-              <p className="mt-1 text-xs text-muted">Determines tax rules and default currency.</p>
-            </div>
-          </div>
+          </fieldset>
 
           <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
             <legend className="text-xs font-medium text-secondary px-1">Bank Account</legend>
-            <p className="text-xs text-muted mb-2">Appears on invoices as payment details.</p>
             <div className="grid grid-cols-2 gap-3 mt-1">
               <div className="col-span-2">
                 <label className={labelCls}>Account holder / Bank name</label>
@@ -607,6 +585,74 @@ export function SettingsView() {
             </div>
           </div>
         </div>
+      )}
+
+      {tab === "branding" && (
+        <section className="space-y-6">
+          <p className="text-sm text-muted">Your visual identity — used on invoices, timesheets, and other documents.</p>
+
+          <div className="grid grid-cols-2 gap-6">
+            <fieldset className="border border-border-subtle rounded-lg px-4 pb-4 pt-2">
+              <legend className="text-xs font-medium text-secondary px-1">Logo</legend>
+              <div className="flex items-center gap-4 mt-2">
+                <div className="flex items-center justify-center w-16 h-16 shrink-0 rounded-md border border-border-subtle bg-bg-card overflow-hidden">
+                  {profile.logo ? (
+                    <img src={profile.logo} alt="Logo preview" className="max-w-full max-h-full object-contain" />
+                  ) : (
+                    <ImageIcon size={18} className="text-muted" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-bg-card text-secondary hover:text-primary border border-border-subtle hover:bg-bg-hover transition-colors cursor-pointer w-fit">
+                    <ImageIcon size={13} />
+                    {profile.logo ? "Replace" : "Upload"}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
+                  </label>
+                  {profile.logo && (
+                    <button
+                      type="button"
+                      onClick={() => setProfile((p) => ({ ...p, logo: "" }))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-secondary hover:text-red-400 border border-border-subtle hover:bg-bg-hover transition-colors w-fit"
+                    >
+                      <X size={13} />
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted mt-2">PNG or JPG, max 2 MB.</p>
+            </fieldset>
+
+            <fieldset className="border border-border-subtle rounded-lg px-4 pb-4 pt-2">
+              <legend className="text-xs font-medium text-secondary px-1">Accent color</legend>
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="color"
+                  value={profile.accent_color || "#2563eb"}
+                  onChange={(e) => setProfile((p) => ({ ...p, accent_color: e.target.value }))}
+                  className="w-10 h-10 rounded-md border border-border-subtle bg-bg-card cursor-pointer p-0.5 shrink-0"
+                />
+                <span className="text-sm text-secondary font-mono">{profile.accent_color || "#2563eb"}</span>
+              </div>
+              <p className="text-xs text-muted mt-2">Used for headings, rules, and highlights.</p>
+            </fieldset>
+          </div>
+
+          <button
+            onClick={handleSaveProfile}
+            disabled={profileSaving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-accent/10 text-primary hover:bg-accent/20 border border-accent/30 transition-colors disabled:opacity-40"
+          >
+            <Save size={14} />
+            {profileSaving ? "Saving…" : "Save Branding"}
+          </button>
+          {profileStatus && (
+            <div className={`flex items-center gap-2 text-sm ${profileStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+              {profileStatus.type === "success" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+              <span>{profileStatus.msg}</span>
+            </div>
+          )}
+        </section>
       )}
 
       {tab === "invoicing" && (

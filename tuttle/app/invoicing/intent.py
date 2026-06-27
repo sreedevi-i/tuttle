@@ -377,6 +377,7 @@ class InvoicingIntent(Intent):
                         language=language,
                         e_invoice_profile=e_invoice_profile,
                         include_logo=resolved_include_logo,
+                        accent_color=user.accent_color or "",
                     )
                 except Exception as ex:
                     logger.error(f"Error rendering invoice for {project.title}: {ex}")
@@ -503,6 +504,7 @@ class InvoicingIntent(Intent):
                         template_name=resolved_template,
                         only_final=True,
                         language=language,
+                        accent_color=user.accent_color or "",
                     )
                     self._invoicing_data_source.save_invoice(reminder)
                 except Exception as ex:
