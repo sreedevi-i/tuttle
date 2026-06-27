@@ -72,6 +72,28 @@ class ContactsIntent(CrudIntent):
                 exception=e,
             )
 
+    def update_client_contact_role(
+        self, association_id: int, role: str | None
+    ) -> IntentResult:
+        """Update the role on a ClientContact association."""
+        try:
+            assoc = self.query_by_id(ClientContact, association_id)
+            if assoc is None:
+                return IntentResult(
+                    was_intent_successful=False,
+                    error_msg="Association not found.",
+                )
+            assoc.role = role
+            self.store(assoc)
+            return IntentResult(was_intent_successful=True, data=assoc)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to update contact role.",
+                log_message=f"update_client_contact_role({association_id}): {e}",
+                exception=e,
+            )
+
     def _validated_save(self, contact: Contact) -> IntentResult:
         if not contact.first_name or not contact.last_name:
             return IntentResult(

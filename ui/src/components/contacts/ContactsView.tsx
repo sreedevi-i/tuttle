@@ -6,6 +6,7 @@ import {
 import { rpc } from "../../api/rpc";
 import { str, num, entity as subEntity, fullName, initials, displayName } from "../../api/entity";
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
+import { EditableClientContactRole } from "../shared/EditableClientContactRole";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -364,11 +365,8 @@ function ContactDetail({ contact, clients, onEdit, onDelete }: {
               <span className="text-tertiary"><Building2 size={14} /></span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{clientName || `Client #${num(a, "client_id")}`}</div>
-                {role && (
-                  <div className="flex items-center gap-1 text-xs text-tertiary">
-                    <Tag size={10} /> {role}
-                  </div>
-                )}
+                <EditableClientContactRole associationId={a.id} role={role} onUpdated={loadAssocs}
+                  updateMethod="contacts.update_client_contact_role" />
               </div>
               <button onClick={() => removeAssoc(a.id)}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded text-secondary hover:text-red-400 transition-all"
@@ -550,11 +548,8 @@ function ContactForm({ contact, clients, onSave, onCancel }: {
                   <span className="text-tertiary"><Building2 size={14} /></span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{clientName || `Client #${num(a, "client_id")}`}</div>
-                    {role && (
-                      <div className="flex items-center gap-1 text-xs text-tertiary">
-                        <Tag size={10} /> {role}
-                      </div>
-                    )}
+                    <EditableClientContactRole associationId={a.id} role={role} onUpdated={loadAssocs}
+                  updateMethod="contacts.update_client_contact_role" />
                   </div>
                   <button type="button" onClick={() => removeAssoc(a.id)}
                     className="opacity-0 group-hover:opacity-100 p-1 rounded text-secondary hover:text-red-400 transition-all"
