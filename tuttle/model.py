@@ -37,6 +37,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from pathlib import Path
 
 from .app.core.formatting import fmt_currency
+from .data_dir import get_data_dir
 from .dev import deprecated
 from .time import Cycle, TimeUnit
 
@@ -1019,7 +1020,7 @@ class Invoice(RpcMixin, SQLModel, table=True):
     def pdf_path(self) -> Optional[str]:
         if not self.rendered:
             return None
-        p = Path.home() / ".tuttle" / "Invoices" / self.file_name
+        p = get_data_dir() / "Invoices" / self.file_name
         return str(p) if p.exists() else None
 
     @property
@@ -1035,7 +1036,7 @@ class Invoice(RpcMixin, SQLModel, table=True):
         ts = self.timesheets[0]
         if not ts.rendered:
             return None
-        p = Path.home() / ".tuttle" / "Timesheets" / f"{ts.prefix}.pdf"
+        p = get_data_dir() / "Timesheets" / f"{ts.prefix}.pdf"
         return str(p) if p.exists() else None
 
 

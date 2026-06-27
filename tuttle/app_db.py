@@ -1,10 +1,11 @@
 """Centralized application database.
 
-Manages ``~/.tuttle/app.db`` which stores:
+Manages ``app.db`` in the Tuttle data directory (see :func:`tuttle.data_dir.get_data_dir`).
+Stores:
 - **registered_user** — the user registry (one row per Tuttle user)
 - **app_setting** — key-value store for app-wide settings (LLM config, theme, …)
 
-Per-user business data lives in separate ``<slug>.db`` files under ``~/.tuttle/``.
+Per-user business data lives in separate ``<slug>.db`` files in the same directory.
 """
 
 import datetime
@@ -12,6 +13,8 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from .data_dir import get_data_dir
 
 from loguru import logger
 from sqlalchemy import event
@@ -80,7 +83,7 @@ class AppDatabase:
     """Facade for the centralized ``app.db``."""
 
     def __init__(self, app_dir: Optional[Path] = None):
-        self.app_dir = app_dir or (Path.home() / ".tuttle")
+        self.app_dir = app_dir or get_data_dir()
         self.app_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.app_dir / "app.db"
         self._engine = create_engine(

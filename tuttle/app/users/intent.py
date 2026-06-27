@@ -8,6 +8,7 @@ from loguru import logger
 from sqlmodel import Session as SqlSession, create_engine as sql_create_engine, select
 
 from ...app_db import AppDatabase
+from ...data_dir import get_data_dir
 from ...model import Address, BankAccount, Invoice, Timesheet, User
 from ..auth.data_source import UserDataSource
 from ..core.abstractions import get_active_db, set_active_db
@@ -130,7 +131,7 @@ class UsersIntent:
         """Remove rendered invoices and timesheets produced by this user."""
         if not db_path.exists():
             return
-        tuttle_dir = Path.home() / ".tuttle"
+        tuttle_dir = get_data_dir()
         invoices_dir = tuttle_dir / "Invoices"
         timesheets_dir = tuttle_dir / "Timesheets"
         try:

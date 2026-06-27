@@ -6,6 +6,7 @@ import sqlmodel
 from loguru import logger
 
 from ... import demo
+from ...data_dir import get_data_dir
 from ...db_schema import ensure_schema
 
 from .abstractions import DatabaseStorage
@@ -66,7 +67,7 @@ class DatabaseStorageImpl(DatabaseStorage):
             logger.error("Failed to install demo data")
 
     def ensure_app_dir(self) -> Path:
-        app_dir = Path.home() / ".tuttle"
+        app_dir = get_data_dir()
         if not app_dir.exists():
             app_dir.mkdir(parents=True)
         return app_dir

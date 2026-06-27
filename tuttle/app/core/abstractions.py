@@ -14,6 +14,7 @@ from sqlmodel import pool
 from loguru import logger
 
 from .intent_result import IntentResult
+from ...data_dir import get_data_dir
 
 
 def _coerce_dates(data: dict) -> dict:
@@ -108,7 +109,7 @@ class ClientStorage(ABC):
 # Active per-user database path (module-level state)
 # ---------------------------------------------------------------------------
 
-_active_db_path: Path = Path.home() / ".tuttle" / "tuttle.db"
+_active_db_path: Path = get_data_dir() / "tuttle.db"
 
 
 def set_active_db(path: Path) -> None:

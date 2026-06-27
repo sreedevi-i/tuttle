@@ -11,6 +11,7 @@ from loguru import logger
 
 from ..core.abstractions import SQLModelDataSourceMixin
 from ..core.intent_result import IntentResult
+from ...data_dir import get_data_dir
 from ...model import Address, Contact, Client, Contract, Project, Invoice, InvoiceItem
 
 
@@ -440,7 +441,7 @@ def _store_invoice_pdfs(
     """Write the original uploaded PDF to the expected filesystem path.
 
     For a single-invoice import, the same PDF is stored for the invoice.
-    The path follows the convention: ~/.tuttle/Invoices/{number}-{client-slug}.pdf
+    The path follows the convention: <data_dir>/Invoices/{number}-{client-slug}.pdf
     Since we may not have the client name at this point, we construct the
     prefix from the invoice number and rely on the Invoice.prefix property
     for future lookups. We store using {number}.pdf as a minimal fallback
@@ -448,7 +449,7 @@ def _store_invoice_pdfs(
     """
     from ...model import Invoice as InvoiceModel
 
-    invoices_dir = Path.home() / ".tuttle" / "Invoices"
+    invoices_dir = get_data_dir() / "Invoices"
     invoices_dir.mkdir(parents=True, exist_ok=True)
 
     file_bytes = base64.b64decode(file_base64)

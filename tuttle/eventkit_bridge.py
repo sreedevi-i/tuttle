@@ -25,6 +25,7 @@ import pandas
 from loguru import logger
 
 from .calendar import extract_hashtag
+from .data_dir import get_data_dir
 
 _IS_DARWIN = platform.system() == "Darwin"
 
@@ -178,7 +179,7 @@ _INFO_PLIST = {
 
 
 def _helper_app_dir() -> Path:
-    return Path.home() / ".tuttle" / "TuttleCalendar.app"
+    return get_data_dir() / "TuttleCalendar.app"
 
 
 def _helper_executable() -> Path:
