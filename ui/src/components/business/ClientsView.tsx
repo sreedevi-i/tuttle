@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Building2, Plus, Trash2, Save, X, Mail, MapPin, Users,
-  FileUp, Sparkles, Check, CheckCheck, Loader2, UserPlus, Tag,
+  FileUp, Sparkles, Check, CheckCheck, Loader2, UserPlus,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, entity as subEntity, displayName, fullName } from "../../api/entity";
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
+import { EditableClientContactRole } from "../shared/EditableClientContactRole";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -361,11 +362,8 @@ function ClientDetail({ client, contacts, onEdit, onDelete, deleteError, onReloa
               <span className="text-tertiary"><Users size={14} /></span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{ctName}</div>
-                {role && (
-                  <div className="flex items-center gap-1 text-xs text-tertiary">
-                    <Tag size={10} /> {role}
-                  </div>
-                )}
+                <EditableClientContactRole associationId={a.id} role={role} onUpdated={loadAssocs}
+                  updateMethod="clients.update_client_contact_role" />
               </div>
               <button onClick={() => removeAssoc(a.id)}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded text-secondary hover:text-red-400 transition-all"
