@@ -21,7 +21,9 @@ from tuttle.model import (
     Invoice,
     InvoiceItem,
     Project,
+    RecurringExpense,
 )
+from tuttle.time import Cycle
 
 
 # ── Fixtures ──────────────────────────────────────────────────
@@ -328,8 +330,11 @@ class TestSpendableIncome:
         assert result.gross_revenue_ytd > 0
         assert result.vat_reserve > 0
         assert result.net_revenue_ytd == result.gross_revenue_ytd - result.vat_reserve
+        # No expenses → business_expenses=0, taxable_profit=net_revenue
+        assert result.business_expenses == 0
+        assert result.taxable_profit == result.net_revenue_ytd
         assert result.spendable < result.net_revenue_ytd
-        assert result.spendable == result.net_revenue_ytd - result.income_tax_reserve
+        assert result.spendable == result.taxable_profit - result.income_tax_reserve
 
     def test_spendable_excludes_cancelled(self):
         today = datetime.date.today()
@@ -369,6 +374,88 @@ class TestSpendableIncome:
             this_month["spendable"]
             == this_month["net_revenue"] - this_month["income_tax_true_up"]
         )
+
+
+    def test_spendable_with_expenses(self):
+        """Business expenses reduce taxable profit and therefore tax."""
+        today = datetime.date.today()
+        invoices = [
+            _make_invoice(today.replace(day=1), [(100, 100, 0.19)]),
+        ]
+        expenses = [
+            RecurringExpense(
+                title="Health Insurance",
+                amount=Decimal("500"),
+                currency="EUR",
+                period=Cycle.monthly,
+                category="insurance",
+            ),
+        ]
+        result_no_exp = compute_spendable_income(invoices, "Germany")
+        result_with_exp = compute_spendable_income(
+            invoices, "Germany", expenses=expenses
+        )
+
+        # Expenses should be positive
+        assert result_with_exp.business_expenses > 0
+        # Taxable profit = net_revenue - business_expenses
+        assert (
+            result_with_exp.taxable_profit
+            == result_with_exp.net_revenue_ytd - result_with_exp.business_expenses
+        )
+        # Tax should be lower with expenses (smaller tax base)
+        assert result_with_exp.income_tax_reserve <= result_no_exp.income_tax_reserve
+        # Spendable = taxable_profit - income_tax_reserve
+        assert (
+            result_with_exp.spendable
+            == result_with_exp.taxable_profit - result_with_exp.income_tax_reserve
+        )
+        # Net revenue unchanged (expenses don't affect gross/vat)
+        assert result_with_exp.net_revenue_ytd == result_no_exp.net_revenue_ytd
+
+    def test_spendable_with_yearly_expense(self):
+        """Yearly expenses are normalized to monthly before YTD proration."""
+        today = datetime.date.today()
+        invoices = [
+            _make_invoice(today.replace(day=1), [(100, 100, 0.19)]),
+        ]
+        monthly_exp = [
+            RecurringExpense(
+                title="Insurance",
+                amount=Decimal("100"),
+                currency="EUR",
+                period=Cycle.monthly,
+            ),
+        ]
+        yearly_exp = [
+            RecurringExpense(
+                title="Insurance",
+                amount=Decimal("1200"),
+                currency="EUR",
+                period=Cycle.yearly,
+            ),
+        ]
+        r_monthly = compute_spendable_income(
+            invoices, "Germany", expenses=monthly_exp
+        )
+        r_yearly = compute_spendable_income(
+            invoices, "Germany", expenses=yearly_exp
+        )
+        # €1200/year normalizes to €100/month — same result
+        assert r_monthly.business_expenses == r_yearly.business_expenses
+        assert r_monthly.taxable_profit == r_yearly.taxable_profit
+
+    def test_spendable_empty_expenses_same_as_none(self):
+        """Empty list behaves like no expenses."""
+        today = datetime.date.today()
+        invoices = [
+            _make_invoice(today.replace(day=1), [(100, 100, 0.19)]),
+        ]
+        r_none = compute_spendable_income(invoices, "Germany")
+        r_empty = compute_spendable_income(invoices, "Germany", expenses=[])
+        assert r_none.business_expenses == r_empty.business_expenses == Decimal(0)
+        assert r_none.taxable_profit == r_empty.taxable_profit
+        assert r_none.spendable == r_empty.spendable
 
 
 # ── Monthly VAT breakdown ─────────────────────────────────────
