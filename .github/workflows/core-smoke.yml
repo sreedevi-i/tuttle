@@ -1,0 +1,70 @@
+name: Core Smoke Test
+
+# Gate that every RPC domain is bundled & importable in the frozen PyInstaller
+# core, on every platform. Runs only in the merge queue (merge_group) — building
+# the core on four platforms is too expensive to repeat on every PR update, and
+# the queue is where the gate belongs: a failing PR is ejected from the queue
+# back to PR status. Deliberately skips the expensive electron-builder packaging,
+# so it is far cheaper than Pack Electron.
+#
+# Make the "Core smoke gate" check required in branch protection / the merge
+# queue so this actually blocks merges.
+
+on:
+  merge_group:
+
+permissions:
+  contents: read
+
+# Cancel superseded runs for the same ref to save CI minutes.
+concurrency:
+  group: core-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: smoke (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "latest"
+    - name: Set up Python
+      run: uv python install 3.13
+    - name: Install Python dependencies
+      run: uv sync --all-groups
+    - name: Build Python core (PyInstaller)
+      run: uv run pyinstaller --clean --noconfirm tuttle-rpc.spec
+    - name: Smoke-test core (every domain bundled)
+      run: uv run python scripts/smoke_core.py
+
+  # Single aggregated status so branch protection needs only ONE required check
+  # name regardless of how many platforms the matrix grows to.
+  gate:
+    name: Core smoke gate
+    if: always()
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+    - name: Verify all smoke jobs passed
+      run: |
+        if [ "${{ needs.smoke.result }}" != "success" ]; then
+          echo "Core smoke test failed on at least one platform."
+          exit 1
+        fi
+        echo "All platforms passed the core smoke test."

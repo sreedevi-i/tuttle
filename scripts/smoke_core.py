@@ -14,6 +14,13 @@ call to any method of that domain. We send each domain a sentinel method name:
 
 No database or valid parameters are required.
 
+All probes are written up front and stdin is then closed (EOF). We never
+interleave a write with a blocking read, because the frozen server iterates
+``for line in sys.stdin`` which does read-ahead buffering — on Windows it does
+not yield a line until the buffer fills or EOF, so a write/read ping-pong
+deadlocks there. Writing everything then reading after EOF is deadlock-free and
+bounded by a hard timeout.
+
 Usage:
     uv run python scripts/smoke_core.py
 """
@@ -26,6 +33,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = REPO_ROOT / "tuttle" / "app"
 PROBE_METHOD = "__smoke_probe__"
+TIMEOUT_SECONDS = 180
 
 
 def discover_domains() -> list[str]:
@@ -57,6 +65,21 @@ def main() -> int:
 
     print(f"Probing {len(domains)} domains against {binary.name}: {domains}")
 
+    # Build all probe requests; id maps back to domain.
+    requests = "".join(
+        json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": f"{domain}.{PROBE_METHOD}",
+                "params": {},
+            }
+        )
+        + "\n"
+        for i, domain in enumerate(domains, start=1)
+    )
+    id_to_domain = {i: domain for i, domain in enumerate(domains, start=1)}
+
     proc = subprocess.Popen(
         [str(binary)],
         cwd=str(binary.parent),
@@ -64,41 +87,42 @@ def main() -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        bufsize=1,
     )
 
-    failures: list[str] = []
     try:
-        for i, domain in enumerate(domains, start=1):
-            request = {
-                "jsonrpc": "2.0",
-                "id": i,
-                "method": f"{domain}.{PROBE_METHOD}",
-                "params": {},
-            }
-            proc.stdin.write(json.dumps(request) + "\n")
-            proc.stdin.flush()
+        stdout, _stderr = proc.communicate(input=requests, timeout=TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        print(
+            f"ERROR: core did not respond within {TIMEOUT_SECONDS}s — killed.",
+            file=sys.stderr,
+        )
+        return 1
 
-            line = proc.stdout.readline()
-            if not line:
-                failures.append(f"{domain}: no response (core died?)")
-                break
-
-            response = json.loads(line)
-            blob = json.dumps(response)
-
-            if f"No module named 'tuttle.app.{domain}'" in blob or (
-                "No module named" in blob and f"tuttle.app.{domain}" in blob
-            ):
-                failures.append(f"{domain}: NOT bundled in frozen binary -> {blob}")
-            else:
-                print(f"  ok   {domain}")
-    finally:
-        proc.stdin.close()
+    responses: dict[int, dict] = {}
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
         try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+            resp = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(resp, dict) and "id" in resp:
+            responses[resp["id"]] = resp
+
+    failures: list[str] = []
+    for i, domain in id_to_domain.items():
+        resp = responses.get(i)
+        if resp is None:
+            failures.append(f"{domain}: no response from core")
+            continue
+        blob = json.dumps(resp)
+        if "No module named" in blob and f"tuttle.app.{domain}" in blob:
+            failures.append(f"{domain}: NOT bundled in frozen binary -> {blob}")
+        else:
+            print(f"  ok   {domain}")
 
     if failures:
         print("\nSMOKE TEST FAILED:", file=sys.stderr)
