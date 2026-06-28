@@ -127,6 +127,8 @@ READ_ROUTES = [
     "llm.get_config",
     "timetracking.get_summary",
     "timeline.get_events",
+    "imports.get_existing_entities",
+    "imports.get_field_metadata",
 ]
 
 
