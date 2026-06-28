@@ -71,7 +71,7 @@ def generate_fixed_price_invoice(
         vat_rate = vat_rate / Decimal("100")
     item = InvoiceItem(
         quantity=1,
-        unit="fixed price",
+        unit="fixed_price",
         unit_price=Decimal(str(contract.fixed_price)),
         VAT_rate=vat_rate,
         description=contract.title,

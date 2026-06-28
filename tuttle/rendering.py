@@ -50,6 +50,7 @@ INVOICE_LABELS = {
         "units": {
             "hour": ("hour", "hours"),
             "day": ("day", "days"),
+            "fixed_price": ("fixed price", "fixed price"),
         },
     },
     "de": {
@@ -63,7 +64,7 @@ INVOICE_LABELS = {
         "qty": "Menge",
         "unit": "Einheit",
         "unit_price": "Einzelpreis",
-        "vat": "MwSt.",
+        "vat": "USt.",
         "subtotal": "Zwischensumme",
         "total_due": "Gesamtbetrag",
         "payment": "Zahlung",
@@ -79,6 +80,7 @@ INVOICE_LABELS = {
         "units": {
             "hour": ("Stunde", "Stunden"),
             "day": ("Tag", "Tage"),
+            "fixed_price": ("pauschal", "pauschal"),
         },
     },
     "es": {
@@ -108,6 +110,7 @@ INVOICE_LABELS = {
         "units": {
             "hour": ("hora", "horas"),
             "day": ("día", "días"),
+            "fixed_price": ("precio fijo", "precio fijo"),
         },
     },
 }
@@ -195,7 +198,8 @@ def render_invoice(
         Unknown units pass through unchanged.
         """
         units = labels.get("units", {})
-        forms = units.get(raw_unit)
+        normalized = raw_unit.replace(" ", "_")
+        forms = units.get(normalized)
         if not forms:
             return raw_unit
         singular, plural = forms
