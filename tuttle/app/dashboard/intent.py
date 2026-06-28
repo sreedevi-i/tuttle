@@ -6,7 +6,7 @@ from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
 from ..timetracking.data_source import TimeTrackingDataFrameSource
 
-from ...model import Contract, Invoice, Project, FinancialGoal, User
+from ...model import Contract, Invoice, Project, FinancialGoal, RecurringExpense, User
 from ...kpi import (
     compute_kpis,
     monthly_revenue_breakdown,
@@ -41,12 +41,14 @@ class DashboardIntent(SQLModelDataSourceMixin, Intent):
         """Compute KPI summary from invoices, contracts, and calendar data."""
         try:
             invoices = self.query(Invoice)
+            expenses = self.query(RecurringExpense)
             contracts = self.query(Contract)
             projects = self.query(Project)
             country = self._get_country()
             time_data = self._time_data_source.get_data_frame()
             kpis = compute_kpis(
-                invoices, contracts, projects, country=country, time_data=time_data
+                invoices, contracts, projects, expenses=expenses,
+                country=country, time_data=time_data
             )
             return IntentResult(was_intent_successful=True, data=kpis)
         except Exception as e:
