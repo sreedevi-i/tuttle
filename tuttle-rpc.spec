@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for the tuttle RPC sidecar.
+"""PyInstaller spec for the tuttle RPC core.
 
 Bundles tuttle/rpc_server.py as the entry point, pulling in the full
 CPython interpreter, the entire tuttle package, all Python dependencies,
@@ -13,6 +13,8 @@ Usage:
 import sys
 from importlib.util import find_spec
 from pathlib import Path
+
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
@@ -50,26 +52,12 @@ if _drafthorse_spec and _drafthorse_spec.submodule_search_locations:
 # Hidden imports -- lazily imported modules PyInstaller can't trace
 # ---------------------------------------------------------------------------
 
-hiddenimports = [
-    # Intent classes (loaded dynamically by the dispatcher on first RPC call)
-    "tuttle.app.auth.intent",
-    "tuttle.app.clients.intent",
-    "tuttle.app.contacts.intent",
-    "tuttle.app.contracts.intent",
-    "tuttle.app.dashboard.intent",
-    "tuttle.app.db.intent",
-    "tuttle.app.demo.intent",
-    "tuttle.app.invoicing.intent",
-    "tuttle.app.invoicing.data_source",
-    "tuttle.app.llm.intent",
-    "tuttle.app.preferences.intent",
-    "tuttle.app.projects.intent",
-    "tuttle.app.salary.intent",
-    "tuttle.app.settings.intent",
-    "tuttle.app.tax.intent",
-    "tuttle.app.timetracking.intent",
-    "tuttle.app.timeline.intent",
-    "tuttle.app.users.intent",
+# Intent classes are loaded dynamically by the dispatcher (importlib) on the
+# first RPC call, so PyInstaller's static analyzer can't trace them. Auto-collect
+# every submodule of tuttle.app instead of hand-listing them — a hand-maintained
+# list silently drops any newly added domain from the frozen build (e.g. the
+# 'imports' domain regression).
+hiddenimports = collect_submodules("tuttle.app") + [
     # Supporting modules
     "tuttle.app.core.database_storage_impl",
     "tuttle.app.core.formatting",

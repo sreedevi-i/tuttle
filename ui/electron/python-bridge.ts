@@ -8,7 +8,7 @@ type PendingRequest = {
 };
 
 /**
- * Manages the Python RPC sidecar process.
+ * Manages the Python RPC core process.
  * Communicates via newline-delimited JSON-RPC 2.0 over stdio.
  *
  * In dev mode, spawns .venv/bin/python -m tuttle.rpc_server.
