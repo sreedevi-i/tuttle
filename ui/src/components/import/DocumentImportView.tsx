@@ -1064,15 +1064,45 @@ function ContractCard({ item, onUpdate, existing, clients, requiredFields, enumF
 
   const req = (f: string) => requiredFields.includes(f);
 
+  // ``type`` is the single source of truth for pricing. Derive a sensible
+  // initial value when the LLM did not set it explicitly, then switching
+  // type clears the other value column so we never commit both.
+  const ctype: string = d.type || (d.fixed_price && !d.rate ? "fixed_price" : "time_based");
+  function switchType(next: string) {
+    onUpdate({
+      ...item,
+      data: {
+        ...d,
+        type: next,
+        rate: next === "time_based" ? d.rate : null,
+        fixed_price: next === "fixed_price" ? d.fixed_price : null,
+      },
+    });
+  }
+  const isFixed = ctype === "fixed_price";
+
   return (
     <div className="space-y-2">
+      <div className="flex rounded-md border border-fuchsia-400/30 overflow-hidden w-fit">
+        {["time_based", "fixed_price"].map((mode) => (
+          <button key={mode} type="button" onClick={() => switchType(mode)}
+            className={`px-3 py-1 text-xs font-medium transition-colors ${ctype === mode
+              ? "bg-fuchsia-500 text-white" : "bg-bg-card text-secondary hover:text-primary hover:bg-bg-hover"}`}>
+            {mode === "time_based" ? "Time-Based" : "Fixed Price"}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-3 gap-2">
         <AiField label="Title" value={d.title} dbValue={ex?.title as string} onChange={(v) => set("title", v)} required={req("title")} />
-        <AiField label="Rate" value={String(d.rate ?? "")} onChange={(v) => set("rate", v ? parseFloat(v) : null)} required={req("rate")} />
+        {isFixed ? (
+          <AiField label="Fixed Price" value={String(d.fixed_price ?? "")} onChange={(v) => set("fixed_price", v ? parseFloat(v) : null)} />
+        ) : (
+          <AiField label="Rate" value={String(d.rate ?? "")} onChange={(v) => set("rate", v ? parseFloat(v) : null)} />
+        )}
         <AiField label="Currency" value={d.currency} onChange={(v) => set("currency", v)} required={req("currency")} />
-        <AiField label="Unit" value={d.unit} onChange={(v) => set("unit", v)} required={req("unit")} options={enumFields.unit} />
-        <AiField label="Billing Cycle" value={d.billing_cycle} onChange={(v) => set("billing_cycle", v)} required={req("billing_cycle")} options={enumFields.billing_cycle} />
-        <AiField label="Volume" value={String(d.volume ?? "")} onChange={(v) => set("volume", v ? parseInt(v) : null)} required={req("volume")} />
+        {!isFixed && <AiField label="Unit" value={d.unit} onChange={(v) => set("unit", v)} required={req("unit")} options={enumFields.unit} />}
+        {!isFixed && <AiField label="Billing Cycle" value={d.billing_cycle} onChange={(v) => set("billing_cycle", v)} required={req("billing_cycle")} options={enumFields.billing_cycle} />}
+        {!isFixed && <AiField label="Volume" value={String(d.volume ?? "")} onChange={(v) => set("volume", v ? parseInt(v) : null)} required={req("volume")} />}
       </div>
       <div className="grid grid-cols-3 gap-2">
         <AiField label="Signature Date" value={d.signature_date} onChange={(v) => set("signature_date", v)} type="date" required={req("signature_date")} />

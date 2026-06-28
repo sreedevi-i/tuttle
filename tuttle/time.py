@@ -2,6 +2,19 @@ import enum
 import datetime
 
 
+class ContractType(enum.Enum):
+    """How a contract is priced. The single discriminator that decides
+    whether a contract is time-based (a ``rate`` per unit) or fixed-price
+    (a single ``fixed_price``). A contract is always exactly one of these.
+    """
+
+    time_based = "time_based"
+    fixed_price = "fixed_price"
+
+    def __str__(self):
+        return str(self.value)
+
+
 class Cycle(enum.Enum):
     hourly = "hourly"
     daily = "daily"

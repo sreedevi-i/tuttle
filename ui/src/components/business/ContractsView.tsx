@@ -77,8 +77,9 @@ export function ContractsView() {
     const contract: Record<string, unknown> = {
       title: data.title,
       client_id: data.clientId,
-      fixed_price: data.fixedPrice || null,
-      rate: data.rate || null,
+      type: data.type,
+      fixed_price: data.type === "fixed_price" ? (data.fixedPrice || null) : null,
+      rate: data.type === "time_based" ? (data.rate || null) : null,
       currency: data.currency,
       unit: data.unit,
       billing_cycle: data.billingCycle,
@@ -397,6 +398,7 @@ function RelatedCard({ icon, count, label, onClick }: { icon: React.ReactNode; c
 interface ContractFormData {
   title: string;
   clientId: number | null;
+  type: PricingMode;
   fixedPrice: number | null;
   rate: number | null;
   currency: string;
@@ -423,11 +425,15 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
 }) {
   const cl = contract ? subEntity(contract, "client") : null;
   const initFixed = contract ? (num(contract, "fixed_price") || null) : null;
-  const [pricingMode, setPricingMode] = useState<PricingMode>(initFixed ? "fixed_price" : "time_based");
+  const initType: PricingMode = contract
+    ? ((str(contract, "type") as PricingMode) || (initFixed ? "fixed_price" : "time_based"))
+    : "time_based";
+  const [pricingMode, setPricingMode] = useState<PricingMode>(initType);
   const [form, setForm] = useState<ContractFormData>(() => {
     if (contract) return {
       title: str(contract, "title"),
       clientId: cl?.id ?? null,
+      type: initType,
       fixedPrice: initFixed,
       rate: num(contract, "rate") || null,
       currency: str(contract, "currency") || defaultCurrency,
@@ -446,7 +452,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       unitsPerWorkday: num(contract, "units_per_workday") || 8,
     };
     return {
-      title: "", clientId: null, fixedPrice: null, rate: null, currency: defaultCurrency,
+      title: "", clientId: null, type: "time_based", fixedPrice: null, rate: null, currency: defaultCurrency,
       unit: "hour", billingCycle: "monthly", volume: null, vatRate: 0.19,
       signatureDate: "", startDate: "", endDate: "", termOfPayment: 31, unitsPerWorkday: 8,
     };
@@ -467,9 +473,9 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
     setPricingMode(mode);
     setValidationError(null);
     if (mode === "fixed_price") {
-      setForm((prev) => ({ ...prev, rate: null }));
+      setForm((prev) => ({ ...prev, type: mode, rate: null }));
     } else {
-      setForm((prev) => ({ ...prev, fixedPrice: null }));
+      setForm((prev) => ({ ...prev, type: mode, fixedPrice: null }));
     }
   }
 

@@ -15,6 +15,7 @@ from tuttle.model import (
 )
 from tuttle.app.imports.intent import ImportsIntent, _model_fields
 from tuttle.app.core.abstractions import SQLModelDataSourceMixin
+from tuttle.time import ContractType
 
 
 @pytest.fixture
@@ -295,6 +296,99 @@ class TestInvoiceImport:
 
         result = intent.commit_import(data)
         assert result.was_intent_successful
+
+
+class TestContractPricingInvariant:
+    """A contract is time-based XOR fixed-price — never both, never neither.
+
+    Regression guard for the document-import path, which builds Contract
+    rows directly (bypassing ContractsIntent) and let an LLM-extracted
+    contract carry BOTH a rate and a fixed price into the database.
+    """
+
+    def _base_contract(self, **overrides):
+        data = {
+            "ref": "contract_1",
+            "title": "Ambiguous Contract",
+            "currency": "EUR",
+            "unit": "day",
+            "billing_cycle": "monthly",
+            "volume": 10,
+            "start_date": "2026-06-10",
+            "end_date": "2026-07-10",
+            "VAT_rate": 0.19,
+            "term_of_payment": 14,
+        }
+        data.update(overrides)
+        return data
+
+    def test_both_rate_and_fixed_price_is_normalised(self, in_memory_db):
+        """The exact reported bug: an extracted contract with both a fixed
+        price and a day rate must persist as a single, unambiguous type."""
+        intent = ImportsIntent()
+        data = {
+            "contacts": [],
+            "clients": [],
+            "contracts": [
+                self._base_contract(type="fixed_price", fixed_price=2000.0, rate=1000.0)
+            ],
+            "projects": [],
+            "invoices": [],
+        }
+
+        result = intent.commit_import(data)
+        assert result.was_intent_successful
+
+        with Session(in_memory_db) as session:
+            c = session.exec(select(Contract)).one()
+            assert c.is_fixed_price
+            assert c.fixed_price == Decimal("2000")
+            # The contradictory rate must have been cleared.
+            assert c.rate is None
+
+    def test_type_derived_when_absent(self, in_memory_db):
+        """If the LLM omits ``type``, it is derived from the value columns."""
+        intent = ImportsIntent()
+        data = {
+            "contacts": [],
+            "clients": [],
+            "contracts": [self._base_contract(fixed_price=5000.0)],
+            "projects": [],
+            "invoices": [],
+        }
+
+        result = intent.commit_import(data)
+        assert result.was_intent_successful
+
+        with Session(in_memory_db) as session:
+            c = session.exec(select(Contract)).one()
+            assert c.is_fixed_price
+            assert c.rate is None
+
+    def test_validate_pricing_clears_off_column(self):
+        """The model method is the single source of truth and self-heals."""
+        c = Contract(
+            title="X",
+            currency="EUR",
+            start_date=datetime.date(2026, 1, 1),
+            type=ContractType.fixed_price,
+            fixed_price=Decimal("2000"),
+            rate=Decimal("1000"),
+        )
+        c.validate_pricing()
+        assert c.rate is None
+        assert c.fixed_price == Decimal("2000")
+
+    def test_validate_pricing_requires_a_value(self):
+        """A fixed-price contract with no fixed price is rejected."""
+        c = Contract(
+            title="X",
+            currency="EUR",
+            start_date=datetime.date(2026, 1, 1),
+            type=ContractType.fixed_price,
+        )
+        with pytest.raises(ValueError):
+            c.validate_pricing()
 
 
 class TestLlmInvoiceSchema:

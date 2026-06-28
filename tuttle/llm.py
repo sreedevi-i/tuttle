@@ -197,6 +197,7 @@ _ContractExtract = _flat_schema(
     Contract,
     include=[
         "title",
+        "type",
         "rate",
         "fixed_price",
         "currency",
@@ -450,6 +451,7 @@ def _map_contracts(result: ContractExtractionResult) -> List[Dict[str, Any]]:
         c = item.contract
         unit = getattr(c, "unit", None)
         billing_cycle = getattr(c, "billing_cycle", None)
+        ctype = getattr(c, "type", None)
         rate = getattr(c, "rate", None)
         vat = getattr(c, "VAT_rate", None)
         vat_normalized: Optional[float] = None
@@ -463,6 +465,7 @@ def _map_contracts(result: ContractExtractionResult) -> List[Dict[str, Any]]:
         results.append(
             {
                 "title": getattr(c, "title", "") or "",
+                "type": ctype.value if ctype else None,
                 "rate": float(rate) if rate is not None else None,
                 "fixed_price": float(fixed_price) if fixed_price is not None else None,
                 "currency": getattr(c, "currency", "") or "",
