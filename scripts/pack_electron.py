@@ -35,9 +35,9 @@ def _run(cmd: list[str], cwd: Path | None = None, check: bool = True):
     return result
 
 
-def build_python_sidecar():
+def build_python_core():
     """Run PyInstaller to produce dist/tuttle-rpc/."""
-    logger.info("Phase 1: Building Python sidecar with PyInstaller")
+    logger.info("Phase 1: Building Python core with PyInstaller")
 
     if not SPEC_FILE.exists():
         logger.error(f"PyInstaller spec not found: {SPEC_FILE}")
@@ -65,7 +65,11 @@ def build_python_sidecar():
         logger.error(f"Executable not found: {exe}")
         raise typer.Exit(code=1)
 
-    logger.info(f"Python sidecar ready at {dist}")
+    logger.info(f"Python core ready at {dist}")
+
+    # Fail fast if the frozen binary is missing any RPC domain.
+    logger.info("Smoke-testing core: verifying every RPC domain is bundled")
+    _run([sys.executable, str(REPO_ROOT / "scripts" / "smoke_core.py")])
 
 
 def build_electron():
@@ -101,13 +105,13 @@ def main(
     ),
 ):
     if not skip_python:
-        build_python_sidecar()
+        build_python_core()
     else:
-        logger.info("Skipping Python sidecar build (--skip-python)")
+        logger.info("Skipping Python core build (--skip-python)")
         dist = REPO_ROOT / "dist" / "tuttle-rpc"
         if not dist.exists():
             logger.warning(
-                f"No existing sidecar at {dist} -- electron-builder will fail"
+                f"No existing core build at {dist} -- electron-builder will fail"
             )
 
     build_electron()

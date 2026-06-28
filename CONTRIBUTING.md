@@ -148,7 +148,7 @@ local development.
 
 ## Running the App
 
-Start the Electron app in development mode. The Python RPC sidecar is
+Start the Electron app in development mode. The Python RPC core is
 spawned automatically:
 
 ```shell
@@ -175,7 +175,7 @@ launch. Use `just reset-dev` to wipe the dev data directory.
 just build
 ```
 
-This builds the Python sidecar with PyInstaller and packages the Electron
+This builds the Python core with PyInstaller and packages the Electron
 app with electron-builder.
 
 # Pull Request Guidelines
