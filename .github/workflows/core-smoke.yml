@@ -1,16 +1,16 @@
 name: Core Smoke Test
 
 # Gate that every RPC domain is bundled & importable in the frozen PyInstaller
-# core, on every platform. Runs on pull_request (fast red-on-PR feedback) AND
-# merge_group (so a failing PR is ejected from the merge queue back to PR
-# status). Deliberately skips the expensive electron-builder packaging — it
-# only builds the core and runs scripts/smoke_core.py.
+# core, on every platform. Runs only in the merge queue (merge_group) — building
+# the core on four platforms is too expensive to repeat on every PR update, and
+# the queue is where the gate belongs: a failing PR is ejected from the queue
+# back to PR status. Deliberately skips the expensive electron-builder packaging,
+# so it is far cheaper than Pack Electron.
 #
 # Make the "Core smoke gate" check required in branch protection / the merge
 # queue so this actually blocks merges.
 
 on:
-  pull_request:
   merge_group:
 
 permissions:
