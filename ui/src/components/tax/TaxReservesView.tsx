@@ -90,8 +90,10 @@ export function TaxReservesView() {
           <div className="space-y-1">
             <WaterfallBar label="Gross Revenue" amount={num(sp!, "gross_revenue_ytd")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-info)" currency={currency} />
             <WaterfallBar label="VAT (to remit)" amount={num(sp!, "vat_reserve")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
+            <WaterfallBar label="Business Expenses" amount={num(sp!, "business_expenses")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
+            <WaterfallBar label="= Taxable Profit" amount={num(sp!, "taxable_profit")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-info)" currency={currency} />
             <WaterfallBar label="Est. Income Tax + Soli" amount={num(sp!, "income_tax_reserve")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
-            <WaterfallBar label="= Spendable Income" amount={num(sp!, "spendable")} total={num(sp!, "gross_revenue_ytd")} color={num(sp!, "spendable") >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
+            <WaterfallBar label="= Safe to Spend" amount={num(sp!, "spendable")} total={num(sp!, "gross_revenue_ytd")} color={num(sp!, "spendable") >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
             <div className="border-t border-border-subtle mt-3 pt-3 flex justify-between text-xs text-muted">
               <span>Effective reserve rate</span>
               <span className="text-secondary">
