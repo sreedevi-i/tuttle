@@ -6,7 +6,7 @@ from decimal import Decimal
 from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
 
-from ...model import Invoice, User
+from ...model import Invoice, RecurringExpense, User
 from ...tax import get_tax_system, supported_countries
 from ...tax_reserves import (
     compute_spendable_income,
@@ -42,10 +42,11 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         """Compute spendable income breakdown."""
         try:
             invoices = self.query(Invoice)
+            expenses = self.query(RecurringExpense)
             country = self._get_country()
             currency = self._get_tax_currency(country)
             spending = compute_spendable_income(
-                invoices, country, currency=currency, year=year
+                invoices, country, expenses=expenses, currency=currency, year=year
             )
             data = {"spending": spending, "currency": currency}
             return IntentResult(was_intent_successful=True, data=data)
@@ -64,20 +65,21 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             is_past_year = year is not None and year < today.year
 
             invoices = self.query(Invoice)
+            expenses = self.query(RecurringExpense)
             country = self._get_country()
             currency = self._get_tax_currency(country)
             spending = compute_spendable_income(
-                invoices, country, currency=currency, year=year
+                invoices, country, expenses=expenses, currency=currency, year=year
             )
             tax_reserve = compute_income_tax_reserve(
-                spending.net_revenue_ytd, country, year=year
+                spending.taxable_profit, country, year=year
             )
 
             if is_past_year:
-                annualized = float(spending.net_revenue_ytd)
+                annualized = float(spending.taxable_profit)
             else:
                 days_elapsed = max((today - today.replace(month=1, day=1)).days, 1)
-                annualized = float(spending.net_revenue_ytd) * 365 / days_elapsed
+                annualized = float(spending.taxable_profit) * 365 / days_elapsed
 
             ref_date = datetime.date(year, 7, 1) if year else today
             try:
