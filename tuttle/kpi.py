@@ -6,7 +6,7 @@ from typing import List, Optional, NamedTuple
 
 from pandas import DataFrame
 
-from .model import Contract, Invoice, Project, RecurringExpense
+from .model import Contract, Invoice, Project
 from .time import TimeUnit
 from .timetracking import sum_hours_by_tag
 from .tax import get_tax_system
@@ -60,7 +60,6 @@ def compute_kpis(
     invoices: List[Invoice],
     contracts: List[Contract],
     projects: List[Project],
-    expenses: Optional[List[RecurringExpense]] = None,
     country: str = "Germany",
     time_data: Optional[DataFrame] = None,
 ) -> KPISummary:
@@ -142,7 +141,7 @@ def compute_kpis(
         pass
 
     try:
-        spending = compute_spendable_income(invoices, country, expenses=expenses, currency=tax_currency)
+        spending = compute_spendable_income(invoices, country, currency=tax_currency)
         vat_reserve = spending.vat_reserve
         income_tax_reserve = spending.income_tax_reserve
         spendable_income = spending.spendable
