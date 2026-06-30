@@ -192,7 +192,13 @@ class _ContactExtract(_ContactScalarExtract):  # type: ignore[valid-type]
     address: Optional[_AddressExtract] = None  # type: ignore[valid-type]
 
 
-_ClientExtract = _flat_schema(Client, include=["name"])
+_ClientScalarExtract = _flat_schema(Client, include=["name", "vat_number"])
+
+
+class _ClientExtract(_ClientScalarExtract):  # type: ignore[valid-type]
+    address: Optional[_AddressExtract] = None  # type: ignore[valid-type]
+
+
 _ContractExtract = _flat_schema(
     Contract,
     include=[
@@ -439,6 +445,17 @@ def _map_clients(result: ClientExtractionResult) -> List[Dict[str, Any]]:
     results = []
     for item in result.items:
         d = {"name": getattr(item.client, "name", "") or ""}
+        d["vat_number"] = getattr(item.client, "vat_number", "") or ""
+        addr = {}
+        if item.client.address:
+            addr = {
+                "street": getattr(item.client.address, "street", "") or "",
+                "number": getattr(item.client.address, "number", "") or "",
+                "city": getattr(item.client.address, "city", "") or "",
+                "postal_code": getattr(item.client.address, "postal_code", "") or "",
+                "country": getattr(item.client.address, "country", "") or "",
+            }
+        d["address"] = addr
         d["contact_name_hint"] = item.contact_name_hint or ""
         results.append(d)
     return results
