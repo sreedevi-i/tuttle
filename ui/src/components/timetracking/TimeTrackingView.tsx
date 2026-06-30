@@ -84,6 +84,7 @@ export function TimeTrackingView() {
   const [sysCalLoading, setSysCalLoading] = useState(false);
   const [restoringSource, setRestoringSource] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
 
   const isMac = typeof window !== "undefined" && window.tuttle?.platform === "darwin";
 
@@ -97,9 +98,13 @@ export function TimeTrackingView() {
   useEffect(() => {
     (async () => {
       await rpc("timetracking.restore");
-      const cfgRes = await rpc<{ source_type: string }>("timetracking.get_source_config");
-      if (cfgRes.ok && cfgRes.data?.source_type) {
+      const cfgRes = await rpc<{ source_type: string; has_data: boolean }>("timetracking.get_source_config");
+      if (cfgRes.ok && cfgRes.data?.source_type && cfgRes.data.has_data) {
         setCalendarSource(cfgRes.data.source_type as CalendarSource);
+        setConnectionLost(false);
+      } else if (cfgRes.ok && cfgRes.data?.source_type && !cfgRes.data.has_data) {
+        setCalendarSource(null);
+        setConnectionLost(true);
       }
       setRestoringSource(false);
       loadData();
@@ -136,6 +141,7 @@ export function TimeTrackingView() {
     if (!files.length) return;
     setImporting(true);
     setCalendarSource("ics");
+    setConnectionLost(false);
     for (const file of Array.from(files)) {
       if (!file.name.endsWith(".ics")) continue;
       const buffer = await file.arrayBuffer();
@@ -173,6 +179,7 @@ export function TimeTrackingView() {
     setImporting(true);
     setSystemCals(null);
     setCalendarSource("system");
+    setConnectionLost(false);
     await rpc("timetracking.import_system_calendar", { calendar_id: calId });
     setImporting(false);
     loadData();
@@ -242,6 +249,7 @@ export function TimeTrackingView() {
               systemCals={systemCals}
               sysCalAuthStatus={sysCalAuthStatus}
               sysCalLoading={sysCalLoading}
+              connectionLost={connectionLost}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
@@ -364,11 +372,13 @@ export function TimeTrackingView() {
 
 function SourceChooser({
   dragOver, importing, isMac, systemCals, sysCalAuthStatus, sysCalLoading,
+  connectionLost,
   onDragOver, onDragLeave, onDrop, onLoadSystemCals, onImportSystemCal, onOpenSettings,
 }: {
   dragOver: boolean; importing: boolean; isMac: boolean;
   systemCals: SystemCalendar[] | null; sysCalAuthStatus: string | null;
   sysCalLoading: boolean;
+  connectionLost: boolean;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
@@ -382,6 +392,11 @@ function SourceChooser({
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 px-6">
+      {connectionLost && (
+        <div className="px-4 py-2.5 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning max-w-sm text-center leading-relaxed">
+          Your calendar connection could not be restored. Please reconnect below.
+        </div>
+      )}
       <h3 className="text-base font-semibold text-primary">Choose your calendar source</h3>
       <p className="text-xs text-secondary max-w-sm text-center leading-relaxed">
         Tag calendar events with project hashtags (e.g. <code className="font-semibold text-primary">#myproject</code>) to assign them to projects.
