@@ -39,7 +39,7 @@ from pathlib import Path
 from .app.core.formatting import fmt_currency
 from .data_dir import get_data_dir
 from .dev import deprecated
-from .time import Cycle, TimeUnit
+from .time import ContractType, Cycle, TimeUnit
 
 DocumentType = Literal["invoice", "reminder"]
 
@@ -461,14 +461,24 @@ class Contract(RpcMixin, SQLModel, table=True):
         foreign_key="client.id",
         ondelete="RESTRICT",
     )
+    type: ContractType = Field(
+        description="Whether the contract is time-based (rate per unit) or fixed-price. "
+        "The authoritative discriminator: a contract is exactly one type.",
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.Enum(ContractType),
+            nullable=False,
+            server_default=ContractType.time_based.value,
+        ),
+        default=ContractType.time_based,
+    )
     rate: Optional[condecimal(decimal_places=2)] = Field(
         default=None,
-        description="Rate of remuneration per billing unit (for time-based contracts).",
+        description="Rate of remuneration per billing unit. Set iff type is time_based.",
     )
     fixed_price: Optional[Decimal] = Field(
         default=None,
         sa_column=sqlalchemy.Column(sqlalchemy.Numeric(12, 2), nullable=True),
-        description="Total agreed price (for fixed-price contracts).",
+        description="Total agreed price. Set iff type is fixed_price.",
     )
     is_completed: bool = Field(
         default=False, description="flag marking if contract has been completed"
@@ -510,7 +520,7 @@ class Contract(RpcMixin, SQLModel, table=True):
 
     @property
     def is_fixed_price(self) -> bool:
-        return self.fixed_price is not None
+        return self.type == ContractType.fixed_price
 
     @property
     def unit_abbrev(self) -> str:
@@ -567,10 +577,29 @@ class Contract(RpcMixin, SQLModel, table=True):
             # default
             return default
 
-    # NOTE: pydantic-v1-style @validator decorators do not run on
-    # SQLModel(table=True) classes. VAT_rate normalisation lives in
-    # ``ContractsIntent._validated_save`` (canonical write path) and
-    # ``normalize_vat_rate`` is used on every ingress (LLM mapping,
+    def validate_pricing(self) -> None:
+        """Enforce that the contract's pricing matches its ``type``.
+
+        ``type`` is the single source of truth. This requires the value
+        column for that type and **clears the other column**, so an
+        ambiguous row (both ``rate`` and ``fixed_price`` set) can never be
+        persisted. Raises ``ValueError`` if the required value is missing.
+
+        Called on every write path (intent save + document-import commit)
+        because pydantic-v1 ``@validator`` hooks do not run on
+        ``SQLModel(table=True)`` classes.
+        """
+        if self.type == ContractType.fixed_price:
+            if not (self.fixed_price is not None and self.fixed_price > 0):
+                raise ValueError("A fixed-price contract needs a fixed price.")
+            self.rate = None
+        else:
+            if not (self.rate is not None and self.rate > 0):
+                raise ValueError("A time-based contract needs a rate.")
+            self.fixed_price = None
+
+    # NOTE: VAT_rate normalisation lives in ``ContractsIntent._validated_save``
+    # and ``normalize_vat_rate`` is used on every ingress (LLM mapping,
     # manual scripts).
 
 
