@@ -341,7 +341,7 @@ def project_budget_status(
 
     results = []
     for project in projects:
-        if not project.contract or not project.contract.volume:
+        if not project.contract:
             continue
 
         hours_tracked = Decimal(str(tracked_by_tag.get(project.tag, 0)))
@@ -351,20 +351,31 @@ def project_budget_status(
             continue
 
         contract = project.contract
-        hours_budget = Decimal(str(contract.volume))
-        if contract.unit == TimeUnit.day:
-            hours_budget *= contract.units_per_workday
+        open_ended = not contract.volume
+
+        if open_ended:
+            hours_budget = Decimal(0)
+        else:
+            hours_budget = Decimal(str(contract.volume))
+            if contract.unit == TimeUnit.day:
+                hours_budget *= contract.units_per_workday
 
         total_used = hours_tracked + hours_planned
-        progress = float(total_used / hours_budget) if hours_budget > 0 else 0.0
-        hours_remaining = float(hours_budget - total_used)
+        progress = (
+            1.0
+            if open_ended
+            else (float(total_used / hours_budget) if hours_budget > 0 else 0.0)
+        )
+        hours_remaining = 0.0 if open_ended else float(hours_budget - total_used)
 
         unit_hours = contract.units_per_workday if contract.unit == TimeUnit.day else 1
-        planned_revenue = float(
-            Decimal(str(float(hours_planned) / unit_hours)) * contract.rate
+        planned_revenue = (
+            float(Decimal(str(float(hours_planned) / unit_hours)) * contract.rate)
+            if contract.rate
+            else 0.0
         )
 
-        budget_exceeded = total_used > hours_budget
+        budget_exceeded = not open_ended and total_used > hours_budget
 
         results.append(
             {
@@ -378,6 +389,7 @@ def project_budget_status(
                 "currency": str(contract.currency) if contract.currency else "EUR",
                 "progress": min(progress, 1.0),
                 "budget_exceeded": budget_exceeded,
+                "open_ended": open_ended,
             }
         )
     return results
