@@ -498,6 +498,7 @@ class Contract(RpcMixin, SQLModel, table=True):
         default=8,
     )
     volume: Optional[int] = Field(
+        default=None,
         description="Number of units agreed on",
     )
     term_of_payment: Optional[int] = Field(
@@ -531,6 +532,8 @@ class Contract(RpcMixin, SQLModel, table=True):
 
     @property
     def volume_as_time(self):
+        if self.volume is None:
+            return None
         return self.volume * self.unit.to_timedelta()
 
     @property

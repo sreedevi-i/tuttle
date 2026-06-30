@@ -22,6 +22,7 @@ interface BudgetEntry {
   planned_revenue: number;
   progress: number;
   budget_exceeded: boolean;
+  open_ended?: boolean;
 }
 
 interface RevenueCurveEntry {
@@ -153,11 +154,15 @@ export function DashboardView() {
         <div className="rounded-lg bg-bg-card border border-border-subtle p-4 space-y-3">
           <h2 className="text-sm font-medium text-secondary">Project Time Budgets</h2>
           {budgets.map((b) => {
-            const trackedPct = b.hours_budget > 0 ? Math.min(b.hours_tracked / b.hours_budget, 1) : 0;
-            const plannedPct = b.hours_budget > 0 ? Math.min(b.hours_planned / b.hours_budget, 1 - trackedPct) : 0;
-            const subtitle = b.hours_planned > 0
-              ? `${b.hours_tracked.toFixed(1)}h + ${b.hours_planned.toFixed(1)}h planned / ${b.hours_budget.toFixed(0)}h`
-              : `${b.hours_tracked.toFixed(1)}h / ${b.hours_budget.toFixed(0)}h`;
+            const isOpen = !!b.open_ended;
+            const trackedPct = isOpen ? 1 : (b.hours_budget > 0 ? Math.min(b.hours_tracked / b.hours_budget, 1) : 0);
+            const plannedPct = isOpen ? 0 : (b.hours_budget > 0 ? Math.min(b.hours_planned / b.hours_budget, 1 - trackedPct) : 0);
+            const totalHours = b.hours_tracked + b.hours_planned;
+            const subtitle = isOpen
+              ? `${totalHours.toFixed(1)}h total`
+              : b.hours_planned > 0
+                ? `${b.hours_tracked.toFixed(1)}h + ${b.hours_planned.toFixed(1)}h planned / ${b.hours_budget.toFixed(0)}h`
+                : `${b.hours_tracked.toFixed(1)}h / ${b.hours_budget.toFixed(0)}h`;
 
             return (
               <div key={b.project_id} className="space-y-1">
