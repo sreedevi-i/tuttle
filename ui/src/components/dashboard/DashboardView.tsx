@@ -87,6 +87,13 @@ export function DashboardView() {
       }
     }
 
+    // Deduplicate: calendar-derived planned revenue overlaps with
+    // invoice-based invoiced/pending for the same month.  Only show the
+    // portion not yet covered by invoices.
+    for (const bar of byLabel.values()) {
+      bar.planned = Math.max(0, bar.planned - bar.invoiced - bar.pending);
+    }
+
     const sorted = [...byLabel.values()].sort((a, b) => {
       const [am, ay] = a.label.split("/");
       const [bm, by] = b.label.split("/");
