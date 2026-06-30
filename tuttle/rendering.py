@@ -55,7 +55,7 @@ INVOICE_LABELS = {
     },
     "de": {
         "invoice": "Rechnung",
-        "invoice_no": "Rechnungsnr.",
+        "invoice_no": "Rechnung Nr.",
         "date": "Datum",
         "due_date": "Fälligkeitsdatum",
         "bill_to": "Rechnungsempfänger",
