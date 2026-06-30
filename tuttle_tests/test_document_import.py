@@ -7,6 +7,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from tuttle.model import (
+    Address,
     Client,
     Contract,
     Invoice,
@@ -296,6 +297,72 @@ class TestInvoiceImport:
 
         result = intent.commit_import(data)
         assert result.was_intent_successful
+
+
+class TestClientAddressImport:
+    """Regression guard: client address extraction must persist an Address row."""
+
+    def test_commit_client_with_address(self, in_memory_db):
+        """Import a client with a nested address dict creates Address + Client."""
+        intent = ImportsIntent()
+
+        data = {
+            "contacts": [],
+            "clients": [
+                {
+                    "ref": "client_1",
+                    "name": "Acme Corp",
+                    "vat_number": "DE123456789",
+                    "address": {
+                        "street": "Hauptstraße",
+                        "number": "42",
+                        "city": "Berlin",
+                        "postal_code": "10115",
+                        "country": "Germany",
+                    },
+                }
+            ],
+            "contracts": [],
+            "projects": [],
+            "invoices": [],
+        }
+
+        result = intent.commit_import(data)
+        assert result.was_intent_successful
+
+        with Session(in_memory_db) as session:
+            client = session.exec(select(Client)).one()
+            assert client.name == "Acme Corp"
+            assert client.vat_number == "DE123456789"
+            assert client.address_id is not None
+
+            addr = session.get(Address, client.address_id)
+            assert addr is not None
+            assert addr.street == "Hauptstraße"
+            assert addr.number == "42"
+            assert addr.city == "Berlin"
+            assert addr.postal_code == "10115"
+            assert addr.country == "Germany"
+
+    def test_commit_client_without_address(self, in_memory_db):
+        """A client with no address dict still imports fine."""
+        intent = ImportsIntent()
+
+        data = {
+            "contacts": [],
+            "clients": [{"ref": "client_1", "name": "No Address Inc"}],
+            "contracts": [],
+            "projects": [],
+            "invoices": [],
+        }
+
+        result = intent.commit_import(data)
+        assert result.was_intent_successful
+
+        with Session(in_memory_db) as session:
+            client = session.exec(select(Client)).one()
+            assert client.name == "No Address Inc"
+            assert client.address_id is None
 
 
 class TestContractPricingInvariant:

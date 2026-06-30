@@ -124,6 +124,7 @@ class ImportsIntent(SQLModelDataSourceMixin):
                         ref_to_id,
                         summary,
                         ref_fks={"contact_ref": "invoicing_contact_id"},
+                        nested={"address": Address},
                     )
 
                 for item in data.get("contracts", []):
