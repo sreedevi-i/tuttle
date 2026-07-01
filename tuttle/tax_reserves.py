@@ -10,9 +10,12 @@ import logging
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
-from .model import Invoice, RecurringExpense
+from pandas import DataFrame
+
+from .model import Invoice, Project, RecurringExpense
 from .tax import get_tax_system
-from .time import Cycle
+from .time import Cycle, TimeUnit
+from .timetracking import sum_hours_by_tag
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +30,13 @@ class VATReserve(NamedTuple):
 
 
 class IncomeTaxReserve(NamedTuple):
-    """Estimated income tax reserve for the current year."""
+    """Estimated income tax reserve based on known income."""
 
-    estimated_annual_tax: Decimal  # full-year income tax estimate
-    solidarity_surcharge: Decimal  # full-year soli estimate
+    estimated_annual_tax: Decimal
+    solidarity_surcharge: Decimal
     total_annual_reserve: Decimal  # tax + soli
-    ytd_reserve: Decimal  # prorated to current date
-    effective_rate: Decimal  # total_annual_reserve / annualized_income
+    ytd_reserve: Decimal  # equals total_annual_reserve (no proration)
+    effective_rate: Decimal  # total_annual_reserve / income
 
 
 class SpendableIncome(NamedTuple):
@@ -42,8 +45,14 @@ class SpendableIncome(NamedTuple):
     gross_revenue_ytd: Decimal  # total invoiced amount (incl. VAT)
     net_revenue_ytd: Decimal  # gross minus VAT
     vat_reserve: Decimal  # VAT to set aside
-    income_tax_reserve: Decimal  # estimated income tax + soli (prorated)
-    spendable: Decimal  # net_revenue - income_tax_reserve
+    income_tax_reserve: Decimal  # estimated income tax + soli
+    spendable: Decimal  # net_revenue + planned - income_tax_reserve
+    # breakdown by income source
+    received_gross: Decimal  # paid invoices, gross
+    received_net: Decimal  # paid invoices, net of VAT
+    outstanding_gross: Decimal  # sent but unpaid, gross
+    outstanding_net: Decimal  # sent but unpaid, net of VAT
+    planned_revenue: Decimal  # calendar-derived future revenue (net)
 
 
 def _invoice_currency(inv: Invoice) -> Optional[str]:
@@ -51,6 +60,57 @@ def _invoice_currency(inv: Invoice) -> Optional[str]:
     if inv.contract and inv.contract.currency:
         return inv.contract.currency
     return None
+
+
+def compute_planned_revenue(
+    projects: List[Project],
+    time_data: Optional[DataFrame] = None,
+    currency: Optional[str] = None,
+) -> Decimal:
+    """Net revenue expected from future calendar events in the current year.
+
+    Converts planned hours to revenue via each project's contract rate.
+    Only includes future events (today onward) within the current year.
+    If *currency* is given, only projects with matching currency are counted.
+    """
+    if time_data is None or time_data.empty:
+        return Decimal(0)
+
+    today = datetime.date.today()
+    year_end = datetime.date(today.year, 12, 31)
+
+    tag_to_project = {p.tag: p for p in projects if p.tag and p.contract}
+
+    if not tag_to_project:
+        return Decimal(0)
+
+    tag_to_workday = {
+        tag: p.contract.units_per_workday for tag, p in tag_to_project.items()
+    }
+
+    idx_dates = time_data.index.date
+    mask = (idx_dates >= today) & (idx_dates <= year_end)
+    future = time_data[mask]
+    if future.empty:
+        return Decimal(0)
+
+    planned_by_tag = sum_hours_by_tag(future, tag_to_workday)
+
+    total = Decimal(0)
+    for tag, hours in planned_by_tag.items():
+        project = tag_to_project.get(tag)
+        if not project:
+            continue
+        contract = project.contract
+        if currency and contract.currency not in (currency, None):
+            continue
+        if not contract.rate:
+            continue
+        unit_hours = contract.units_per_workday if contract.unit == TimeUnit.day else 1
+        billable_units = Decimal(str(hours)) / Decimal(str(unit_hours))
+        total += billable_units * contract.rate
+
+    return total.quantize(Decimal("0.01"))
 
 
 def compute_vat_reserves(
@@ -91,18 +151,15 @@ def compute_vat_reserves(
 
 
 def compute_income_tax_reserve(
-    net_revenue_ytd: Decimal,
+    income: Decimal,
     country: str,
     deductions: Decimal = Decimal(0),
     year: Optional[int] = None,
 ) -> IncomeTaxReserve:
-    """Estimate income tax reserve based on year-to-date net revenue.
+    """Estimate income tax reserve based on total known income.
 
-    For the current year: annualizes YTD net revenue, computes the tax on
-    that projected annual income, then prorates back to the current date.
-
-    For a past year (*year* given and < current year): treats *net_revenue_ytd*
-    as the full-year amount -- no annualization or proration.
+    *income* is the total expected net income (received + invoiced + planned).
+    Tax is computed directly on this amount — no annualization.
     """
     today = datetime.date.today()
     _zero = IncomeTaxReserve(
@@ -114,47 +171,30 @@ def compute_income_tax_reserve(
     )
 
     ref_date = datetime.date(year, 7, 1) if year is not None else today
-    is_past_year = year is not None and year < today.year
 
     try:
         tax_system = get_tax_system(country, date=ref_date)
     except NotImplementedError:
         return _zero
 
-    if is_past_year:
-        annualized_income = net_revenue_ytd - deductions
-    else:
-        year_start = today.replace(month=1, day=1)
-        days_elapsed = max((today - year_start).days, 1)
-        days_in_year = 365
-        annualized_income = (net_revenue_ytd - deductions) * days_in_year / days_elapsed
-
-    if annualized_income <= 0:
+    taxable_income = income - deductions
+    if taxable_income <= 0:
         return _zero
 
-    annual_tax = tax_system.income_tax(annualized_income)
+    annual_tax = tax_system.income_tax(taxable_income)
     annual_soli = tax_system.solidarity_surcharge(annual_tax)
     total_annual = annual_tax + annual_soli
-
-    if is_past_year:
-        ytd_reserve = total_annual.quantize(Decimal("0.01"))
-    else:
-        year_start = today.replace(month=1, day=1)
-        days_elapsed = max((today - year_start).days, 1)
-        days_in_year = 365
-        ytd_reserve = (total_annual * days_elapsed / days_in_year).quantize(
-            Decimal("0.01")
-        )
+    reserve = total_annual.quantize(Decimal("0.01"))
 
     effective_rate = (
-        (total_annual / annualized_income) if annualized_income > 0 else Decimal(0)
+        (total_annual / taxable_income) if taxable_income > 0 else Decimal(0)
     )
 
     return IncomeTaxReserve(
         estimated_annual_tax=annual_tax,
         solidarity_surcharge=annual_soli,
         total_annual_reserve=total_annual,
-        ytd_reserve=ytd_reserve,
+        ytd_reserve=reserve,
         effective_rate=effective_rate.quantize(Decimal("0.0001")),
     )
 
@@ -165,17 +205,18 @@ def compute_spendable_income(
     deductions: Decimal = Decimal(0),
     currency: Optional[str] = None,
     year: Optional[int] = None,
+    projects: Optional[List[Project]] = None,
+    time_data: Optional[DataFrame] = None,
 ) -> SpendableIncome:
     """Compute spendable income: what's left after VAT and income tax reserves.
 
     This answers the freelancer's core question: "How much of this money is mine?"
 
-    If *year* is given (and is a past year), the full calendar year is used
-    without annualization. Otherwise the current YTD is used.
+    Income basis = received (paid) + outstanding (invoiced) + planned (calendar).
+    Tax is computed on the total known income — no annualization.
 
-    If *currency* is given (the tax system's native currency), only invoices
-    denominated in that currency are counted.  If not given, the currency is
-    resolved automatically from the tax system for *country*.
+    If *projects* and *time_data* are given, planned revenue from future
+    calendar events is included in the income basis.
     """
     today = datetime.date.today()
     is_past_year = year is not None and year < today.year
@@ -196,8 +237,10 @@ def compute_spendable_income(
         except NotImplementedError:
             pass
 
-    gross_ytd = Decimal(0)
-    vat_ytd = Decimal(0)
+    received_gross = Decimal(0)
+    received_vat = Decimal(0)
+    outstanding_gross = Decimal(0)
+    outstanding_vat = Decimal(0)
     skipped = 0
 
     for inv in invoices:
@@ -207,8 +250,12 @@ def compute_spendable_income(
             if currency and _invoice_currency(inv) not in (currency, None):
                 skipped += 1
                 continue
-            gross_ytd += inv.total
-            vat_ytd += inv.VAT_total
+            if inv.paid:
+                received_gross += inv.total
+                received_vat += inv.VAT_total
+            else:
+                outstanding_gross += inv.total
+                outstanding_vat += inv.VAT_total
 
     if skipped:
         logger.debug(
@@ -217,11 +264,23 @@ def compute_spendable_income(
             currency,
         )
 
-    net_ytd = gross_ytd - vat_ytd
+    received_net = received_gross - received_vat
+    outstanding_net = outstanding_gross - outstanding_vat
 
-    tax_reserve = compute_income_tax_reserve(net_ytd, country, deductions, year=year)
+    planned = Decimal(0)
+    if not is_past_year and projects and time_data is not None:
+        planned = compute_planned_revenue(projects, time_data, currency=currency)
 
-    spendable = net_ytd - tax_reserve.ytd_reserve
+    gross_ytd = received_gross + outstanding_gross
+    vat_ytd = received_vat + outstanding_vat
+    net_ytd = received_net + outstanding_net
+    total_income = net_ytd + planned
+
+    tax_reserve = compute_income_tax_reserve(
+        total_income, country, deductions, year=year
+    )
+
+    spendable = net_ytd + planned - tax_reserve.ytd_reserve
 
     return SpendableIncome(
         gross_revenue_ytd=gross_ytd,
@@ -229,6 +288,11 @@ def compute_spendable_income(
         vat_reserve=vat_ytd,
         income_tax_reserve=tax_reserve.ytd_reserve,
         spendable=spendable,
+        received_gross=received_gross,
+        received_net=received_net,
+        outstanding_gross=outstanding_gross,
+        outstanding_net=outstanding_net,
+        planned_revenue=planned,
     )
 
 
