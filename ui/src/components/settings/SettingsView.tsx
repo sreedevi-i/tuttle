@@ -10,7 +10,7 @@
  * @see {@link ../layout/OnboardingWizard.tsx}
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Settings, RefreshCw, Save, CheckCircle2, AlertCircle, User, Bot, FileText, RotateCcw, Trash2, AlertTriangle, Monitor, Info, Image as ImageIcon, X, Sun, Moon, Laptop, Palette } from "lucide-react";
 import { useTheme, type ThemeChoice } from "../../hooks/useTheme";
 import { rpc } from "../../api/rpc";
@@ -75,6 +75,7 @@ interface InvoicingPrefs {
   invoice_number_scheme: string;
   e_invoice_profile: string;
   include_logo: boolean;
+  include_due_date: boolean;
 }
 
 const DEFAULT_INVOICING: InvoicingPrefs = {
@@ -83,6 +84,7 @@ const DEFAULT_INVOICING: InvoicingPrefs = {
   invoice_number_scheme: "daily",
   e_invoice_profile: "EN16931",
   include_logo: true,
+  include_due_date: true,
 };
 
 const SCHEME_EXAMPLES: Record<string, string> = {
@@ -138,8 +140,13 @@ export function SettingsView() {
   const [savedNotes, setSavedNotes] = useState<Entity[]>([]);
   const [newNoteText, setNewNoteText] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const invoicingLoadRef = useRef(0);
 
-  useEffect(() => { loadConfig(); loadProfile(); loadInvoicingPrefs(); loadSupportedCountries(); loadSavedNotes(); }, []);
+  useEffect(() => { loadConfig(); loadProfile(); loadSupportedCountries(); loadSavedNotes(); }, []);
+
+  useEffect(() => {
+    if (tab === "invoicing") loadInvoicingPrefs();
+  }, [tab]);
 
   // -- LLM config ----------------------------------------------------------
 
@@ -305,6 +312,7 @@ export function SettingsView() {
   // -- Invoicing preferences -----------------------------------------------
 
   async function loadInvoicingPrefs() {
+    const loadId = ++invoicingLoadRef.current;
     const [prefsRes, tmplRes, langRes, schemeRes, eInvRes] = await Promise.all([
       rpc<InvoicingPrefs>("preferences.get"),
       rpc<Record<string, string>>("invoicing.available_templates"),
@@ -312,7 +320,10 @@ export function SettingsView() {
       rpc<Record<string, string>>("invoicing.available_number_schemes"),
       rpc<Record<string, string>>("invoicing.available_e_invoice_profiles"),
     ]);
-    if (prefsRes.ok && prefsRes.data) setInvoicing(prefsRes.data);
+    if (loadId !== invoicingLoadRef.current) return;
+    if (prefsRes.ok && prefsRes.data) {
+      setInvoicing({ ...DEFAULT_INVOICING, ...prefsRes.data });
+    }
     if (tmplRes.ok && tmplRes.data) setAvailableTemplates(tmplRes.data);
     if (langRes.ok && langRes.data) setAvailableLanguages(langRes.data);
     if (schemeRes.ok && schemeRes.data) setAvailableSchemes(schemeRes.data);
@@ -328,8 +339,14 @@ export function SettingsView() {
       invoice_number_scheme: invoicing.invoice_number_scheme,
       e_invoice_profile: invoicing.e_invoice_profile,
       include_logo: invoicing.include_logo,
+      include_due_date: invoicing.include_due_date,
     });
-    setInvoicingStatus(res.ok ? { type: "success", msg: "Invoicing preferences saved." } : { type: "error", msg: res.error || "Failed to save." });
+    if (res.ok) {
+      await loadInvoicingPrefs();
+      setInvoicingStatus({ type: "success", msg: "Invoicing preferences saved." });
+    } else {
+      setInvoicingStatus({ type: "error", msg: res.error || "Failed to save." });
+    }
     setInvoicingSaving(false);
   }
 
@@ -681,6 +698,17 @@ export function SettingsView() {
             <span className="text-sm text-primary">Include logo on invoices</span>
           </label>
           <p className="mt-1 text-xs text-muted mb-3">When enabled, your uploaded logo appears on generated invoices.</p>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={invoicing.include_due_date}
+              onChange={(e) => setInvoicing((p) => ({ ...p, include_due_date: e.target.checked }))}
+              className="rounded border-border-subtle text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-primary">Include payment due dates</span>
+          </label>
+          <p className="mt-1 text-xs text-muted mb-3">When enabled, a payment due date based on contract terms appears on generated invoices.</p>
 
           <div>
             <label className={labelCls}>Invoice language</label>
