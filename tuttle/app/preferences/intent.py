@@ -10,6 +10,7 @@ from ..core.intent_result import IntentResult
 from ...app_db import AppDatabase
 from .model import (
     DEFAULT_E_INVOICE_PROFILE,
+    DEFAULT_INCLUDE_DUE_DATE,
     DEFAULT_INCLUDE_LOGO,
     DEFAULT_INVOICE_NUMBER_SCHEME,
     DEFAULT_INVOICE_TEMPLATE,
@@ -32,6 +33,14 @@ class PreferencesIntent:
             include_logo = DEFAULT_INCLUDE_LOGO
         else:
             include_logo = raw_include_logo == "true"
+
+        raw_include_due_date = self._app_db.get_setting(
+            PreferencesStorageKeys.include_due_date_key.value,
+        )
+        if raw_include_due_date is None:
+            include_due_date = DEFAULT_INCLUDE_DUE_DATE
+        else:
+            include_due_date = raw_include_due_date == "true"
 
         return IntentResult(
             was_intent_successful=True,
@@ -57,6 +66,7 @@ class PreferencesIntent:
                 )
                 or DEFAULT_E_INVOICE_PROFILE,
                 "include_logo": include_logo,
+                "include_due_date": include_due_date,
             },
         )
 
@@ -68,6 +78,7 @@ class PreferencesIntent:
         invoice_number_scheme=None,
         e_invoice_profile=None,
         include_logo=None,
+        include_due_date=None,
     ) -> IntentResult:
         if theme_mode is not None:
             self._app_db.set_setting(
@@ -99,6 +110,11 @@ class PreferencesIntent:
                 PreferencesStorageKeys.include_logo_key.value,
                 "true" if include_logo else "false",
             )
+        if include_due_date is not None:
+            self._app_db.set_setting(
+                PreferencesStorageKeys.include_due_date_key.value,
+                "true" if include_due_date else "false",
+            )
         return IntentResult(was_intent_successful=True, data=None)
 
     # -- Internal API (used by other intents) ----------------------------------
@@ -125,6 +141,16 @@ class PreferencesIntent:
         )
         if raw is None:
             include = DEFAULT_INCLUDE_LOGO
+        else:
+            include = raw == "true"
+        return IntentResult(was_intent_successful=True, data=include)
+
+    def get_include_due_date(self) -> IntentResult:
+        raw = self._app_db.get_setting(
+            PreferencesStorageKeys.include_due_date_key.value,
+        )
+        if raw is None:
+            include = DEFAULT_INCLUDE_DUE_DATE
         else:
             include = raw == "true"
         return IntentResult(was_intent_successful=True, data=include)

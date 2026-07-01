@@ -99,3 +99,34 @@ class TestRenderInvoice:
 
             dir = Path(out_dir) / Path(prefix)
             assert not dir.exists()
+
+    def test_due_date_shown_when_enabled(self, fake):
+        user = demo.create_fake_user(fake)
+        invoice = demo.create_fake_invoice(fake, render=False)
+        assert invoice.effective_due_date is not None
+
+        html = rendering.render_invoice(
+            user=user,
+            invoice=invoice,
+            out_dir=None,
+            document_format="html",
+            include_due_date=True,
+        )
+
+        assert "Due Date" in html
+        assert str(invoice.effective_due_date.year) in html
+
+    def test_due_date_hidden_when_disabled(self, fake):
+        user = demo.create_fake_user(fake)
+        invoice = demo.create_fake_invoice(fake, render=False)
+        assert invoice.effective_due_date is not None
+
+        html = rendering.render_invoice(
+            user=user,
+            invoice=invoice,
+            out_dir=None,
+            document_format="html",
+            include_due_date=False,
+        )
+
+        assert "Due Date" not in html
