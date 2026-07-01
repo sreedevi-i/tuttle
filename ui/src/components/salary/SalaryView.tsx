@@ -84,8 +84,8 @@ function SalaryDial({ salary, target, onTargetChange }: {
 
   const zone = useCallback((t: number) => {
     if (t <= 0) return { color: "var(--color-muted)", label: "" };
-    if (t <= conservative) return { color: "var(--color-status-success)", label: "Safe zone — this amount is covered by paid invoices." };
-    if (t <= optimistic) return { color: "var(--color-status-warning)", label: "Optimistic zone — make sure outstanding invoices get paid." };
+    if (t <= conservative) return { color: "var(--color-status-success)", label: "Safe zone — covered by received payments." };
+    if (t <= optimistic) return { color: "var(--color-status-warning)", label: "Optimistic zone — includes invoiced amounts not yet received." };
     return { color: "var(--color-status-danger)", label: "Above the optimistic estimate — consider reducing the target." };
   }, [conservative, optimistic]);
 
