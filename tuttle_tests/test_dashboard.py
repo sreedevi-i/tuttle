@@ -488,10 +488,21 @@ def time_data_df(project):
 
 
 class TestProjectBudgetStatus:
-    def test_project_without_volume(self, project):
+    def test_project_without_volume_no_time_data(self, project):
         project.contract.volume = None
         result = project_budget_status([project])
         assert result == []
+
+    def test_open_ended_with_time_data(self, project, time_data_df):
+        """Open-ended contracts show a full bar with total hours."""
+        project.contract.volume = None
+        result = project_budget_status([project], time_data=time_data_df)
+        assert len(result) == 1
+        assert result[0]["open_ended"] is True
+        assert result[0]["progress"] == 1.0
+        assert result[0]["hours_budget"] == 0.0
+        assert result[0]["budget_exceeded"] is False
+        assert result[0]["hours_tracked"] == 40.0
 
     def test_tracked_from_calendar_data(self, project, time_data_df):
         """Past calendar events are the source of truth for hours_tracked."""
@@ -502,6 +513,7 @@ class TestProjectBudgetStatus:
         assert result[0]["hours_tracked"] == 40.0  # 5 × 8h
         assert result[0]["hours_planned"] == 16.0  # 2 × 8h
         assert 0 <= result[0]["progress"] <= 1.0
+        assert result[0]["open_ended"] is False
 
     def test_no_time_data_yields_empty(self, project):
         """Without calendar data no budget rows are produced."""

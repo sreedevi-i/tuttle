@@ -62,7 +62,7 @@ export function TaxReservesView() {
   if (loading) return <div className="flex items-center justify-center h-full text-secondary">Loading tax data…</div>;
 
   const sp = spending?.spending as Entity | undefined;
-  const hasData = sp && num(sp, "gross_revenue_ytd") > 0;
+  const hasAnyIncome = sp && (num(sp, "gross_revenue_ytd") > 0 || num(sp, "planned_revenue") > 0);
   const isCurrentYear = selectedYear === new Date().getFullYear();
   const periodLabel = isCurrentYear ? "YTD" : `${selectedYear}`;
 
@@ -84,24 +84,45 @@ export function TaxReservesView() {
 
       {/* Revenue Waterfall */}
       <Section title={`Revenue Breakdown (${periodLabel})`} icon={<BarChart3 size={16} />}>
-        {!hasData ? (
+        {!hasAnyIncome ? (
           <p className="text-sm text-muted">No revenue data yet.</p>
-        ) : (
-          <div className="space-y-1">
-            <WaterfallBar label="Gross Revenue" amount={num(sp!, "gross_revenue_ytd")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-info)" currency={currency} />
-            <WaterfallBar label="VAT (to remit)" amount={num(sp!, "vat_reserve")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
-            <WaterfallBar label="Business Expenses" amount={num(sp!, "business_expenses")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
-            <WaterfallBar label="= Taxable Profit" amount={num(sp!, "taxable_profit")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-info)" currency={currency} />
-            <WaterfallBar label="Est. Income Tax + Soli" amount={num(sp!, "income_tax_reserve")} total={num(sp!, "gross_revenue_ytd")} color="var(--color-status-warning)" currency={currency} />
-            <WaterfallBar label="= Safe to Spend" amount={num(sp!, "spendable")} total={num(sp!, "gross_revenue_ytd")} color={num(sp!, "spendable") >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
-            <div className="border-t border-border-subtle mt-3 pt-3 flex justify-between text-xs text-muted">
-              <span>Effective reserve rate</span>
-              <span className="text-secondary">
-                {fmtPct((num(sp!, "vat_reserve") + num(sp!, "income_tax_reserve")) / num(sp!, "gross_revenue_ytd"))} of gross revenue
-              </span>
+        ) : (() => {
+          const received = num(sp!, "received_gross");
+          const outstanding = num(sp!, "outstanding_gross");
+          const planned = num(sp!, "planned_revenue");
+          const totalBase = received + outstanding + planned;
+          const vat = num(sp!, "vat_reserve");
+          const bizExpenses = num(sp!, "business_expenses");
+          const taxableProfit = num(sp!, "taxable_profit");
+          const tax = num(sp!, "income_tax_reserve");
+          const spendable = num(sp!, "spendable");
+          return (
+            <div className="space-y-1">
+              <WaterfallBar label="Received" amount={received} total={totalBase} color="var(--color-status-info)" currency={currency} />
+              {outstanding > 0 && (
+                <WaterfallBar label="Invoiced" amount={outstanding} total={totalBase} color="var(--color-status-info-muted, var(--color-status-info))" currency={currency} />
+              )}
+              {planned > 0 && (
+                <WaterfallBar label="Planned" amount={planned} total={totalBase} color="var(--color-accent, #6366f1)" currency={currency} />
+              )}
+              <WaterfallBar label="VAT (to remit)" amount={vat} total={totalBase} color="var(--color-status-warning)" currency={currency} />
+              {bizExpenses > 0 && (
+                <WaterfallBar label="Business Expenses" amount={bizExpenses} total={totalBase} color="var(--color-status-warning)" currency={currency} />
+              )}
+              <WaterfallBar label="= Taxable Profit" amount={taxableProfit} total={totalBase} color="var(--color-status-info)" currency={currency} />
+              <WaterfallBar label="Est. Income Tax + Soli" amount={tax} total={totalBase} color="var(--color-status-warning)" currency={currency} />
+              <WaterfallBar label="= Safe to Spend" amount={spendable} total={totalBase} color={spendable >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
+              {totalBase > 0 && (
+                <div className="border-t border-border-subtle mt-3 pt-3 flex justify-between text-xs text-muted">
+                  <span>Effective reserve rate</span>
+                  <span className="text-secondary">
+                    {fmtPct((vat + tax) / totalBase)} of gross revenue
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </Section>
 
       {/* Monthly VAT */}
@@ -164,10 +185,25 @@ function IncomeTaxSection({ data, currency }: { data: Entity; currency: string }
   const country = str(data, "country");
   const supported = data.country_supported !== false;
 
+  const received = num(data, "received_net");
+  const outstanding = num(data, "outstanding_net");
+  const planned = num(data, "planned_revenue");
+  const incomeBasis = num(data, "income_basis");
+
+  const parts: string[] = [];
+  if (received > 0) parts.push(`${fmt(received, currency)} received`);
+  if (outstanding > 0) parts.push(`${fmt(outstanding, currency)} invoiced`);
+  if (planned > 0) parts.push(`${fmt(planned, currency)} planned`);
+
   return (
     <Section title={`Income Tax Estimate (${country})`} icon={<Calculator size={16} />}>
       <div className="space-y-2">
-        <SummaryRow label="Annualized Income" value={fmt(num(data, "annualized_income"), currency)} />
+        <SummaryRow label="Income Basis" value={fmt(incomeBasis, currency)} />
+        {parts.length > 0 && (
+          <div className="text-xs text-muted -mt-1 text-right">
+            {parts.join(" + ")}
+          </div>
+        )}
         {supported && tr && (
           <>
             <SummaryRow label="Estimated Income Tax" value={fmt(num(tr, "estimated_annual_tax"), currency)} color="var(--color-status-warning)" />

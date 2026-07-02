@@ -2,6 +2,7 @@
 
 import base64
 import datetime
+import enum
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,7 @@ from ..core.abstractions import SQLModelDataSourceMixin
 from ..core.intent_result import IntentResult
 from ...data_dir import get_data_dir
 from ...model import Address, Contact, Client, Contract, Project, Invoice, InvoiceItem
+from ...time import ContractType
 
 
 # Fields that are internal to the import workflow, not part of the model
@@ -122,6 +124,7 @@ class ImportsIntent(SQLModelDataSourceMixin):
                         ref_to_id,
                         summary,
                         ref_fks={"contact_ref": "invoicing_contact_id"},
+                        nested={"address": Address},
                     )
 
                 for item in data.get("contracts", []):
@@ -289,6 +292,8 @@ def _save_entity(
             fields = _model_fields(item, model_cls)
             for k, v in fields.items():
                 setattr(entity, k, v)
+            if isinstance(entity, Contract):
+                _finalize_contract(entity, fields)
             summary["updated"].append(label)
         else:
             summary["linked"].append(label)
@@ -313,10 +318,30 @@ def _save_entity(
 
     clean = _model_fields(fields, model_cls)
     entity = model_cls(**clean, **nested_objects)
+    if isinstance(entity, Contract):
+        _finalize_contract(entity, clean)
     session.add(entity)
     session.flush()
     _bind_ref(ref, entity.id, ref_to_id)
     summary["created"].append(label)
+
+
+def _finalize_contract(entity: Contract, provided: dict) -> None:
+    """Pin a contract's pricing ``type`` and enforce the type invariant.
+
+    If the import payload did not specify ``type`` explicitly, derive it
+    from whichever value column is populated. Then ``validate_pricing``
+    becomes the single guard: it requires the value column for the chosen
+    type and clears the other, so an ambiguous contract can never be
+    committed regardless of what the LLM extracted.
+    """
+    if "type" not in provided:
+        entity.type = (
+            ContractType.fixed_price
+            if entity.fixed_price and not entity.rate
+            else ContractType.time_based
+        )
+    entity.validate_pricing()
 
 
 def _coerce_value(value: Any, annotation: Any) -> Any:
@@ -338,6 +363,9 @@ def _coerce_value(value: Any, annotation: Any) -> Any:
     ):
         if isinstance(value, (int, float, str)):
             return Decimal(str(value))
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        if isinstance(value, str):
+            return annotation(value)
     return value
 
 

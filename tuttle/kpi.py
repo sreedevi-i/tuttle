@@ -261,45 +261,36 @@ def monthly_spendable_breakdown(
 
     sorted_keys = sorted(months.keys())
     cumulative_net_ytd = Decimal(0)
-    previous_ytd_reserve = Decimal(0)
+    previous_reserve = Decimal(0)
 
     for key in sorted_keys:
         m = months[key]
         m["net_revenue"] = m["gross_revenue"] - m["vat_due"]
-        year, month = key.split("-")
-        month_start = datetime.date(int(year), int(month), 1)
+        year_str, month_str = key.split("-")
+        month_start = datetime.date(int(year_str), int(month_str), 1)
         if month_start.year == today.year:
             cumulative_net_ytd += m["net_revenue"]
-            month_end = (month_start + datetime.timedelta(days=32)).replace(
-                day=1
-            ) - datetime.timedelta(days=1)
-            as_of = min(month_end, today)
-            year_start = as_of.replace(month=1, day=1)
-            days_elapsed = max((as_of - year_start).days, 1)
-            days_in_year = 365
-
-            annualized_income = (
-                (cumulative_net_ytd - deductions) * days_in_year / days_elapsed
-            )
-            if annualized_income <= 0:
-                ytd_reserve = Decimal(0)
+            taxable = cumulative_net_ytd - deductions
+            if taxable <= 0:
+                cumulative_reserve = Decimal(0)
             else:
                 try:
+                    month_end = (month_start + datetime.timedelta(days=32)).replace(
+                        day=1
+                    ) - datetime.timedelta(days=1)
+                    as_of = min(month_end, today)
                     tax_system = get_tax_system(country, date=as_of)
-                    annual_tax = tax_system.income_tax(annualized_income)
+                    annual_tax = tax_system.income_tax(taxable)
                     annual_soli = tax_system.solidarity_surcharge(annual_tax)
-                    total_annual = annual_tax + annual_soli
-                    ytd_reserve = (total_annual * days_elapsed / days_in_year).quantize(
+                    cumulative_reserve = (annual_tax + annual_soli).quantize(
                         Decimal("0.01")
                     )
                 except NotImplementedError:
-                    ytd_reserve = Decimal(0)
+                    cumulative_reserve = Decimal(0)
 
-            m["income_tax_true_up"] = ytd_reserve - previous_ytd_reserve
-            previous_ytd_reserve = ytd_reserve
+            m["income_tax_true_up"] = cumulative_reserve - previous_reserve
+            previous_reserve = cumulative_reserve
         else:
-            # Keep non-current-year months neutral so the chart remains stable
-            # when showing a rolling window that crosses year boundaries.
             m["income_tax_true_up"] = Decimal(0)
 
         m["spendable"] = m["net_revenue"] - m["income_tax_true_up"]
@@ -341,7 +332,7 @@ def project_budget_status(
 
     results = []
     for project in projects:
-        if not project.contract or not project.contract.volume:
+        if not project.contract:
             continue
 
         hours_tracked = Decimal(str(tracked_by_tag.get(project.tag, 0)))
@@ -351,20 +342,31 @@ def project_budget_status(
             continue
 
         contract = project.contract
-        hours_budget = Decimal(str(contract.volume))
-        if contract.unit == TimeUnit.day:
-            hours_budget *= contract.units_per_workday
+        open_ended = not contract.volume
+
+        if open_ended:
+            hours_budget = Decimal(0)
+        else:
+            hours_budget = Decimal(str(contract.volume))
+            if contract.unit == TimeUnit.day:
+                hours_budget *= contract.units_per_workday
 
         total_used = hours_tracked + hours_planned
-        progress = float(total_used / hours_budget) if hours_budget > 0 else 0.0
-        hours_remaining = float(hours_budget - total_used)
+        progress = (
+            1.0
+            if open_ended
+            else (float(total_used / hours_budget) if hours_budget > 0 else 0.0)
+        )
+        hours_remaining = 0.0 if open_ended else float(hours_budget - total_used)
 
         unit_hours = contract.units_per_workday if contract.unit == TimeUnit.day else 1
-        planned_revenue = float(
-            Decimal(str(float(hours_planned) / unit_hours)) * contract.rate
+        planned_revenue = (
+            float(Decimal(str(float(hours_planned) / unit_hours)) * contract.rate)
+            if contract.rate
+            else 0.0
         )
 
-        budget_exceeded = total_used > hours_budget
+        budget_exceeded = not open_ended and total_used > hours_budget
 
         results.append(
             {
@@ -378,6 +380,7 @@ def project_budget_status(
                 "currency": str(contract.currency) if contract.currency else "EUR",
                 "progress": min(progress, 1.0),
                 "budget_exceeded": budget_exceeded,
+                "open_ended": open_ended,
             }
         )
     return results

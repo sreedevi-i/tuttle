@@ -22,6 +22,7 @@ interface BudgetEntry {
   planned_revenue: number;
   progress: number;
   budget_exceeded: boolean;
+  open_ended?: boolean;
 }
 
 interface RevenueCurveEntry {
@@ -34,8 +35,8 @@ interface RevenueCurveEntry {
 
 interface RevenueBar {
   label: string;
+  received: number;
   invoiced: number;
-  pending: number;
   planned: number;
 }
 
@@ -67,8 +68,8 @@ export function DashboardView() {
         const label = p.length === 2 ? `${p[1]}/${p[0].slice(2)}` : m;
         byLabel.set(label, {
           label,
-          invoiced: num(r, "revenue"),
-          pending: num(r, "pipeline"),
+          received: num(r, "revenue"),
+          invoiced: num(r, "pipeline"),
           planned: 0,
         });
       }
@@ -79,11 +80,18 @@ export function DashboardView() {
         const m = (r.month ?? "").slice(0, 7), p = m.split("-");
         const label = p.length === 2 ? `${p[1]}/${p[0].slice(2)}` : m;
         if (r.source === "calendar") {
-          const existing = byLabel.get(label) ?? { label, invoiced: 0, pending: 0, planned: 0 };
+          const existing = byLabel.get(label) ?? { label, received: 0, invoiced: 0, planned: 0 };
           existing.planned += r.revenue ?? 0;
           byLabel.set(label, existing);
         }
       }
+    }
+
+    // Deduplicate: calendar-derived planned revenue overlaps with
+    // invoice-based received/invoiced for the same month.  Only show the
+    // portion not yet covered by invoices.
+    for (const bar of byLabel.values()) {
+      bar.planned = Math.max(0, bar.planned - bar.received - bar.invoiced);
     }
 
     const sorted = [...byLabel.values()].sort((a, b) => {
@@ -126,7 +134,7 @@ export function DashboardView() {
       {revenueBars.length > 0 && (
         <div className="rounded-lg bg-bg-card border border-border-subtle p-4">
           <h2 className="text-sm font-medium text-secondary mb-1">Revenue</h2>
-          <p className="text-[11px] text-tertiary mb-3">Invoiced + pending from past months, planned from calendar</p>
+          <p className="text-[11px] text-tertiary mb-3">Received + invoiced from past months, planned from calendar</p>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={revenueBars} barGap={0}>
               <XAxis dataKey="label" tick={{ fill: "var(--color-chart-label)", fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -141,8 +149,8 @@ export function DashboardView() {
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12, color: "var(--color-chart-label)" }} />
-              <Bar dataKey="invoiced" name="Invoiced" stackId="rev" fill="#4ADE80" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="pending" name="Pending" stackId="rev" fill="#FACC15" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="received" name="Received" stackId="rev" fill="#4ADE80" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="invoiced" name="Invoiced" stackId="rev" fill="#FACC15" radius={[0, 0, 0, 0]} />
               <Bar dataKey="planned" name="Planned" stackId="rev" fill="#60A5FA" radius={[3, 3, 0, 0]} />
             </ComposedChart>
           </ResponsiveContainer>
@@ -153,11 +161,15 @@ export function DashboardView() {
         <div className="rounded-lg bg-bg-card border border-border-subtle p-4 space-y-3">
           <h2 className="text-sm font-medium text-secondary">Project Time Budgets</h2>
           {budgets.map((b) => {
-            const trackedPct = b.hours_budget > 0 ? Math.min(b.hours_tracked / b.hours_budget, 1) : 0;
-            const plannedPct = b.hours_budget > 0 ? Math.min(b.hours_planned / b.hours_budget, 1 - trackedPct) : 0;
-            const subtitle = b.hours_planned > 0
-              ? `${b.hours_tracked.toFixed(1)}h + ${b.hours_planned.toFixed(1)}h planned / ${b.hours_budget.toFixed(0)}h`
-              : `${b.hours_tracked.toFixed(1)}h / ${b.hours_budget.toFixed(0)}h`;
+            const isOpen = !!b.open_ended;
+            const trackedPct = isOpen ? 1 : (b.hours_budget > 0 ? Math.min(b.hours_tracked / b.hours_budget, 1) : 0);
+            const plannedPct = isOpen ? 0 : (b.hours_budget > 0 ? Math.min(b.hours_planned / b.hours_budget, 1 - trackedPct) : 0);
+            const totalHours = b.hours_tracked + b.hours_planned;
+            const subtitle = isOpen
+              ? `${totalHours.toFixed(1)}h total`
+              : b.hours_planned > 0
+                ? `${b.hours_tracked.toFixed(1)}h + ${b.hours_planned.toFixed(1)}h planned / ${b.hours_budget.toFixed(0)}h`
+                : `${b.hours_tracked.toFixed(1)}h / ${b.hours_budget.toFixed(0)}h`;
 
             return (
               <div key={b.project_id} className="space-y-1">

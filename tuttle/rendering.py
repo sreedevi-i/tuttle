@@ -55,7 +55,7 @@ INVOICE_LABELS = {
     },
     "de": {
         "invoice": "Rechnung",
-        "invoice_no": "Rechnungsnr.",
+        "invoice_no": "Rechnung Nr.",
         "date": "Datum",
         "due_date": "Fälligkeitsdatum",
         "bill_to": "Rechnungsempfänger",
@@ -153,6 +153,7 @@ def render_invoice(
     language: str = "en",
     e_invoice_profile: Optional[str] = None,
     include_logo: bool = True,
+    include_due_date: bool = True,
     accent_color: Optional[str] = None,
 ):
     """Render an Invoice using an HTML template.
@@ -236,6 +237,7 @@ def render_invoice(
         reminder_title=reminder_title,
         notes=invoice.notes,
         include_logo=include_logo,
+        include_due_date=include_due_date,
         accent_color=accent_color or "",
     )
     if out_dir is None:
@@ -309,11 +311,11 @@ def render_timesheet(
     template_env.filters["as_hours"] = lambda td: td / pandas.Timedelta("1 hour")
     template_env.filters["date"] = lambda dt: dt.strftime("%Y-%m-%d") if dt else ""
     template_env.filters["time"] = lambda dt: dt.strftime("%H:%M") if dt else ""
-    template_env.filters["datetime"] = (
-        lambda dt: dt.strftime("%Y-%m-%d %H:%M") if dt else ""
+    template_env.filters["datetime"] = lambda dt: (
+        dt.strftime("%Y-%m-%d %H:%M") if dt else ""
     )
-    template_env.filters["hours_minutes"] = (
-        lambda td: f"{int(td.total_seconds() // 3600)}:{int((td.total_seconds() % 3600) // 60):02d}"
+    template_env.filters["hours_minutes"] = lambda td: (
+        f"{int(td.total_seconds() // 3600)}:{int((td.total_seconds() % 3600) // 60):02d}"
         if td
         else ""
     )

@@ -192,6 +192,8 @@ class TimeTrackingIntent(Intent):
 
     def get_source_config(self) -> IntentResult:
         config = self._timetracking_data_frame_source.get_source_config()
+        df = self._timetracking_data_frame_source.get_data_frame()
+        config["has_data"] = df is not None and not df.empty
         return IntentResult(was_intent_successful=True, data=config)
 
     def restore(self) -> IntentResult:
@@ -200,14 +202,14 @@ class TimeTrackingIntent(Intent):
         if ds.get_data_frame() is not None:
             return IntentResult(
                 was_intent_successful=True,
-                data={"restored": False, "reason": "already_loaded"},
+                data={"restored": False, "reason": "already_loaded", "has_data": True},
             )
         config = ds.get_source_config()
         source_type = config.get("source_type", "")
         if not source_type:
             return IntentResult(
                 was_intent_successful=True,
-                data={"restored": False, "reason": "no_config"},
+                data={"restored": False, "reason": "no_config", "has_data": False},
             )
         if source_type == "system" and is_available():
             calendar_id = config.get("calendar_id", "")
@@ -228,14 +230,20 @@ class TimeTrackingIntent(Intent):
                                 "restored": True,
                                 "source": "system",
                                 "count": len(new_df),
+                                "has_data": True,
                             },
                         )
                 except Exception as ex:
                     logger.warning(f"Failed to restore from system calendar: {ex}")
         restored = ds.load_from_cache()
+        has_data = ds.get_data_frame() is not None and not ds.get_data_frame().empty
         return IntentResult(
             was_intent_successful=True,
-            data={"restored": restored, "source": source_type if restored else "cache"},
+            data={
+                "restored": restored,
+                "source": source_type if restored else "cache",
+                "has_data": has_data,
+            },
         )
 
     def sync(self) -> IntentResult:

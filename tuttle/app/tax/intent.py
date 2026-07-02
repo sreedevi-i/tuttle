@@ -5,8 +5,9 @@ from decimal import Decimal
 
 from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
+from ..timetracking.data_source import TimeTrackingDataFrameSource
 
-from ...model import Invoice, RecurringExpense, User
+from ...model import Invoice, Project, RecurringExpense, User
 from ...tax import get_tax_system, supported_countries
 from ...tax_reserves import (
     compute_spendable_income,
@@ -20,6 +21,7 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
 
     def __init__(self):
         SQLModelDataSourceMixin.__init__(self)
+        self._time_data_source = TimeTrackingDataFrameSource()
 
     def _get_country(self) -> str:
         """Determine the user's operating country for tax purposes."""
@@ -43,10 +45,18 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         try:
             invoices = self.query(Invoice)
             expenses = self.query(RecurringExpense)
+            projects = self.query(Project)
             country = self._get_country()
             currency = self._get_tax_currency(country)
+            time_data = self._time_data_source.get_data_frame()
             spending = compute_spendable_income(
-                invoices, country, expenses=expenses, currency=currency, year=year
+                invoices,
+                country,
+                expenses=expenses,
+                currency=currency,
+                year=year,
+                projects=projects,
+                time_data=time_data,
             )
             data = {"spending": spending, "currency": currency}
             return IntentResult(was_intent_successful=True, data=data)
@@ -62,31 +72,30 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         """Get detailed income tax estimate with bracket info."""
         try:
             today = datetime.date.today()
-            is_past_year = year is not None and year < today.year
 
             invoices = self.query(Invoice)
             expenses = self.query(RecurringExpense)
+            projects = self.query(Project)
             country = self._get_country()
             currency = self._get_tax_currency(country)
+            time_data = self._time_data_source.get_data_frame()
             spending = compute_spendable_income(
-                invoices, country, expenses=expenses, currency=currency, year=year
-            )
-            tax_reserve = compute_income_tax_reserve(
-                spending.taxable_profit, country, year=year
+                invoices,
+                country,
+                expenses=expenses,
+                currency=currency,
+                year=year,
+                projects=projects,
+                time_data=time_data,
             )
 
-            if is_past_year:
-                annualized = float(spending.taxable_profit)
-            else:
-                days_elapsed = max((today - today.replace(month=1, day=1)).days, 1)
-                annualized = float(spending.taxable_profit) * 365 / days_elapsed
+            total_income = spending.taxable_profit
+            tax_reserve = compute_income_tax_reserve(total_income, country, year=year)
 
             ref_date = datetime.date(year, 7, 1) if year else today
             try:
                 tax_system = get_tax_system(country, date=ref_date)
-                bracket_data = self._compute_bracket_data(
-                    tax_system, Decimal(str(annualized))
-                )
+                bracket_data = self._compute_bracket_data(tax_system, total_income)
                 country_supported = True
             except NotImplementedError:
                 bracket_data = []
@@ -94,7 +103,10 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
 
             data = {
                 "tax_reserve": tax_reserve,
-                "annualized_income": Decimal(str(round(annualized, 2))),
+                "income_basis": total_income,
+                "received_net": spending.received_net,
+                "outstanding_net": spending.outstanding_net,
+                "planned_revenue": spending.planned_revenue,
                 "brackets": bracket_data,
                 "country": country,
                 "country_supported": country_supported,
@@ -109,10 +121,10 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
                 exception=e,
             )
 
-    def _compute_bracket_data(self, tax_system, annualized_income: Decimal) -> list:
+    def _compute_bracket_data(self, tax_system, income: Decimal) -> list:
         """Build bracket visualization data from the tax system's zone data."""
         zones = tax_system.bracket_info
-        income_f = float(annualized_income)
+        income_f = float(income)
         allowance = tax_system.params.basic_allowance
         brackets = []
         prev_end = 0

@@ -49,11 +49,25 @@
 
   <h1 class="invoice-title">{{ l.invoice_no }} {{ invoice.number }}</h1>
 
+  <table class="meta-table">
+    <tr>
+      <td class="meta-label">{{ l.date }}</td>
+      <td class="meta-value">{{ invoice.date | as_date }}</td>
+    </tr>
+    {% if include_due_date and invoice.effective_due_date %}
+    <tr>
+      <td class="meta-label">{{ l.due_date }}</td>
+      <td class="meta-value">{{ invoice.effective_due_date | as_date }}</td>
+    </tr>
+    {% endif %}
+  </table>
+
   <table class="items-table">
     <thead>
       <tr>
         <th class="col-date">{{ l.date }}</th>
         <th class="col-qty">{{ l.qty }}</th>
+        <th class="col-unit">{{ l.unit }}</th>
         <th class="col-desc">{{ l.description }}</th>
         <th class="col-price">{{ l.unit_price }} (€)</th>
         <th class="col-subtotal">{{ l.subtotal }} (€)</th>
@@ -64,6 +78,7 @@
       <tr>
         <td class="col-date">{{ item.start_date | as_date_short }}&ndash;{{ item.end_date | as_date_short }}</td>
         <td class="col-qty">{{ item.quantity }}</td>
+        <td class="col-unit">{{ item.unit | unit_label(item.quantity) }}</td>
         <td class="col-desc">{{ item.description }}</td>
         <td class="col-price num">{{ item.unit_price | as_currency }}</td>
         <td class="col-subtotal num">{{ item.subtotal | as_currency }}</td>

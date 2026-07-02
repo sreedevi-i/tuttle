@@ -8,15 +8,33 @@ Catches detached-instance errors, missing modules, serialisation bugs, and
 data-shape mismatches between the Python core and the frontend.
 """
 
+import importlib
 import json
 from pathlib import Path
 
 import pytest
 
+import tuttle.app
 import tuttle.app.core.abstractions as abstractions
 import tuttle.app_db as app_db_mod
 from tuttle.app.core.dispatch import dispatch, _intents
 from tuttle.app.core.rpc_utils import reset_all
+
+# ---------------------------------------------------------------------------
+# Discover every RPC domain on disk: a subpackage of tuttle.app with intent.py
+# ---------------------------------------------------------------------------
+
+_APP_DIR = Path(tuttle.app.__file__).parent
+
+
+def _discover_domains() -> list[str]:
+    """Return the names of every directory under tuttle/app that has intent.py."""
+    return sorted(
+        p.parent.name for p in _APP_DIR.glob("*/intent.py") if p.parent.name != "core"
+    )
+
+
+DOMAINS = _discover_domains()
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +121,23 @@ class TestLifecycle:
         assert "email" in profile
         assert "address" in profile
         assert isinstance(profile["address"], dict)
+
+    def test_preferences_include_due_date_roundtrip(self, rpc_env):
+        save = dispatch(
+            "preferences.save",
+            {"include_due_date": False},
+        )
+        assert_ok(save)
+        data = dispatch("preferences.get", {})["data"]
+        assert data["include_due_date"] is False
+
+        save = dispatch(
+            "preferences.save",
+            {"include_due_date": True},
+        )
+        assert_ok(save)
+        data = dispatch("preferences.get", {})["data"]
+        assert data["include_due_date"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -232,3 +267,75 @@ class TestSerialization:
                 json.dumps(result)
             except (TypeError, ValueError) as exc:
                 pytest.fail(f"{method} response not JSON-serializable: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# 4. Domain packaging integrity
+#
+# The dispatcher resolves "domain.method" by importing tuttle.app.{domain}.intent
+# at runtime (importlib). Two failure modes are invisible to the route tests
+# above because those run against the source tree with a hand-picked route list:
+#
+#   1. A domain directory without __init__.py is not a Python package, so both
+#      importlib AND PyInstaller's collect_submodules silently skip it.
+#   2. The frozen build (tuttle-rpc.spec) may not bundle a dynamically-imported
+#      domain, producing "No module named 'tuttle.app.{domain}'" only in the
+#      distributed .app — never in dev.
+#
+# These tests guard both for EVERY domain on disk, so a newly added domain can
+# never be silently dropped from dev or the release bundle.
+# ---------------------------------------------------------------------------
+
+
+class TestDomainPackaging:
+    def test_domains_discovered(self):
+        """Sanity: discovery finds the known domains (and any new ones)."""
+        assert "imports" in DOMAINS
+        assert "invoicing" in DOMAINS
+        assert len(DOMAINS) >= 10
+
+    @pytest.mark.parametrize("domain", DOMAINS)
+    def test_domain_is_importable_package(self, domain):
+        """Each domain must be a real package with an importable intent module.
+
+        Catches the missing-__init__.py class of bug for ALL domains, mirroring
+        exactly what the dispatcher does at runtime.
+        """
+        pkg_init = _APP_DIR / domain / "__init__.py"
+        assert pkg_init.exists(), (
+            f"tuttle/app/{domain}/ has intent.py but no __init__.py — it is not "
+            f"a package, so the dispatcher and the frozen build will skip it."
+        )
+        mod = importlib.import_module(f"tuttle.app.{domain}.intent")
+        candidates = [
+            name
+            for name in dir(mod)
+            if name.endswith("Intent")
+            and getattr(getattr(mod, name), "__module__", None) == mod.__name__
+        ]
+        assert len(candidates) == 1, (
+            f"tuttle.app.{domain}.intent must define exactly one *Intent class, "
+            f"found {candidates}"
+        )
+
+    def test_frozen_build_bundles_every_domain(self):
+        """The PyInstaller spec must bundle every dynamically-imported domain.
+
+        Uses the same collect_submodules() the spec relies on. Skips when
+        PyInstaller isn't installed (it lives in the 'build' dependency group).
+        This is the guard that the original release regression lacked.
+        """
+        pytest.importorskip("PyInstaller")
+        from PyInstaller.utils.hooks import collect_submodules
+
+        bundled = set(collect_submodules("tuttle.app"))
+        missing = [
+            f"tuttle.app.{d}.intent"
+            for d in DOMAINS
+            if f"tuttle.app.{d}.intent" not in bundled
+        ]
+        assert not missing, (
+            f"These domains are reachable via the dispatcher but would NOT be "
+            f"bundled into the frozen tuttle-rpc binary: {missing}. "
+            f"Check tuttle-rpc.spec and the domain's __init__.py."
+        )

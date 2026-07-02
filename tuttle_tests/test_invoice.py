@@ -18,7 +18,7 @@ from tuttle.model import (
     InvoiceNote,
     Project,
 )
-from tuttle.time import Cycle, TimeUnit
+from tuttle.time import ContractType, Cycle, TimeUnit
 from tuttle.calendar import get_month_start_end
 
 
@@ -233,6 +233,7 @@ def _build_fixed_price_project(fixed_price, tag: str) -> Project:
         title="Fixed Price Contract",
         client=client,
         start_date=datetime.date(2022, 1, 1),
+        type=ContractType.fixed_price,
         fixed_price=fixed_price,
         currency="EUR",
         VAT_rate=Decimal("0.19"),

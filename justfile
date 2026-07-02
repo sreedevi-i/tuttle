@@ -22,9 +22,13 @@ dev:
 
 # ── Build ───────────────────────────────────────────────────────────────────
 
-# Build the Python RPC sidecar with PyInstaller
-build-sidecar:
+# Build the Python RPC core with PyInstaller
+build-core:
     {{python}} -m PyInstaller --clean --noconfirm {{repo}}/tuttle-rpc.spec
+
+# Smoke-test the frozen core: verify every RPC domain is bundled
+smoke-core:
+    {{python}} {{repo}}/scripts/smoke_core.py
 
 # Build the Electron renderer (Vite + TypeScript)
 build-renderer:
@@ -34,15 +38,15 @@ build-renderer:
 clean-app:
     rm -rf "{{electron}}/release"
 
-# Package the Electron .app (requires build-sidecar + build-renderer first)
+# Package the Electron .app (requires build-core + build-renderer first)
 pack target="dir":
     cd {{electron}} && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac {{target}}
     @echo "Ad-hoc signing all binaries…"
     find "{{app}}" -type f \( -name '*.dylib' -o -name '*.so' -o -perm +111 \) -exec codesign --force --sign - {} \; 2>/dev/null || true
     codesign --force --deep --sign - "{{app}}"
 
-# Full build: sidecar → renderer → package (pass "dmg" for .dmg)
-build target="dir": clean-app build-sidecar build-renderer (pack target)
+# Full build: core → renderer → package (pass "dmg" for .dmg)
+build target="dir": clean-app build-core smoke-core build-renderer (pack target)
     @echo "✓ {{electron}}/release/"
 
 # Create a beta .zip with an install script that strips quarantine
@@ -146,6 +150,10 @@ deps-node:
 
 # Install all dependencies
 deps-all: deps deps-node
+
+# Install the pre-commit hooks (run once after cloning)
+precommit:
+    {{venv}}/bin/pre-commit install
 
 # Reset the demo user data
 demo-reset:

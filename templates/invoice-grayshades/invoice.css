@@ -106,6 +106,31 @@ body {
   margin-top: 0;
 }
 
+.meta-table {
+  border-collapse: collapse;
+  margin-bottom: 12pt;
+}
+
+.meta-table td {
+  padding: 1.5pt 0;
+  font-size: 8.5pt;
+  vertical-align: baseline;
+}
+
+.meta-label {
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8pt;
+  color: #4d4d4d;
+  padding-right: 12pt;
+  white-space: nowrap;
+}
+
+.meta-value {
+  color: #343434;
+}
+
 /* ── Items Table ─────────────────────────────── */
 
 .items-table {
@@ -166,11 +191,12 @@ body {
 }
 
 /* Column widths */
-.col-date { width: 19%; }
-.col-qty { width: 8%; text-align: center; }
-.col-desc { width: 33%; }
-.col-price { width: 19%; text-align: right; }
-.col-subtotal { width: 21%; text-align: right; }
+.col-date { width: 18%; }
+.col-qty { width: 7%; text-align: center; }
+.col-unit { width: 10%; }
+.col-desc { width: 27%; }
+.col-price { width: 18%; text-align: right; }
+.col-subtotal { width: 20%; text-align: right; }
 
 .items-table thead th.col-qty { text-align: center; }
 .items-table thead th.col-price { text-align: right; }

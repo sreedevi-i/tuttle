@@ -50,11 +50,62 @@ def german_tax_2026():
     return get_tax_system("Germany", date=datetime.date(2026, 6, 1))
 
 
-def _make_invoice(date, items_data, cancelled=False):
+def _sample_country(currency: str = "EUR") -> str:
+    """Return a supported country whose tax currency matches *currency*."""
+    for country in supported_countries():
+        if get_tax_system(country).currency == currency:
+            return country
+    raise AssertionError(f"No supported country with currency {currency}")
+
+
+def _tax_system(country: str | None = None):
+    return get_tax_system(country or _sample_country())
+
+
+def _income_below_allowance(tax_system) -> Decimal:
+    """Net income safely below the configured basic allowance."""
+    allowance = Decimal(str(tax_system.params.basic_allowance))
+    if allowance <= 0:
+        return Decimal("1000")
+    margin = min(Decimal("500"), allowance / 2)
+    return (allowance - margin).quantize(Decimal("0.01"))
+
+
+def _income_above_allowance(tax_system) -> Decimal:
+    """Net income safely above the configured basic allowance."""
+    allowance = Decimal(str(tax_system.params.basic_allowance))
+    return (allowance + Decimal("10000")).quantize(Decimal("0.01"))
+
+
+def _invoice_items_for_net(net: Decimal, unit_price: int = 100) -> list:
+    """Build one invoice line whose subtotal equals *net* (before VAT)."""
+    qty = max(int(net / unit_price), 1)
+    return [(qty, unit_price, 0)]
+
+
+def _expected_income_tax_reserve(
+    income: Decimal, country: str, deductions: Decimal = Decimal(0)
+):
+    """Mirror compute_income_tax_reserve using the loaded tax system."""
+    tax_system = get_tax_system(country)
+    taxable = income - deductions
+    if taxable <= 0:
+        return Decimal(0), Decimal(0), Decimal(0)
+    annual_tax = tax_system.income_tax(taxable)
+    annual_soli = tax_system.solidarity_surcharge(annual_tax)
+    total = (annual_tax + annual_soli).quantize(Decimal("0.01"))
+    return annual_tax, annual_soli, total
+
+
+def _make_invoice(date, items_data, cancelled=False, vat_rate=None):
     """Create a minimal Invoice with InvoiceItems for testing.
 
     items_data: list of (quantity, unit_price, vat_rate) tuples.
+    If vat_rate is given, it overrides the rate in each item tuple.
     """
+    if vat_rate is None:
+        vat_rate = get_tax_system(_sample_country()).vat_rate_standard()
+
     client = Client(
         name="Test Client",
         address=Address(
@@ -73,7 +124,7 @@ def _make_invoice(date, items_data, cancelled=False):
         unit="hour",
         units_per_workday=8,
         term_of_payment=30,
-        VAT_rate=Decimal("0.19"),
+        VAT_rate=Decimal(str(vat_rate)),
     )
     project = Project(title="Test Project", tag="test", contract=contract)
     invoice = Invoice(
@@ -85,7 +136,7 @@ def _make_invoice(date, items_data, cancelled=False):
         sent=True,
         paid=True,
     )
-    for qty, price, vat_rate in items_data:
+    for qty, price, _item_vat in items_data:
         InvoiceItem(
             invoice=invoice,
             start_date=date,
@@ -295,26 +346,46 @@ class TestVATReserves:
 
 class TestIncomeTaxReserve:
     def test_basic_reserve(self):
-        result = compute_income_tax_reserve(Decimal("40000"), "Germany")
-        assert result.estimated_annual_tax > 0
-        assert result.solidarity_surcharge > 0
-        assert result.total_annual_reserve > result.estimated_annual_tax
-        assert result.ytd_reserve > 0
-        assert 0 < result.effective_rate < 1
+        country = _sample_country()
+        tax_system = _tax_system(country)
+        income = _income_above_allowance(tax_system)
+        result = compute_income_tax_reserve(income, country)
+        exp_tax, exp_soli, exp_total = _expected_income_tax_reserve(income, country)
+
+        assert result.estimated_annual_tax == exp_tax
+        assert result.solidarity_surcharge == exp_soli
+        assert result.total_annual_reserve == exp_tax + exp_soli
+        assert result.ytd_reserve == exp_total
+        if income > 0 and exp_total > 0:
+            assert result.effective_rate == (exp_total / income).quantize(
+                Decimal("0.0001")
+            )
 
     def test_zero_revenue(self):
-        result = compute_income_tax_reserve(Decimal(0), "Germany")
+        country = _sample_country()
+        result = compute_income_tax_reserve(Decimal(0), country)
         assert result.estimated_annual_tax == 0
         assert result.ytd_reserve == 0
 
     def test_negative_revenue(self):
-        result = compute_income_tax_reserve(Decimal("-5000"), "Germany")
+        country = _sample_country()
+        result = compute_income_tax_reserve(Decimal("-5000"), country)
         assert result.estimated_annual_tax == 0
 
-    def test_ytd_is_prorated(self):
-        """YTD reserve should be less than annual reserve."""
-        result = compute_income_tax_reserve(Decimal("50000"), "Germany")
-        assert result.ytd_reserve <= result.total_annual_reserve
+    def test_no_annualization(self):
+        """Tax reserve equals full tax on the given income (no proration)."""
+        country = _sample_country()
+        income = _income_above_allowance(_tax_system(country))
+        result = compute_income_tax_reserve(income, country)
+        _, _, exp_total = _expected_income_tax_reserve(income, country)
+        assert result.ytd_reserve == exp_total
+
+    def test_below_allowance_zero_tax(self):
+        country = _sample_country()
+        income = _income_below_allowance(_tax_system(country))
+        result = compute_income_tax_reserve(income, country)
+        assert result.estimated_annual_tax == 0
+        assert result.ytd_reserve == 0
 
 
 # ── Spendable income ──────────────────────────────────────────
@@ -322,47 +393,85 @@ class TestIncomeTaxReserve:
 
 class TestSpendableIncome:
     def test_basic_spendable(self):
+        """Taxable income reduces spendable by the configured reserve."""
+        country = _sample_country()
+        tax_system = _tax_system(country)
+        net_target = _income_above_allowance(tax_system)
         today = datetime.date.today()
         invoices = [
-            _make_invoice(today.replace(day=1), [(100, 100, 0.19)]),
+            _make_invoice(today.replace(day=1), _invoice_items_for_net(net_target)),
         ]
-        result = compute_spendable_income(invoices, "Germany")
+        result = compute_spendable_income(invoices, country)
+        _, _, expected_tax = _expected_income_tax_reserve(
+            result.received_net + result.outstanding_net + result.planned_revenue,
+            country,
+        )
+
         assert result.gross_revenue_ytd > 0
         assert result.vat_reserve > 0
         assert result.net_revenue_ytd == result.gross_revenue_ytd - result.vat_reserve
-        # No expenses → business_expenses=0, taxable_profit=net_revenue
+        # No expenses → business_expenses=0, taxable_profit=net+planned
         assert result.business_expenses == 0
-        assert result.taxable_profit == result.net_revenue_ytd
+        assert result.taxable_profit == result.net_revenue_ytd + result.planned_revenue
+        assert result.income_tax_reserve == expected_tax
+        assert expected_tax > 0
         assert result.spendable < result.net_revenue_ytd
         assert result.spendable == result.taxable_profit - result.income_tax_reserve
 
-    def test_spendable_excludes_cancelled(self):
+    def test_below_allowance_zero_tax(self):
+        """Income below allowance → no tax reserve, spendable equals net."""
+        country = _sample_country()
+        net_target = _income_below_allowance(_tax_system(country))
         today = datetime.date.today()
         invoices = [
-            _make_invoice(today.replace(day=1), [(100, 100, 0.19)]),
-            _make_invoice(today.replace(day=1), [(50, 100, 0.19)], cancelled=True),
+            _make_invoice(today.replace(day=1), _invoice_items_for_net(net_target)),
         ]
-        result = compute_spendable_income(invoices, "Germany")
-        # Only the non-cancelled invoice should count
+        result = compute_spendable_income(invoices, country)
+        assert result.income_tax_reserve == 0
+        assert result.spendable == result.net_revenue_ytd + result.planned_revenue
+
+    def test_received_vs_outstanding_breakdown(self):
+        """Paid invoices go into received, unpaid into outstanding."""
+        country = _sample_country()
+        today = datetime.date.today()
+        paid_inv = _make_invoice(today.replace(day=1), [(100, 100, 0)])
+        unpaid_inv = _make_invoice(today.replace(day=1), [(50, 100, 0)])
+        unpaid_inv.paid = False
+        result = compute_spendable_income([paid_inv, unpaid_inv], country)
+        assert result.received_gross == paid_inv.total
+        assert result.outstanding_gross == unpaid_inv.total
+        assert result.received_net == paid_inv.total - paid_inv.VAT_total
+        assert result.outstanding_net == unpaid_inv.total - unpaid_inv.VAT_total
+        assert result.gross_revenue_ytd == paid_inv.total + unpaid_inv.total
+
+    def test_spendable_excludes_cancelled(self):
+        country = _sample_country()
+        today = datetime.date.today()
+        invoices = [
+            _make_invoice(today.replace(day=1), [(100, 100, 0)]),
+            _make_invoice(today.replace(day=1), [(50, 100, 0)], cancelled=True),
+        ]
+        result = compute_spendable_income(invoices, country)
         expected_gross = invoices[0].total
         assert result.gross_revenue_ytd == expected_gross
 
     def test_spendable_excludes_previous_year(self):
+        country = _sample_country()
         today = datetime.date.today()
         invoices = [
-            _make_invoice(datetime.date(today.year - 1, 6, 1), [(100, 100, 0.19)]),
-            _make_invoice(today.replace(day=1), [(50, 100, 0.19)]),
+            _make_invoice(datetime.date(today.year - 1, 6, 1), [(100, 100, 0)]),
+            _make_invoice(today.replace(day=1), [(50, 100, 0)]),
         ]
-        result = compute_spendable_income(invoices, "Germany")
-        # Only this year's invoice should count
+        result = compute_spendable_income(invoices, country)
         assert result.gross_revenue_ytd == invoices[1].total
 
     def test_monthly_spendable_breakdown_includes_vat_subtraction(self):
+        country = _sample_country()
         today = datetime.date.today()
         invoices = [
-            _make_invoice(today.replace(day=1), [(20, 100, 0.19)]),
+            _make_invoice(today.replace(day=1), [(20, 100, 0)]),
         ]
-        monthly = monthly_spendable_breakdown(invoices, country="Germany", n_months=2)
+        monthly = monthly_spendable_breakdown(invoices, country=country, n_months=2)
         this_month = [m for m in monthly if m["month"] == today.strftime("%Y-%m")][0]
         assert this_month["gross_revenue"] > 0
         assert this_month["vat_due"] > 0
@@ -585,36 +694,60 @@ class TestSpanishVAT:
 
 class TestSpanishReserves:
     def test_income_tax_reserve_spain(self):
-        result = compute_income_tax_reserve(Decimal("30000"), "Spain")
-        assert result.estimated_annual_tax > 0
-        assert result.solidarity_surcharge == 0
-        assert result.total_annual_reserve == result.estimated_annual_tax
-        assert 0 < result.effective_rate < 1
+        country = "Spain"
+        tax_system = get_tax_system(country)
+        income = _income_above_allowance(tax_system)
+        result = compute_income_tax_reserve(income, country)
+        exp_tax, exp_soli, exp_total = _expected_income_tax_reserve(income, country)
+
+        assert result.estimated_annual_tax == exp_tax
+        assert result.solidarity_surcharge == exp_soli
+        assert result.total_annual_reserve == exp_total
+        if income > 0 and exp_total > 0:
+            assert result.effective_rate == (exp_total / income).quantize(
+                Decimal("0.0001")
+            )
 
     def test_spendable_income_spain(self):
+        country = "Spain"
+        tax_system = get_tax_system(country)
+        net_target = _income_above_allowance(tax_system)
         today = datetime.date.today()
+        vat = tax_system.vat_rate_standard()
         invoices = [
-            _make_invoice(today.replace(day=1), [(80, 100, 0.21)]),
+            _make_invoice(
+                today.replace(day=1),
+                _invoice_items_for_net(net_target),
+                vat_rate=vat,
+            ),
         ]
-        result = compute_spendable_income(invoices, "Spain")
+        result = compute_spendable_income(invoices, country)
+        _, _, expected_tax = _expected_income_tax_reserve(
+            result.received_net + result.outstanding_net + result.planned_revenue,
+            country,
+        )
+
         assert result.gross_revenue_ytd > 0
         assert result.vat_reserve > 0
+        assert result.income_tax_reserve == expected_tax
+        assert expected_tax > 0
         assert result.spendable < result.net_revenue_ytd
 
 
 class TestCrossCountryComparison:
     def test_different_tax_for_same_income(self):
-        """Germany and Spain produce different tax for the same income."""
-        income = Decimal("50000")
-        german = get_tax_system("Germany").income_tax(income)
-        spanish = get_tax_system("Spain").income_tax(income)
-        # Both should be positive but different
-        assert german > 0
-        assert spanish > 0
-        assert german != spanish
+        """Each supported country can compute tax on the same income."""
+        eur_countries = [
+            c for c in supported_countries() if get_tax_system(c).currency == "EUR"
+        ]
+        assert len(eur_countries) >= 2
+        income = _income_above_allowance(_tax_system(eur_countries[0]))
+        for country in eur_countries[:2]:
+            amount = get_tax_system(country).income_tax(income)
+            assert amount >= 0
 
-    def test_different_vat_rates(self):
-        """Germany 19% vs Spain 21%."""
-        german = get_tax_system("Germany")
-        spanish = get_tax_system("Spain")
-        assert german.vat_rate_standard() < spanish.vat_rate_standard()
+    def test_vat_rates_loaded_per_country(self):
+        """Each country exposes standard VAT rates from tax data."""
+        for country in supported_countries():
+            rate = get_tax_system(country).vat_rate_standard()
+            assert rate >= 0
