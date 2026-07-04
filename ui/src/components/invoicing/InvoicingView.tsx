@@ -781,6 +781,24 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
                 <AlertTriangle size={13} /> Create Reminder
               </button>
             )}
+            {!isCancelled && pdfPath && (
+  <a
+    href={pdfDataUrl ?? ""}
+    download={(pdfPath.split(/[\\/]/).pop() ?? "invoice.pdf").replace(/[<>:"/\\|?*]+/g, "_")}
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
+  >
+    <FileText size={13} /> Download Invoice
+  </a>
+)}
+{!isCancelled && tsPdfDataUrl && (
+  <a
+    href={tsPdfDataUrl}
+    download={(tsPath.split(/[\\/]/).pop() ?? "timesheet.pdf").replace(/[<>:"/\\|?*]+/g, "_")}
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
+  >
+    <FileText size={13} /> Download Timesheet
+  </a>
+)}
             <div className="flex-1" />
             {!isCancelled && (
               <>
@@ -834,19 +852,8 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
           {pdfLoading ? (
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
          ) : pdfDataUrl ? (
-            <div className="flex flex-col h-full gap-2">
-              <div className="flex justify-end">
-<a                
-                  href={pdfDataUrl}
-                  download={pdfPath.split(/[\\/]/).pop() ?? "invoice.pdf"}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-                >
-                  <FileText size={14} /> Download
-                </a>
-              </div>
               <embed src={pdfDataUrl} type="application/pdf"
                 className="w-full flex-1 rounded-lg border border-border-subtle" />
-            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-tertiary">
               PDF not available
@@ -863,19 +870,8 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
           ) : tsPdfLoading ? (
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
           ) : tsPdfDataUrl ? (
-            <div className="flex flex-col h-full gap-2">
-              <div className="flex justify-end">
-<a                
-                  href={tsPdfDataUrl}
-                  download={tsPath.split(/[\\/]/).pop() ?? "timesheet.pdf"}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-                >
-                  <FileText size={14} /> Download
-                </a>
-              </div>
               <embed src={tsPdfDataUrl} type="application/pdf"
                 className="w-full flex-1 rounded-lg border border-border-subtle" />
-            </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-tertiary">
               <FileText size={36} strokeWidth={1.2} />
