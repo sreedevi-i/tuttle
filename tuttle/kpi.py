@@ -261,45 +261,36 @@ def monthly_spendable_breakdown(
 
     sorted_keys = sorted(months.keys())
     cumulative_net_ytd = Decimal(0)
-    previous_ytd_reserve = Decimal(0)
+    previous_reserve = Decimal(0)
 
     for key in sorted_keys:
         m = months[key]
         m["net_revenue"] = m["gross_revenue"] - m["vat_due"]
-        year, month = key.split("-")
-        month_start = datetime.date(int(year), int(month), 1)
+        year_str, month_str = key.split("-")
+        month_start = datetime.date(int(year_str), int(month_str), 1)
         if month_start.year == today.year:
             cumulative_net_ytd += m["net_revenue"]
-            month_end = (month_start + datetime.timedelta(days=32)).replace(
-                day=1
-            ) - datetime.timedelta(days=1)
-            as_of = min(month_end, today)
-            year_start = as_of.replace(month=1, day=1)
-            days_elapsed = max((as_of - year_start).days, 1)
-            days_in_year = 365
-
-            annualized_income = (
-                (cumulative_net_ytd - deductions) * days_in_year / days_elapsed
-            )
-            if annualized_income <= 0:
-                ytd_reserve = Decimal(0)
+            taxable = cumulative_net_ytd - deductions
+            if taxable <= 0:
+                cumulative_reserve = Decimal(0)
             else:
                 try:
+                    month_end = (month_start + datetime.timedelta(days=32)).replace(
+                        day=1
+                    ) - datetime.timedelta(days=1)
+                    as_of = min(month_end, today)
                     tax_system = get_tax_system(country, date=as_of)
-                    annual_tax = tax_system.income_tax(annualized_income)
+                    annual_tax = tax_system.income_tax(taxable)
                     annual_soli = tax_system.solidarity_surcharge(annual_tax)
-                    total_annual = annual_tax + annual_soli
-                    ytd_reserve = (total_annual * days_elapsed / days_in_year).quantize(
+                    cumulative_reserve = (annual_tax + annual_soli).quantize(
                         Decimal("0.01")
                     )
                 except NotImplementedError:
-                    ytd_reserve = Decimal(0)
+                    cumulative_reserve = Decimal(0)
 
-            m["income_tax_true_up"] = ytd_reserve - previous_ytd_reserve
-            previous_ytd_reserve = ytd_reserve
+            m["income_tax_true_up"] = cumulative_reserve - previous_reserve
+            previous_reserve = cumulative_reserve
         else:
-            # Keep non-current-year months neutral so the chart remains stable
-            # when showing a rolling window that crosses year boundaries.
             m["income_tax_true_up"] = Decimal(0)
 
         m["spendable"] = m["net_revenue"] - m["income_tax_true_up"]

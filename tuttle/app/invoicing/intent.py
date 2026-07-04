@@ -367,6 +367,14 @@ class InvoicingIntent(Intent):
                     else True
                 )
 
+                due_date_result = self._preferences_intent.get_include_due_date()
+                resolved_include_due_date = (
+                    due_date_result.data
+                    if due_date_result.was_intent_successful
+                    and due_date_result.data is not None
+                    else True
+                )
+
                 try:
                     rendering.render_invoice(
                         user=user,
@@ -377,6 +385,7 @@ class InvoicingIntent(Intent):
                         language=language,
                         e_invoice_profile=e_invoice_profile,
                         include_logo=resolved_include_logo,
+                        include_due_date=resolved_include_due_date,
                         accent_color=user.accent_color or "",
                     )
                 except Exception as ex:
@@ -496,6 +505,23 @@ class InvoicingIntent(Intent):
                     )
                     if tmpl_result.was_intent_successful and tmpl_result.data:
                         resolved_template = tmpl_result.data
+
+                logo_result = self._preferences_intent.get_include_logo()
+                resolved_include_logo = (
+                    logo_result.data
+                    if logo_result.was_intent_successful
+                    and logo_result.data is not None
+                    else True
+                )
+
+                due_date_result = self._preferences_intent.get_include_due_date()
+                resolved_include_due_date = (
+                    due_date_result.data
+                    if due_date_result.was_intent_successful
+                    and due_date_result.data is not None
+                    else True
+                )
+
                 try:
                     rendering.render_invoice(
                         user=user,
@@ -504,6 +530,8 @@ class InvoicingIntent(Intent):
                         template_name=resolved_template,
                         only_final=True,
                         language=language,
+                        include_logo=resolved_include_logo,
+                        include_due_date=resolved_include_due_date,
                         accent_color=user.accent_color or "",
                     )
                     self._invoicing_data_source.save_invoice(reminder)
@@ -556,8 +584,7 @@ class InvoicingIntent(Intent):
                 )
 
             level_label = f"{'2nd ' if invoice.reminder_level == 2 else '3rd ' if invoice.reminder_level >= 3 else ''}reminder"
-            email_body = textwrap.dedent(
-                f"""\
+            email_body = textwrap.dedent(f"""\
 Dear {greeting},
 
 This is a {level_label} regarding the outstanding invoice {invoice.number} for {invoice.project.title}.
@@ -565,8 +592,7 @@ This is a {level_label} regarding the outstanding invoice {invoice.number} for {
 Please find attached the payment reminder.
 
 Best regards,
-{user.name}"""
-            )
+{user.name}""")
             mail.compose_email(
                 to=recipient,
                 subject=f"Payment Reminder: Invoice {invoice.number}",
@@ -620,15 +646,13 @@ Best regards,
                     error_msg="No contact email available for this client.",
                 )
 
-            email_body = textwrap.dedent(
-                f"""\
+            email_body = textwrap.dedent(f"""\
 Dear {greeting},
 
 Please find attached the invoice for {invoice.project.title}.
 
 Best regards,
-{user.name}"""
-            )
+{user.name}""")
             mail.compose_email(
                 to=recipient,
                 subject=f"Invoice {invoice.number}",

@@ -20,7 +20,6 @@ import tuttle.app_db as app_db_mod
 from tuttle.app.core.dispatch import dispatch, _intents
 from tuttle.app.core.rpc_utils import reset_all
 
-
 # ---------------------------------------------------------------------------
 # Discover every RPC domain on disk: a subpackage of tuttle.app with intent.py
 # ---------------------------------------------------------------------------
@@ -122,6 +121,23 @@ class TestLifecycle:
         assert "email" in profile
         assert "address" in profile
         assert isinstance(profile["address"], dict)
+
+    def test_preferences_include_due_date_roundtrip(self, rpc_env):
+        save = dispatch(
+            "preferences.save",
+            {"include_due_date": False},
+        )
+        assert_ok(save)
+        data = dispatch("preferences.get", {})["data"]
+        assert data["include_due_date"] is False
+
+        save = dispatch(
+            "preferences.save",
+            {"include_due_date": True},
+        )
+        assert_ok(save)
+        data = dispatch("preferences.get", {})["data"]
+        assert data["include_due_date"] is True
 
 
 # ---------------------------------------------------------------------------

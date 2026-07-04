@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
 
-
 INVOICE_TEMPLATES = {
     "invoice-modern": "Modern",
     "invoice-minimal": "Minimal",
@@ -37,6 +36,8 @@ DEFAULT_E_INVOICE_PROFILE = "EN16931"
 
 DEFAULT_INCLUDE_LOGO = True
 
+DEFAULT_INCLUDE_DUE_DATE = True
+
 DEFAULT_THEME_MODE = "dark"
 
 
@@ -48,6 +49,7 @@ class Preferences:
     invoice_number_scheme: str = DEFAULT_INVOICE_NUMBER_SCHEME
     e_invoice_profile: str = DEFAULT_E_INVOICE_PROFILE
     include_logo: bool = DEFAULT_INCLUDE_LOGO
+    include_due_date: bool = DEFAULT_INCLUDE_DUE_DATE
 
 
 class PreferencesStorageKeys(Enum):
@@ -59,6 +61,7 @@ class PreferencesStorageKeys(Enum):
     invoice_number_scheme_key = "preferred_invoice_number_scheme"
     e_invoice_profile_key = "preferred_e_invoice_profile"
     include_logo_key = "preferred_include_logo"
+    include_due_date_key = "preferred_include_due_date"
 
     def __str__(self) -> str:
         return str(self.value)
