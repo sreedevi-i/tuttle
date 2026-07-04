@@ -853,7 +853,7 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
          ) : pdfDataUrl ? (
               <embed src={pdfDataUrl} type="application/pdf"
-                className="w-full flex-1 rounded-lg border border-border-subtle" />
+  className="w-full h-full rounded-lg border border-border-subtle" />
           ) : (
             <div className="flex items-center justify-center h-full text-tertiary">
               PDF not available
@@ -871,7 +871,7 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
           ) : tsPdfDataUrl ? (
               <embed src={tsPdfDataUrl} type="application/pdf"
-                className="w-full flex-1 rounded-lg border border-border-subtle" />
+  className="w-full h-full rounded-lg border border-border-subtle" />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-tertiary">
               <FileText size={36} strokeWidth={1.2} />
