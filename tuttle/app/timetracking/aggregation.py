@@ -28,11 +28,11 @@ def df_to_records(df: DataFrame, tag_to_workday: Optional[dict] = None) -> list:
     if df is None or df.empty:
         return []
     tag_to_workday = tag_to_workday or {}
-    today = datetime.date.today()
+    now = datetime.datetime.now()
     records = []
     for idx, row in df.iterrows():
         begin = idx
-        event_date = begin.date() if hasattr(begin, "date") else None
+        begin_dt = begin if isinstance(begin, datetime.datetime) else None
         if hasattr(begin, "isoformat"):
             begin = begin.isoformat()
         end = row.get("end")
@@ -51,7 +51,7 @@ def df_to_records(df: DataFrame, tag_to_workday: Optional[dict] = None) -> list:
                 "description": str(row.get("description", "") or ""),
                 "all_day": bool(row.get("all_day", False)),
                 "date": str(begin)[:10],
-                "is_future": event_date >= today if event_date else False,
+                "is_future": begin_dt >= now if begin_dt else False,
             }
         )
     return records

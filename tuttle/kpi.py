@@ -305,15 +305,15 @@ def project_budget_status(
     """Budget utilization per project derived from calendar time-tracking data.
 
     *time_data* (the calendar DataFrame) is the source of truth for hours.
-    Past events (before today) become ``hours_tracked``; future events
-    (today onward) become ``hours_planned``.
+    Past events (before now) become ``hours_tracked``; future events
+    become ``hours_planned``.
 
     Returns a list of dicts with keys: project_id, project, hours_tracked,
     hours_planned, hours_budget, hours_remaining, planned_revenue, progress,
     budget_exceeded.  Skips projects without a contract volume or without any
     tracked or planned time.
     """
-    today = datetime.date.today()
+    now = datetime.datetime.now()
     tracked_by_tag: dict = {}
     planned_by_tag: dict = {}
 
@@ -323,10 +323,10 @@ def project_budget_status(
             for p in projects
             if p.tag and p.contract
         }
-        past = time_data[time_data.index.date < today]
+        past = time_data[time_data.index < now]
         if not past.empty:
             tracked_by_tag = sum_hours_by_tag(past, tag_to_workday)
-        future = time_data[time_data.index.date >= today]
+        future = time_data[time_data.index >= now]
         if not future.empty:
             planned_by_tag = sum_hours_by_tag(future, tag_to_workday)
 

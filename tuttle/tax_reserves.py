@@ -43,10 +43,12 @@ class SpendableIncome(NamedTuple):
     """What the freelancer can actually spend."""
 
     gross_revenue_ytd: Decimal  # total invoiced amount (incl. VAT)
+    business_expenses: Decimal  # recurring expenses prorated to period
     net_revenue_ytd: Decimal  # gross minus VAT
+    taxable_profit: Decimal  # net_revenue - business_expenses
     vat_reserve: Decimal  # VAT to set aside
     income_tax_reserve: Decimal  # estimated income tax + soli
-    spendable: Decimal  # net_revenue + planned - income_tax_reserve
+    spendable: Decimal  # taxable_profit - income_tax_reserve
     # breakdown by income source
     received_gross: Decimal  # paid invoices, gross
     received_net: Decimal  # paid invoices, net of VAT
@@ -202,18 +204,29 @@ def compute_income_tax_reserve(
 def compute_spendable_income(
     invoices: List[Invoice],
     country: str,
+    expenses: Optional[List[RecurringExpense]] = None,
     deductions: Decimal = Decimal(0),
     currency: Optional[str] = None,
     year: Optional[int] = None,
     projects: Optional[List[Project]] = None,
     time_data: Optional[DataFrame] = None,
 ) -> SpendableIncome:
-    """Compute spendable income: what's left after VAT and income tax reserves.
+    """Compute spendable income: what's left after VAT, expenses, and income tax.
 
     This answers the freelancer's core question: "How much of this money is mine?"
 
     Income basis = received (paid) + outstanding (invoiced) + planned (calendar).
-    Tax is computed on the total known income — no annualization.
+    Business *expenses* (health insurance, operating costs, etc.) are deducted
+    before estimating income tax, yielding the correct taxable profit.
+    Tax is computed on the taxable profit — no annualization.
+
+        Gross Revenue
+        − VAT
+        = Net Revenue (received + outstanding) + Planned
+        − Business Expenses
+        = Taxable Profit
+        − Est. Income Tax
+        = Safe to Spend
 
     If *projects* and *time_data* are given, planned revenue from future
     calendar events is included in the income basis.
@@ -274,17 +287,39 @@ def compute_spendable_income(
     gross_ytd = received_gross + outstanding_gross
     vat_ytd = received_vat + outstanding_vat
     net_ytd = received_net + outstanding_net
-    total_income = net_ytd + planned
+
+    # Compute YTD business expenses from recurring expense list
+    if expenses:
+        monthly_exp = _monthly_expenses_total(expenses)
+        if is_past_year:
+            biz_expenses_ytd = (monthly_exp * 12).quantize(Decimal("0.01"))
+        else:
+            months_elapsed = max(
+                (today.year - year_start.year) * 12
+                + today.month
+                - year_start.month
+                + 1,
+                1,
+            )
+            biz_expenses_ytd = (monthly_exp * months_elapsed).quantize(
+                Decimal("0.01")
+            )
+    else:
+        biz_expenses_ytd = Decimal(0)
+
+    taxable_profit = net_ytd + planned - biz_expenses_ytd
 
     tax_reserve = compute_income_tax_reserve(
-        total_income, country, deductions, year=year
+        taxable_profit, country, deductions, year=year
     )
 
-    spendable = net_ytd + planned - tax_reserve.ytd_reserve
+    spendable = taxable_profit - tax_reserve.ytd_reserve
 
     return SpendableIncome(
         gross_revenue_ytd=gross_ytd,
+        business_expenses=biz_expenses_ytd,
         net_revenue_ytd=net_ytd,
+        taxable_profit=taxable_profit,
         vat_reserve=vat_ytd,
         income_tax_reserve=tax_reserve.ytd_reserve,
         spendable=spendable,

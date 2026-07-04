@@ -92,6 +92,8 @@ export function TaxReservesView() {
           const planned = num(sp!, "planned_revenue");
           const totalBase = received + outstanding + planned;
           const vat = num(sp!, "vat_reserve");
+          const bizExpenses = num(sp!, "business_expenses");
+          const taxableProfit = num(sp!, "taxable_profit");
           const tax = num(sp!, "income_tax_reserve");
           const spendable = num(sp!, "spendable");
           return (
@@ -104,8 +106,12 @@ export function TaxReservesView() {
                 <WaterfallBar label="Planned" amount={planned} total={totalBase} color="var(--color-accent, #6366f1)" currency={currency} />
               )}
               <WaterfallBar label="VAT (to remit)" amount={vat} total={totalBase} color="var(--color-status-warning)" currency={currency} />
+              {bizExpenses > 0 && (
+                <WaterfallBar label="Business Expenses" amount={bizExpenses} total={totalBase} color="var(--color-status-warning)" currency={currency} />
+              )}
+              <WaterfallBar label="= Taxable Profit" amount={taxableProfit} total={totalBase} color="var(--color-status-info)" currency={currency} />
               <WaterfallBar label="Est. Income Tax + Soli" amount={tax} total={totalBase} color="var(--color-status-warning)" currency={currency} />
-              <WaterfallBar label="= Spendable" amount={spendable} total={totalBase} color={spendable >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
+              <WaterfallBar label="= Safe to Spend" amount={spendable} total={totalBase} color={spendable >= 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} currency={currency} bold />
               {totalBase > 0 && (
                 <div className="border-t border-border-subtle mt-3 pt-3 flex justify-between text-xs text-muted">
                   <span>Effective reserve rate</span>

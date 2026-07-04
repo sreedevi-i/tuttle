@@ -7,7 +7,7 @@ from ..core.abstractions import SQLModelDataSourceMixin, Intent
 from ..core.intent_result import IntentResult
 from ..timetracking.data_source import TimeTrackingDataFrameSource
 
-from ...model import Invoice, Project, User
+from ...model import Invoice, Project, RecurringExpense, User
 from ...tax import get_tax_system, supported_countries
 from ...tax_reserves import (
     compute_spendable_income,
@@ -44,6 +44,7 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
         """Compute spendable income breakdown."""
         try:
             invoices = self.query(Invoice)
+            expenses = self.query(RecurringExpense)
             projects = self.query(Project)
             country = self._get_country()
             currency = self._get_tax_currency(country)
@@ -51,6 +52,7 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             spending = compute_spendable_income(
                 invoices,
                 country,
+                expenses=expenses,
                 currency=currency,
                 year=year,
                 projects=projects,
@@ -72,6 +74,7 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             today = datetime.date.today()
 
             invoices = self.query(Invoice)
+            expenses = self.query(RecurringExpense)
             projects = self.query(Project)
             country = self._get_country()
             currency = self._get_tax_currency(country)
@@ -79,17 +82,14 @@ class TaxIntent(SQLModelDataSourceMixin, Intent):
             spending = compute_spendable_income(
                 invoices,
                 country,
+                expenses=expenses,
                 currency=currency,
                 year=year,
                 projects=projects,
                 time_data=time_data,
             )
 
-            total_income = (
-                spending.received_net
-                + spending.outstanding_net
-                + spending.planned_revenue
-            )
+            total_income = spending.taxable_profit
             tax_reserve = compute_income_tax_reserve(total_income, country, year=year)
 
             ref_date = datetime.date(year, 7, 1) if year else today

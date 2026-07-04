@@ -295,16 +295,6 @@ export function ProjectsView() {
                   return (
                     <div className="space-y-2">
                       <BudgetBar budget={b} />
-                      {b.hours_planned > 0 && (
-                        <div className="text-xs text-secondary">
-                          <span className="text-blue-400 font-medium">{b.hours_planned.toFixed(1)}h planned</span>
-                          {b.planned_revenue > 0 && (
-                            <span className="ml-2 text-tertiary">
-                              ≈ {b.planned_revenue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {b.currency} revenue
-                            </span>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })()}
