@@ -781,6 +781,24 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
                 <AlertTriangle size={13} /> Create Reminder
               </button>
             )}
+            {!isCancelled && pdfPath && (
+  <a
+    href={pdfDataUrl ?? ""}
+    download={(pdfPath.split(/[\\/]/).pop() ?? "invoice.pdf").replace(/[<>:"/\\|?*]+/g, "_")}
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
+  >
+    <FileText size={13} /> Download Invoice
+  </a>
+)}
+{!isCancelled && tsPdfDataUrl && (
+  <a
+    href={tsPdfDataUrl}
+    download={(tsPath.split(/[\\/]/).pop() ?? "timesheet.pdf").replace(/[<>:"/\\|?*]+/g, "_")}
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
+  >
+    <FileText size={13} /> Download Timesheet
+  </a>
+)}
             <div className="flex-1" />
             {!isCancelled && (
               <>
@@ -833,9 +851,9 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
         <div className="flex-1 min-h-0 px-5 pb-5">
           {pdfLoading ? (
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
-          ) : pdfDataUrl ? (
-            <embed src={pdfDataUrl} type="application/pdf"
-              className="w-full h-full rounded-lg border border-border-subtle" />
+         ) : pdfDataUrl ? (
+              <embed src={pdfDataUrl} type="application/pdf"
+  className="w-full h-full rounded-lg border border-border-subtle" />
           ) : (
             <div className="flex items-center justify-center h-full text-tertiary">
               PDF not available
@@ -852,8 +870,8 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
           ) : tsPdfLoading ? (
             <div className="flex items-center justify-center h-full text-secondary">Loading PDF…</div>
           ) : tsPdfDataUrl ? (
-            <embed src={tsPdfDataUrl} type="application/pdf"
-              className="w-full h-full rounded-lg border border-border-subtle" />
+              <embed src={tsPdfDataUrl} type="application/pdf"
+  className="w-full h-full rounded-lg border border-border-subtle" />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-tertiary">
               <FileText size={36} strokeWidth={1.2} />
