@@ -44,8 +44,14 @@
     },
     "mac": {
       "artifactName": "Tuttle-${version}-macOS-${arch}.${ext}",
-      "identity": "-",
       "category": "public.app-category.business",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": {
+        "teamId": "4F26A7M64F"
+      },
       "target": [
         "zip",
         "dmg"
