@@ -14,6 +14,7 @@ import { SalaryView } from "../salary/SalaryView";
 import { TimeTrackingView } from "../timetracking/TimeTrackingView";
 import { DocumentImportView } from "../import/DocumentImportView";
 import { PlaceholderView } from "../shared/PlaceholderView";
+import { ViewErrorBoundary } from "../shared/ViewErrorBoundary";
 import { UpdateBanner } from "./UpdateBanner";
 import { StatusBar } from "./StatusBar";
 import { StatusBarProvider } from "../shared/status-bar-context";
@@ -206,7 +207,9 @@ export function Shell() {
               <div className="drag-region h-13 shrink-0" />
               <UpdateBanner />
               <div className="flex-1 overflow-y-auto">
-                <DetailView id={selected} />
+                <ViewErrorBoundary key={selected} viewName={selected}>
+                  <DetailView id={selected} />
+                </ViewErrorBoundary>
               </div>
               <StatusBar />
             </main>

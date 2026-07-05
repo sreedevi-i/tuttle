@@ -256,3 +256,72 @@ def test_generate_timesheet_preserves_per_event_descriptions():
     assert items["Meeting"].description == "Notes from meeting"
     # Row with no description gets the fallback.
     assert items["Deep work"].description == "Fallback description"
+
+
+# ---------------------------------------------------------------------------
+# Aggregation regression tests — tz-aware data (real ICS imports)
+# ---------------------------------------------------------------------------
+
+
+def test_df_to_records_with_tz_aware_data():
+    """Regression: df_to_records must not crash on tz-aware timestamps.
+
+    ICS calendar imports produce CET-localized Timestamps. A naive
+    datetime.now() comparison causes TypeError.
+    """
+    from tuttle.app.timetracking.aggregation import df_to_records
+
+    begin = pandas.to_datetime(
+        ["2026-07-01 09:00:00", "2026-12-01 09:00:00"], utc=True
+    ).tz_convert("CET")
+    end = pandas.to_datetime(
+        ["2026-07-01 11:00:00", "2026-12-01 11:00:00"], utc=True
+    ).tz_convert("CET")
+
+    df = pandas.DataFrame(
+        {
+            "end": end,
+            "title": ["Past event", "Future event"],
+            "tag": ["#proj", "#proj"],
+            "description": ["", ""],
+            "all_day": [False, False],
+        },
+        index=pandas.Index(begin, name="begin"),
+    )
+    df["duration"] = df["end"] - df.index
+
+    records = df_to_records(df)
+    assert len(records) == 2
+    assert records[0]["is_future"] is False
+    assert records[1]["is_future"] is True
+
+
+def test_build_calendar_data_with_tz_aware_data():
+    """Regression: build_calendar_data must handle tz-aware DataFrames."""
+    from tuttle.app.timetracking.aggregation import build_calendar_data
+
+    begin = pandas.to_datetime(
+        ["2026-07-03 09:00:00", "2026-07-04 14:00:00"], utc=True
+    ).tz_convert("CET")
+    end = pandas.to_datetime(
+        ["2026-07-03 11:00:00", "2026-07-04 16:00:00"], utc=True
+    ).tz_convert("CET")
+
+    df = pandas.DataFrame(
+        {
+            "end": end,
+            "title": ["Task A", "Task B"],
+            "tag": ["#alpha", "#beta"],
+            "description": ["", ""],
+            "all_day": [False, False],
+        },
+        index=pandas.Index(begin, name="begin"),
+    )
+    df["duration"] = df["end"] - df.index
+
+    result = build_calendar_data(df, 2026, 7)
+    assert result["year"] == 2026
+    assert result["month"] == 7
+    assert result["summary"]["total_events"] == 2
+    assert result["summary"]["total_hours"] > 0
+    assert len(result["events"]) == 2
