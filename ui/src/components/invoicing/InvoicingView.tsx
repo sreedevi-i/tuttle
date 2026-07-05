@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   FileText, Send, CheckCircle, XCircle, Mail, Trash2,
   Building2, FolderKanban, Calendar, Banknote, Eye, DollarSign,
-  Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight, Search,
+  Plus, Clock, AlertTriangle, ChevronLeft, ChevronRight, Search, Share,
 } from "lucide-react";
 import { rpc, readFileAsDataURL } from "../../api/rpc";
 import { str, num, bool, entity as subEntity, list as entityList, formatDate, invoiceStatus, deepStr, isReminder, reminderLevel } from "../../api/entity";
@@ -665,6 +665,8 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
   const status = invoiceStatus(invoice);
   const items = entityList(invoice, "items");
   const isCancelled = bool(invoice, "cancelled");
+  const isSent = bool(invoice, "sent");
+  const isPaid = bool(invoice, "paid");
   const pdfPath = str(invoice, "pdf_path");
   const tsPath = str(invoice, "timesheet_pdf_path");
   const hasTimesheet = bool(invoice, "has_timesheet");
@@ -769,7 +771,7 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
             </div>
           )}
           <div className="flex flex-wrap items-center gap-1.5">
-            {!isCancelled && pdfPath && (
+            {!isCancelled && !isSent && !isPaid && pdfPath && (
               <button onClick={onSendMail}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors">
                 <Mail size={13} /> {isRem ? "Send Reminder" : "Send Invoice"}
@@ -785,28 +787,28 @@ function InvoiceDetail({ invoice, allInvoices, onToggleSent, onTogglePaid, onTog
   <a
     href={pdfDataUrl ?? ""}
     download={(pdfPath.split(/[\\/]/).pop() ?? "invoice.pdf").replace(/[<>:"/\\|?*]+/g, "_")}
-    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-bg-sidebar text-secondary border border-border-subtle hover:bg-bg-card hover:text-primary transition-colors"
   >
-    <FileText size={13} /> Download Invoice
+    <Share size={13} /> Export Invoice
   </a>
 )}
 {!isCancelled && tsPdfDataUrl && (
   <a
     href={tsPdfDataUrl}
     download={(tsPath.split(/[\\/]/).pop() ?? "timesheet.pdf").replace(/[<>:"/\\|?*]+/g, "_")}
-    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-bg-sidebar text-secondary border border-border-subtle hover:bg-bg-card hover:text-primary transition-colors"
   >
-    <FileText size={13} /> Download Timesheet
+    <Share size={13} /> Export Timesheet
   </a>
 )}
             <div className="flex-1" />
-            {!isCancelled && (
-              <>
-                <ActionBtn label={bool(invoice, "sent") ? "Sent" : "Mark Sent"} icon={<Send size={13} />}
-                  color="#3b82f6" active={bool(invoice, "sent")} onClick={onToggleSent} />
-                <ActionBtn label={bool(invoice, "paid") ? "Paid" : "Mark Paid"} icon={<CheckCircle size={13} />}
-                  color="#22c55e" active={bool(invoice, "paid")} onClick={onTogglePaid} />
-              </>
+            {!isCancelled && !isPaid && (
+              <ActionBtn label={isSent ? "Sent" : "Mark Sent"} icon={<Send size={13} />}
+                color="#3b82f6" active={isSent} onClick={onToggleSent} />
+            )}
+            {!isCancelled && isSent && (
+              <ActionBtn label={isPaid ? "Paid" : "Mark Paid"} icon={<CheckCircle size={13} />}
+                color="#22c55e" active={isPaid} onClick={onTogglePaid} />
             )}
             <ActionBtn label={isCancelled ? "Restore" : "Cancel"} icon={<XCircle size={13} />}
               color="#f97316" active={isCancelled} onClick={onToggleCancelled} />
