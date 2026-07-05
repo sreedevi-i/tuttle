@@ -863,18 +863,28 @@ def _map_document_extraction(
 
 def _map_invoices(invoices: list) -> List[Dict[str, Any]]:
     """Map extracted invoice objects to dicts for the frontend."""
+    from .model import normalize_vat_rate
+
     results = []
     for inv in invoices:
         d = inv.model_dump()
         for k in list(d):
             if k.endswith("_date"):
                 d[k] = _serialise_date(d[k])
-        # Serialise nested items' dates
         items = d.get("items", [])
         for item in items:
             for k in list(item):
                 if k.endswith("_date"):
                     item[k] = _serialise_date(item[k])
+            vat = item.get("VAT_rate")
+            if vat is not None:
+                try:
+                    item["VAT_rate"] = float(normalize_vat_rate(vat))
+                except ValueError as e:
+                    logger.warning(
+                        f"LLM extraction returned invalid invoice item VAT rate {vat!r}: {e}"
+                    )
+                    item["VAT_rate"] = None
         if _has_content(d, ignore={"ref", "items"}):
             results.append(d)
         elif items and any(_has_content(i) for i in items):
