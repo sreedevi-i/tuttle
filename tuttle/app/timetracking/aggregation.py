@@ -28,7 +28,7 @@ def df_to_records(df: DataFrame, tag_to_workday: Optional[dict] = None) -> list:
     if df is None or df.empty:
         return []
     tag_to_workday = tag_to_workday or {}
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
     records = []
     for idx, row in df.iterrows():
         begin = idx
@@ -41,6 +41,15 @@ def df_to_records(df: DataFrame, tag_to_workday: Optional[dict] = None) -> list:
         tag = str(row.get("tag", ""))
         workday = tag_to_workday.get(tag, DEFAULT_WORKDAY_HOURS)
         dur_hours = event_hours(row, workday)
+        if begin_dt is not None:
+            cmp_dt = (
+                begin_dt
+                if begin_dt.tzinfo
+                else begin_dt.replace(tzinfo=datetime.timezone.utc)
+            )
+            is_future = cmp_dt >= now
+        else:
+            is_future = False
         records.append(
             {
                 "begin": str(begin),
@@ -51,7 +60,7 @@ def df_to_records(df: DataFrame, tag_to_workday: Optional[dict] = None) -> list:
                 "description": str(row.get("description", "") or ""),
                 "all_day": bool(row.get("all_day", False)),
                 "date": str(begin)[:10],
-                "is_future": begin_dt >= now if begin_dt else False,
+                "is_future": is_future,
             }
         )
     return records
@@ -122,8 +131,11 @@ def build_calendar_data(
 
     total_hours = total_event_hours(month_df, tag_to_workday) if len(month_df) else 0
 
-    today = datetime.date.today()
-    future_mask = month_df.index.date >= today
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if hasattr(month_df.index, "tz") and month_df.index.tz is not None:
+        future_mask = month_df.index >= now
+    else:
+        future_mask = month_df.index >= now.replace(tzinfo=None)
     future_df = month_df[future_mask]
     planned_hours = (
         total_event_hours(future_df, tag_to_workday) if len(future_df) else 0

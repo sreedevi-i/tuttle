@@ -260,7 +260,7 @@ export function TimeTrackingView() {
           ) : (
             <>
               {/* Re-import strip — shows only the active source */}
-              {calendarSource === "ics" && (
+              {calData && calendarSource === "ics" && (
                 <div
                   className={`mx-5 mt-4 flex items-center gap-3 rounded-lg border border-dashed p-2.5 transition-colors ${dragOver ? "border-accent bg-accent/10" : "border-border-subtle"}`}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -276,6 +276,7 @@ export function TimeTrackingView() {
               )}
 
               {/* Month navigation + grid */}
+              {calData && (
               <div className="px-5 pt-4 pb-4">
                 <div className="flex items-center gap-3 mb-4">
                   <button onClick={prevMonth} className="p-1.5 rounded-md hover:bg-bg-hover text-primary"><ChevronLeft size={18} /></button>
@@ -313,9 +314,10 @@ export function TimeTrackingView() {
                   onSelectDay={setSelectedDay}
                 />
               </div>
+              )}
 
               {/* Day detail */}
-              {selectedDay && (
+              {selectedDay && calData && (
                 <DayDetail
                   day={selectedDay}
                   events={dayEvents}
