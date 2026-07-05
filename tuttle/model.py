@@ -31,6 +31,7 @@ import pandas
 import sqlalchemy
 
 from pydantic import BaseModel, condecimal, validator
+from sqlalchemy.orm import validates
 from sqlmodel import SQLModel, Field, Relationship
 
 
@@ -601,9 +602,9 @@ class Contract(RpcMixin, SQLModel, table=True):
                 raise ValueError("A time-based contract needs a rate.")
             self.fixed_price = None
 
-    # NOTE: VAT_rate normalisation lives in ``ContractsIntent._validated_save``
-    # and ``normalize_vat_rate`` is used on every ingress (LLM mapping,
-    # manual scripts).
+    @validates("VAT_rate")
+    def _normalize_vat_rate(self, _key, value):
+        return normalize_vat_rate(value)
 
 
 class Project(RpcMixin, SQLModel, table=True):
@@ -1113,6 +1114,10 @@ class InvoiceItem(RpcMixin, SQLModel, table=True):
     @property
     def unit_price_formatted(self) -> str:
         return fmt_currency(self.unit_price)
+
+    @validates("VAT_rate")
+    def _normalize_vat_rate(self, _key, value):
+        return normalize_vat_rate(value)
 
     @property
     def VAT(self) -> Decimal:

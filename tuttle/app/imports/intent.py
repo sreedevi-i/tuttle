@@ -13,7 +13,16 @@ from loguru import logger
 from ..core.abstractions import SQLModelDataSourceMixin
 from ..core.intent_result import IntentResult
 from ...data_dir import get_data_dir
-from ...model import Address, Contact, Client, Contract, Project, Invoice, InvoiceItem
+from ...model import (
+    Address,
+    Contact,
+    Client,
+    Contract,
+    Project,
+    Invoice,
+    InvoiceItem,
+    normalize_vat_rate,
+)
 from ...time import ContractType
 
 
@@ -233,6 +242,33 @@ def _validate_import_data(data: dict) -> List[str]:
                     f'Invoice "{inv_label}" item #{idx}: missing {", ".join(missing)}'
                 )
 
+            # Plausibility: VAT rate must be a valid fraction
+            vat = fields.get("VAT_rate")
+            if vat is not None:
+                try:
+                    normalized = normalize_vat_rate(vat)
+                    if normalized > Decimal("0.30"):
+                        errors.append(
+                            f'Invoice "{inv_label}" item #{idx}: '
+                            f"VAT rate {float(normalized):.0%} seems implausibly high"
+                        )
+                except ValueError as e:
+                    errors.append(
+                        f'Invoice "{inv_label}" item #{idx}: invalid VAT rate — {e}'
+                    )
+
+            # Plausibility: unit_price and quantity must be positive
+            unit_price = fields.get("unit_price")
+            if unit_price is not None and Decimal(str(unit_price)) < 0:
+                errors.append(
+                    f'Invoice "{inv_label}" item #{idx}: unit price is negative'
+                )
+            qty = fields.get("quantity")
+            if qty is not None and float(qty) <= 0:
+                errors.append(
+                    f'Invoice "{inv_label}" item #{idx}: quantity must be positive'
+                )
+
     return errors
 
 
@@ -447,10 +483,12 @@ def _save_invoice(
     session.add(invoice)
     session.flush()
 
-    # Create line items
     for li_data in line_items_data:
         li_fields = _model_fields(li_data, InvoiceItem)
         li_fields["invoice_id"] = invoice.id
+        vat = li_fields.get("VAT_rate")
+        if vat is not None:
+            li_fields["VAT_rate"] = normalize_vat_rate(vat)
         line_item = InvoiceItem(**li_fields)
         session.add(line_item)
 
