@@ -4,7 +4,7 @@ __authors__ = [
     "Christian Staudt",
     "Vladimir Peter",
 ]
-__version__ = "3.13.0"
+__version__ = "3.13.1"
 
 try:
     from . import app  # noqa: F401
