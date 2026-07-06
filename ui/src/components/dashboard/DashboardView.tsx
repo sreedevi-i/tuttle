@@ -115,19 +115,19 @@ export function DashboardView() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KPICard title="Revenue (YTD)" value={str(kpis, "total_revenue_ytd_formatted")} icon={TrendingUp}
-          valueColor={num(kpis, "total_revenue_ytd") > 0 ? "var(--color-status-success)" : undefined} />
+          valueColor={num(kpis, "total_revenue_ytd") > 0 ? "var(--color-status-success)" : undefined} tooltip="Total revenue received from paid invoices during the current calendar year." />
         <KPICard title="Outstanding" value={str(kpis, "outstanding_amount_formatted")} icon={Wallet}
-          valueColor={num(kpis, "outstanding_amount") > 0 ? "var(--color-status-warning)" : undefined} />
+          valueColor={num(kpis, "outstanding_amount") > 0 ? "var(--color-status-warning)" : undefined} tooltip="Total amount from invoices that have been issued but not yet paid."/>
         <KPICard title="Overdue" value={str(kpis, "overdue_amount_formatted")} icon={AlertTriangle}
-          valueColor={num(kpis, "overdue_amount") > 0 ? "var(--color-status-danger)" : undefined} />
+          valueColor={num(kpis, "overdue_amount") > 0 ? "var(--color-status-danger)" : undefined} tooltip="Outstanding invoices whose payment due date has already passed."/>
         <KPICard title="Eff. Hourly Rate" value={str(kpis, "effective_hourly_rate_formatted")} icon={Gauge}
-          valueColor="var(--color-status-info)" />
-        <KPICard title="Active Projects" value={String(int(kpis, "active_projects"))} icon={FolderKanban} />
-        <KPICard title="Active Contracts" value={String(int(kpis, "active_contracts"))} icon={FileSignature} />
+          valueColor="var(--color-status-info)" tooltip="Average revenue per tracked work hour based on paid invoices."/>
+        <KPICard title="Active Projects" value={String(int(kpis, "active_projects"))} icon={FolderKanban} tooltip="Number of projects that currently have at least one active contract."/>
+        <KPICard title="Active Contracts" value={String(int(kpis, "active_contracts"))} icon={FileSignature} tooltip="Number of contracts that are currently active and generating work or invoices."/>
         <KPICard title="Unpaid Invoices" value={String(int(kpis, "unpaid_invoices"))} icon={FileText}
-          valueColor={int(kpis, "unpaid_invoices") > 0 ? "var(--color-status-warning)" : undefined} />
+          valueColor={int(kpis, "unpaid_invoices") > 0 ? "var(--color-status-warning)" : undefined} tooltip="Number of invoices that have been issued but have not yet been paid." />
         <KPICard title="Spendable Income" value={str(kpis, "spendable_income_formatted")} icon={Wallet}
-          valueColor={num(kpis, "spendable_income") > 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} />
+          valueColor={num(kpis, "spendable_income") > 0 ? "var(--color-status-success)" : "var(--color-status-danger)"} tooltip="Estimated income remaining after setting aside VAT and income tax reserves."/>
       </div>
 
       {revenueBars.length > 0 && (
