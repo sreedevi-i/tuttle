@@ -296,6 +296,99 @@ class TestInvoiceImport:
         result = intent.commit_import(data)
         assert result.was_intent_successful
 
+    def test_vat_rate_percent_normalized_on_save(self, in_memory_db):
+        """VAT_rate given as percent (e.g. 19) is normalized to 0.19 in the DB."""
+        intent = ImportsIntent()
+        data = {
+            "contacts": [],
+            "clients": [],
+            "contracts": [],
+            "projects": [],
+            "invoices": [
+                {
+                    "ref": "inv_1",
+                    "number": "VAT-PCT-001",
+                    "date": "2024-06-01",
+                    "contract_ref": "",
+                    "project_ref": "",
+                    "items": [
+                        {
+                            "description": "Consulting",
+                            "quantity": 10.0,
+                            "unit": "hour",
+                            "unit_price": 100.0,
+                            "VAT_rate": 19,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        result = intent.commit_import(data)
+        assert result.was_intent_successful
+
+        with Session(in_memory_db) as session:
+            item = session.exec(select(InvoiceItem)).one()
+            assert item.VAT_rate == Decimal("0.19")
+            assert item.subtotal == Decimal("1000")
+            assert item.VAT == Decimal("190.0")
+
+    def test_validation_catches_implausible_vat_rate(self, in_memory_db):
+        """A VAT rate above 30% triggers a plausibility warning."""
+        from tuttle.app.imports.intent import _validate_import_data
+
+        data = {
+            "contacts": [],
+            "clients": [],
+            "contracts": [],
+            "projects": [],
+            "invoices": [
+                {
+                    "number": "BAD-VAT",
+                    "date": "2024-01-01",
+                    "items": [
+                        {
+                            "description": "Item",
+                            "quantity": 1.0,
+                            "unit": "hour",
+                            "unit_price": 100.0,
+                            "VAT_rate": 0.50,
+                        }
+                    ],
+                }
+            ],
+        }
+        errors = _validate_import_data(data)
+        assert any("implausibly high" in e for e in errors)
+
+    def test_validation_catches_negative_unit_price(self, in_memory_db):
+        """Negative unit price is flagged."""
+        from tuttle.app.imports.intent import _validate_import_data
+
+        data = {
+            "contacts": [],
+            "clients": [],
+            "contracts": [],
+            "projects": [],
+            "invoices": [
+                {
+                    "number": "NEG-001",
+                    "date": "2024-01-01",
+                    "items": [
+                        {
+                            "description": "Credit?",
+                            "quantity": 1.0,
+                            "unit": "piece",
+                            "unit_price": -50.0,
+                            "VAT_rate": 0.19,
+                        }
+                    ],
+                }
+            ],
+        }
+        errors = _validate_import_data(data)
+        assert any("negative" in e for e in errors)
+
 
 class TestClientAddressImport:
     """Regression guard: client address extraction must persist an Address row."""
@@ -515,6 +608,29 @@ class TestLlmInvoiceSchema:
         assert len(result[0]["items"]) == 1
         assert result[0]["items"][0]["quantity"] == 10.0
         assert result[0]["items"][0]["start_date"] == "2024-06-01"
+
+    def test_map_invoices_normalizes_vat_rate_percent(self):
+        """LLM returning VAT_rate as percent (e.g. 19) must be normalized to fraction."""
+        from tuttle.llm import _map_invoices, _RefInvoice, _RefInvoiceItem
+
+        inv = _RefInvoice(
+            ref="inv_1",
+            number="PCT-001",
+            date=datetime.date(2024, 1, 1),
+            items=[
+                _RefInvoiceItem(
+                    quantity=1.0,
+                    unit="hour",
+                    unit_price=100.0,
+                    description="Work",
+                    VAT_rate=19,
+                )
+            ],
+        )
+
+        result = _map_invoices([inv])
+        vat = result[0]["items"][0]["VAT_rate"]
+        assert abs(vat - 0.19) < 1e-6, f"Expected 0.19, got {vat}"
 
     def test_summary_prompt_includes_invoices(self):
         """Verify the generated summary prompt mentions invoices."""

@@ -1,10 +1,6 @@
 """Top-level package for tuttle."""
 
-__authors__ = [
-    "Christian Staudt",
-    "Vladimir Peter",
-]
-__version__ = "3.13.0"
+__version__ = "3.13.2"
 
 try:
     from . import app  # noqa: F401
