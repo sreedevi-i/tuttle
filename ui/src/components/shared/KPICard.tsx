@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {Info} from "lucide-react";
+import { Info } from "lucide-react";
 type Props = {
   title: string;
   value: string;
@@ -18,39 +18,49 @@ export function KPICard({ title, value, icon: Icon, valueColor, tooltip }: Props
         </div>
         {tooltip && (
           <div className="relative group">
-            <Info
-              size={14}
-              strokeWidth={1.8}
-              className="cursor-help text-tertiary"
-            />
+                  <button
+                  type="button"
+                  aria-label={`More information about ${title}`}
+                  aria-describedby={`tooltip-${title}`}
+                  className="cursor-help text-tertiary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                  <Info
+                    size={14}
+                    strokeWidth={1.8}
+                  />
+                  </button>
 
-            <div
-              className="
-                  absolute
-                  bottom-full
-                  right-0
-                  mb-2
-                  z-50
-                  w-56
-                  rounded-md
-                  border
-                  border-border-subtle
-                  bg-bg-card
-                  p-3
-                  text-xs
-                  text-primary
-                  shadow-lg
-                  whitespace-normal
-                  opacity-0
-                  invisible
-                  transition-all
-                  duration-150
-                  group-hover:opacity-100
-                  group-hover:visible
-                  "
-            >
-              {tooltip}
-            </div>
+          <div
+            id={`tooltip-${title}`}
+            role="tooltip"
+            className="
+              absolute
+              bottom-full
+              right-0
+              mb-2
+              z-50
+              w-56
+              rounded-md
+              border
+              border-border-subtle
+              bg-bg-card
+              p-3
+              text-xs
+              text-primary
+              shadow-lg
+              whitespace-normal
+              opacity-0
+              invisible
+              transition-all
+              duration-150
+              group-hover:opacity-100
+              group-hover:visible
+              group-focus-within:opacity-100
+              group-focus-within:visible
+            "
+          >
+            {tooltip}
+          </div>
           </div>
         )}
       </div>

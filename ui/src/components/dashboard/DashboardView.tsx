@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   TrendingUp, Wallet, AlertTriangle, Gauge, FolderKanban,
-  FileSignature, FileText, BarChart3, Info,
+  FileSignature, FileText, BarChart3,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, int } from "../../api/entity";
