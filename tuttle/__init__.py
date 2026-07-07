@@ -1,6 +1,6 @@
 """Top-level package for tuttle."""
 
-__version__ = "3.13.2"
+__version__ = "3.14.0"
 
 try:
     from . import app  # noqa: F401
