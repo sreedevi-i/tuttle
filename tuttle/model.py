@@ -1195,3 +1195,20 @@ class RecurringExpense(SQLModel, table=True):
         default="operating",
         description="Category tag: 'insurance', 'operating', 'professional', 'other'.",
     )
+
+
+class Task(RpcMixin, SQLModel, table=True):
+    """A user-facing action item (tutorial step or business task)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(
+        description="Idempotency key, e.g. 'tutorial:first_contact'",
+        sa_column_kwargs={"unique": True},
+    )
+    title: str
+    description: Optional[str] = Field(default=None)
+    status: str = Field(
+        default="pending",
+        description="pending | done | dismissed",
+    )
+    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
