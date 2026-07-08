@@ -65,18 +65,21 @@ export function ContactsView() {
 
   async function handleSave(data: ContactFormData) {
     setSaveError(null);
+    const hasAddress = data.street || data.number || data.city || data.postalCode || data.country;
     const contact: Record<string, unknown> = {
       first_name: data.firstName,
       last_name: data.lastName,
       email: data.email,
-      address: {
+    };
+    if (hasAddress) {
+      contact.address = {
         street: data.street,
         number: data.number,
         city: data.city,
         postal_code: data.postalCode,
         country: data.country,
-      },
-    };
+      };
+    }
     if (mode === "edit" && selected) {
       contact.id = selected.id;
       const addr = subEntity(selected, "address");
