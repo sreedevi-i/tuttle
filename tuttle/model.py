@@ -246,8 +246,8 @@ class Contact(RpcMixin, SQLModel, table=True):
     __rpc_relationships__ = ("address",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    first_name: Optional[str] = Field(default=None, description="First / given name")
-    last_name: Optional[str] = Field(default=None, description="Last / family name")
+    first_name: str = Field(description="First / given name")
+    last_name: str = Field(description="Last / family name")
     company: Optional[str] = Field(
         default=None, description="Company or organisation name"
     )

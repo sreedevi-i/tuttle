@@ -8,6 +8,7 @@ import { str, num, entity as subEntity, fullName, initials, displayName } from "
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { EditableClientContactRole } from "../shared/EditableClientContactRole";
 import { EmptyStateIntro } from "../shared/EmptyStateIntro";
+import { useFieldRequirements } from "../../hooks/useFieldRequirements";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -462,6 +463,7 @@ function ContactForm({ contact, clients, onSave, onCancel, error }: {
   onSave: (data: ContactFormData) => void; onCancel: () => void;
   error?: string | null;
 }) {
+  const { isRequired } = useFieldRequirements("contacts");
   const [form, setForm] = useState<ContactFormData>(() => formDataFromEntity(contact));
   const [saving, setSaving] = useState(false);
   const isNew = !contact;
@@ -530,8 +532,8 @@ function ContactForm({ contact, clients, onSave, onCancel, error }: {
 
       <Section title="Name">
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="First Name" value={form.firstName} onChange={(v) => update("firstName", v)} autoFocus required />
-          <FormField label="Last Name" value={form.lastName} onChange={(v) => update("lastName", v)} required />
+          <FormField label="First Name" value={form.firstName} onChange={(v) => update("firstName", v)} autoFocus required={isRequired("first_name")} />
+          <FormField label="Last Name" value={form.lastName} onChange={(v) => update("lastName", v)} required={isRequired("last_name")} />
         </div>
       </Section>
 

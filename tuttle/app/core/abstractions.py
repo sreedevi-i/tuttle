@@ -493,6 +493,28 @@ class CrudIntent(SQLModelDataSourceMixin, Intent):
 
         return self._validated_save(entity)
 
+    def get_field_requirements(self) -> IntentResult:
+        """Return field metadata derived from the model schema.
+
+        The model class is the single source of truth for which fields are
+        required.  This RPC endpoint exposes that information to the frontend
+        so forms can render indicators without manual duplication.
+        """
+        fields = {}
+        for name, field_info in self.entity_type.model_fields.items():
+            if name == "id" or name.endswith("_id"):
+                continue
+            annotation = field_info.annotation
+            origin = getattr(annotation, "__origin__", None)
+            if origin is list:
+                continue
+            label = field_info.description or name.replace("_", " ").title()
+            fields[name] = {
+                "required": field_info.is_required(),
+                "label": label,
+            }
+        return IntentResult(was_intent_successful=True, data=fields)
+
     def _validated_save(self, entity) -> IntentResult:
         """Hook for subclasses to add domain validation before saving."""
         return self.save(entity)
