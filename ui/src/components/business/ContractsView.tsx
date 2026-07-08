@@ -88,7 +88,7 @@ export function ContractsView() {
       VAT_rate: data.vatRate,
       signature_date: data.signatureDate,
       start_date: data.startDate,
-      end_date: data.endDate || "",
+      end_date: data.endDate || null,
       term_of_payment: data.termOfPayment || null,
       units_per_workday: data.unitsPerWorkday,
     };
@@ -492,6 +492,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
     } else {
       if (!form.rate || form.rate <= 0) { setValidationError("Rate is required"); return; }
     }
+    if (!form.startDate) { setValidationError("Start date is required"); return; }
     if (form.endDate && form.startDate && form.endDate < form.startDate) {
       setValidationError("End date must be on or after start date"); return;
     }
@@ -624,7 +625,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
             <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">End Date</label>
+            <label className="block text-xs text-tertiary mb-1">End Date <span className="text-muted">(optional)</span></label>
             <input type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} className={inputCls} />
           </div>
         </div>

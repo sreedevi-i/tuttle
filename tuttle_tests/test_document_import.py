@@ -274,7 +274,6 @@ class TestInvoiceImport:
         # Project missing fields (labels derived from model field names)
         assert "description" in msg
         assert "tag" in msg
-        assert "end date" in msg
 
     def test_validation_skips_existing_entities(self, in_memory_db):
         """Entities with existing_id skip validation (they're link-only)."""

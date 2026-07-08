@@ -626,7 +626,9 @@ class Project(RpcMixin, SQLModel, table=True):
         sa_column_kwargs={"unique": True},
     )
     start_date: datetime.date = Field(description="Project start date")
-    end_date: datetime.date = Field(description="Project end date")
+    end_date: Optional[datetime.date] = Field(
+        default=None, description="Project end date (None = open-ended)"
+    )
     is_completed: bool = Field(
         default=False, description="marks if the project is completed"
     )

@@ -109,7 +109,7 @@ export function ProjectsView() {
       tag: data.tag,
       description: data.description,
       start_date: data.startDate,
-      end_date: data.endDate,
+      end_date: data.endDate || null,
       contract_id: data.contractId,
     };
     if (mode === "edit" && selected) project.id = selected.id;
@@ -456,6 +456,7 @@ function ProjectForm({ project, contracts, onSave, onCancel, error }: {
     e.preventDefault();
     if (!form.title.trim()) { setValidationError("Title is required"); return; }
     if (!form.tag.match(/^#\S+$/)) { setValidationError("Tag must start with # and contain no spaces"); return; }
+    if (!form.startDate) { setValidationError("Start date is required"); return; }
     setSaving(true);
     await onSave(form);
     setSaving(false);
@@ -503,7 +504,7 @@ function ProjectForm({ project, contracts, onSave, onCancel, error }: {
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">End Date <span className="text-accent">*</span></label>
+            <label className="block text-xs text-tertiary mb-1">End Date <span className="text-muted">(optional)</span></label>
             <input type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)}
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>
