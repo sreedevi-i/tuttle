@@ -164,6 +164,10 @@ READ_ROUTES = [
     "timeline.get_events",
     "imports.get_existing_entities",
     "imports.get_field_metadata",
+    "contacts.get_field_requirements",
+    "clients.get_field_requirements",
+    "projects.get_field_requirements",
+    "contracts.get_field_requirements",
 ]
 
 
@@ -270,7 +274,89 @@ class TestSerialization:
 
 
 # ---------------------------------------------------------------------------
-# 4. Domain packaging integrity
+# 4. Field requirements — model schema exposed to the UI
+# ---------------------------------------------------------------------------
+
+
+class TestFieldRequirements:
+    """get_field_requirements() must reflect the model's required fields."""
+
+    @pytest.mark.parametrize(
+        "domain,required_fields",
+        [
+            ("contacts", {"first_name", "last_name"}),
+            ("clients", {"name"}),
+            ("projects", {"title", "description", "tag", "start_date"}),
+            ("contracts", {"title", "start_date", "currency"}),
+        ],
+    )
+    def test_required_fields_match_model(self, rpc_env, domain, required_fields):
+        data = assert_ok(dispatch(f"{domain}.get_field_requirements", {}))["data"]
+        actual = {name for name, meta in data.items() if meta["required"]}
+        assert actual == required_fields
+
+    def test_optional_address_not_required_for_contact(self, rpc_env):
+        data = assert_ok(dispatch("contacts.get_field_requirements", {}))["data"]
+        for field in ("email", "company"):
+            assert field in data
+            assert data[field]["required"] is False
+
+    def test_project_end_date_not_required(self, rpc_env):
+        data = assert_ok(dispatch("projects.get_field_requirements", {}))["data"]
+        assert "end_date" in data
+        assert data["end_date"]["required"] is False
+
+
+class TestCrudSaveBehavior:
+    """Regression guards for save rules aligned with the model."""
+
+    def test_contact_save_name_only_without_address(self, rpc_env):
+        result = dispatch(
+            "contacts.save",
+            {
+                "contact": {
+                    "first_name": "Archibald",
+                    "last_name": "Tuttle",
+                }
+            },
+        )
+        assert_ok(result)
+        saved = result["data"]
+        assert saved["first_name"] == "Archibald"
+        assert saved["last_name"] == "Tuttle"
+        assert saved.get("address") is None or saved.get("address") == {}
+
+    def test_contact_save_rejects_missing_name(self, rpc_env):
+        result = dispatch(
+            "contacts.save",
+            {"contact": {"first_name": "Solo", "last_name": ""}},
+        )
+        assert result["ok"] is False
+        assert result["error"]
+
+    def test_project_save_without_end_date(self, rpc_env):
+        contracts = assert_ok(dispatch("contracts.get_all", {}))["data"]
+        assert contracts, "Need a contract from demo data"
+        contract_id = contracts[0]["id"]
+        result = dispatch(
+            "projects.save",
+            {
+                "project": {
+                    "title": "Open-ended test project",
+                    "tag": "#openended",
+                    "description": "No end date",
+                    "start_date": "2026-01-01",
+                    "end_date": None,
+                    "contract_id": contract_id,
+                }
+            },
+        )
+        assert_ok(result)
+        assert result["data"]["end_date"] is None
+
+
+# ---------------------------------------------------------------------------
+# 5. Domain packaging integrity
 #
 # The dispatcher resolves "domain.method" by importing tuttle.app.{domain}.intent
 # at runtime (importlib). Two failure modes are invisible to the route tests

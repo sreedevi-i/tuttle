@@ -282,7 +282,7 @@ class TimelineIntent(SQLModelDataSourceMixin, Intent):
                 )
             )
 
-            if p.is_completed:
+            if p.is_completed and p.end_date:
                 events.append(
                     TimelineEvent(
                         date=p.end_date,
