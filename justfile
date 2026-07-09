@@ -213,6 +213,8 @@ release part *flags="":
         base=$({{python}} -m bumpversion show new_version --increment {{part}})
         bump_flags+=(--new-version "${base}${pre}1")
     fi
+    uv sync
+    git add uv.lock
     {{python}} -m bumpversion bump {{part}} ${bump_flags[@]+"${bump_flags[@]}"}
     if [[ "$dry_run" -eq 1 ]]; then exit 0; fi
     tag=$(git describe --tags --abbrev=0)
