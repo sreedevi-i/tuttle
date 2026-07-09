@@ -9,6 +9,7 @@ import functools
 
 import sqlalchemy
 import sqlmodel
+from pydantic import ValidationError
 from sqlmodel import pool
 
 from loguru import logger
@@ -30,6 +31,18 @@ def _coerce_dates(data: dict) -> dict:
                 except ValueError:
                     pass
     return data
+
+
+def _validation_error_message(exc: ValidationError) -> str:
+    parts = []
+    for err in exc.errors():
+        loc = err.get("loc") or ()
+        field = loc[0] if loc else "field"
+        msg = err.get("msg", "invalid value")
+        if msg.startswith("Value error, "):
+            msg = msg.removeprefix("Value error, ")
+        parts.append(f"{field}: {msg}")
+    return "; ".join(parts) or "Validation failed."
 
 
 class DatabaseStorage(ABC):
@@ -465,10 +478,14 @@ class CrudIntent(SQLModelDataSourceMixin, Intent):
                     data[fk] = v["id"]
                     del data[k]
 
-        # Extract declared nested relationship data
-        nested_raw: dict[str, dict] = {}
+        # Extract declared nested relationship data.
+        # A missing key → no change.  An explicit None → clear the relationship.
+        _SENTINEL = object()
+        nested_raw: dict[str, dict | None] = {}
         for field in self.__save_nested__:
-            nested_raw[field] = data.pop(field, None) or {}
+            val = data.pop(field, _SENTINEL)
+            if val is not _SENTINEL:
+                nested_raw[field] = val or None  # treat {} / falsy as None
             data.pop(f"{field}_id", None)
 
         skip = self.__save_skip__ | set(self.__save_nested__)
@@ -489,7 +506,23 @@ class CrudIntent(SQLModelDataSourceMixin, Intent):
             self._apply_nested(entity, nested_raw)
         else:
             children = self._build_nested(nested_raw)
-            entity = self.entity_type(**clean, **children)
+            try:
+                entity = self.entity_type.model_validate({**clean, **children})
+            except ValidationError as exc:
+                return IntentResult(
+                    was_intent_successful=False,
+                    error_msg=_validation_error_message(exc),
+                    exception=exc,
+                )
+
+        try:
+            self.entity_type.model_validate(entity.model_dump())
+        except ValidationError as exc:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg=_validation_error_message(exc),
+                exception=exc,
+            )
 
         return self._validated_save(entity)
 
@@ -522,7 +555,10 @@ class CrudIntent(SQLModelDataSourceMixin, Intent):
     def _apply_nested(self, entity, nested_raw: dict):
         """Update or create nested relationship objects on an existing entity."""
         for field, raw in nested_raw.items():
-            if not raw:
+            if raw is None:
+                # Explicit null → clear the relationship
+                setattr(entity, field, None)
+                setattr(entity, f"{field}_id", None)
                 continue
             model_cls = self.__save_nested__[field]
             existing = getattr(entity, field, None)
@@ -540,6 +576,8 @@ class CrudIntent(SQLModelDataSourceMixin, Intent):
         """Construct nested objects for a new entity."""
         result = {}
         for field, raw in nested_raw.items():
+            if not raw:
+                continue
             model_cls = self.__save_nested__[field]
             clean = {
                 k: v for k, v in raw.items() if k != "id" and not k.startswith("_")

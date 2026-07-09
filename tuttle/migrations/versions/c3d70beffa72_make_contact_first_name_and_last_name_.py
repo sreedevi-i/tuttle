@@ -60,11 +60,17 @@ def upgrade() -> None:
         sa.column("first_name", sa.VARCHAR()),
         sa.column("last_name", sa.VARCHAR()),
     )
+    # Backfill NULLs with "Unknown" rather than "" so existing contacts remain
+    # editable; the new validator rejects empty strings.
     op.execute(
-        contact.update().where(contact.c.first_name.is_(None)).values(first_name="")
+        contact.update()
+        .where(contact.c.first_name.is_(None))
+        .values(first_name="Unknown")
     )
     op.execute(
-        contact.update().where(contact.c.last_name.is_(None)).values(last_name="")
+        contact.update()
+        .where(contact.c.last_name.is_(None))
+        .values(last_name="Unknown")
     )
 
     with op.batch_alter_table("contact", schema=None) as batch_op:

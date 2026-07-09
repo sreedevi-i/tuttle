@@ -8,6 +8,7 @@ import { str, num, entity as subEntity, displayName, fullName } from "../../api/
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { EditableClientContactRole } from "../shared/EditableClientContactRole";
 import { EmptyStateIntro } from "../shared/EmptyStateIntro";
+import { useFieldRequirements } from "../../hooks/useFieldRequirements";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -438,6 +439,7 @@ function ClientForm({ client, contacts, onSave, onCancel, error }: {
   onCancel: () => void;
   error?: string | null;
 }) {
+  const { isRequired } = useFieldRequirements("clients");
   const ic = client ? subEntity(client, "invoicing_contact") : null;
   const addr = client ? subEntity(client, "address") : null;
   const [name, setName] = useState(client ? str(client, "name") : "");
@@ -479,7 +481,7 @@ function ClientForm({ client, contacts, onSave, onCancel, error }: {
       <p className="text-xs text-muted"><span className="text-accent">*</span> Required</p>
 
       <Section title="Client">
-        <FormField label="Name" value={name} onChange={setName} autoFocus required />
+        <FormField label="Name" value={name} onChange={setName} autoFocus required={isRequired("name")} />
         <div className="mt-3">
           <FormField label="VAT Number" value={vatNumber} onChange={setVatNumber} placeholder="e.g. DE123456789" />
         </div>

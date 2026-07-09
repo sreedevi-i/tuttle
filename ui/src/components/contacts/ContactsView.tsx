@@ -72,7 +72,23 @@ export function ContactsView() {
       last_name: data.lastName,
       email: data.email,
     };
-    if (hasAddress) {
+    if (mode === "edit" && selected) {
+      contact.id = selected.id;
+      const addr = subEntity(selected, "address");
+      if (hasAddress) {
+        contact.address = {
+          street: data.street,
+          number: data.number,
+          city: data.city,
+          postal_code: data.postalCode,
+          country: data.country,
+          ...(addr ? { id: addr.id } : {}),
+        };
+      } else if (addr) {
+        // all address fields cleared — signal backend to remove address
+        contact.address = null;
+      }
+    } else if (hasAddress) {
       contact.address = {
         street: data.street,
         number: data.number,
@@ -80,11 +96,6 @@ export function ContactsView() {
         postal_code: data.postalCode,
         country: data.country,
       };
-    }
-    if (mode === "edit" && selected) {
-      contact.id = selected.id;
-      const addr = subEntity(selected, "address");
-      if (addr) contact.address = { ...contact.address as object, id: addr.id };
     }
     const res = await rpc("contacts.save", { contact });
     if (res.ok) {

@@ -13,6 +13,7 @@ import { KanbanBoard, useStageStore, type BoardColumn } from "../shared/KanbanBo
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ToolbarFilterGroup, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { useNavigation } from "../shared/NavigationContext";
 import { EmptyStateIntro } from "../shared/EmptyStateIntro";
+import { useFieldRequirements } from "../../hooks/useFieldRequirements";
 import type { Entity } from "../../api/types";
 
 interface BudgetEntry {
@@ -430,6 +431,7 @@ function ProjectForm({ project, contracts, onSave, onCancel, error }: {
   onCancel: () => void;
   error?: string | null;
 }) {
+  const { isRequired } = useFieldRequirements("projects");
   const existingContract = project ? entity(project, "contract") : null;
   const [form, setForm] = useState<ProjectFormData>(() => {
     if (project) return {
@@ -486,11 +488,11 @@ function ProjectForm({ project, contracts, onSave, onCancel, error }: {
 
       <Section title="Project">
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Title" value={form.title} onChange={(v) => update("title", v)} autoFocus required />
-          <FormField label="Tag" value={form.tag} onChange={(v) => update("tag", v)} required />
+          <FormField label="Title" value={form.title} onChange={(v) => update("title", v)} autoFocus required={isRequired("title")} />
+          <FormField label="Tag" value={form.tag} onChange={(v) => update("tag", v)} required={isRequired("tag")} />
         </div>
         <div className="mt-3">
-          <label className="block text-xs text-tertiary mb-1">Description</label>
+          <label className="block text-xs text-tertiary mb-1">Description{isRequired("description") && <span className="text-accent ml-0.5">*</span>}</label>
           <textarea value={form.description} onChange={(e) => update("description", e.target.value)} rows={3}
             className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors resize-none" />
         </div>
@@ -499,7 +501,7 @@ function ProjectForm({ project, contracts, onSave, onCancel, error }: {
       <Section title="Dates">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-tertiary mb-1">Start Date <span className="text-accent">*</span></label>
+            <label className="block text-xs text-tertiary mb-1">Start Date{isRequired("start_date") && <span className="text-accent ml-0.5">*</span>}</label>
             <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)}
               className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none focus:border-accent transition-colors" />
           </div>

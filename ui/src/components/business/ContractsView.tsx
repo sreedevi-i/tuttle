@@ -10,6 +10,7 @@ import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ToolbarFilterGro
 import { StatusBadge } from "../shared/StatusBadge";
 import { useNavigation } from "../shared/NavigationContext";
 import { EmptyStateIntro } from "../shared/EmptyStateIntro";
+import { useFieldRequirements } from "../../hooks/useFieldRequirements";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -462,6 +463,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       signatureDate: "", startDate: "", endDate: "", termOfPayment: 31, unitsPerWorkday: 8,
     };
   });
+  const { isRequired } = useFieldRequirements("contracts");
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const isNew = !contract;
@@ -528,7 +530,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       <Section title="Basic">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-tertiary mb-1">Title <span className="text-accent">*</span></label>
+            <label className="block text-xs text-tertiary mb-1">Title{isRequired("title") && <span className="text-accent ml-0.5">*</span>}</label>
             <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} autoFocus className={inputCls} />
           </div>
           <div>
@@ -621,7 +623,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
             <input type="date" value={form.signatureDate} onChange={(e) => update("signatureDate", e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">Start Date <span className="text-accent">*</span></label>
+            <label className="block text-xs text-tertiary mb-1">Start Date{isRequired("start_date") && <span className="text-accent ml-0.5">*</span>}</label>
             <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} className={inputCls} />
           </div>
           <div>

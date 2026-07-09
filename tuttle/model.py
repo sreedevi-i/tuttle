@@ -267,9 +267,17 @@ class Contact(RpcMixin, SQLModel, table=True):
     )
 
     # VALIDATORS
+    @validator("first_name", "last_name")
+    def name_not_empty(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("Name is required")
+        return str(v).strip()
+
     @validator("email")
     def email_validator(cls, v):
         """Validate email address format."""
+        if v is None or v == "":
+            return v
         if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
             raise ValueError("Not a valid email address")
         return v
