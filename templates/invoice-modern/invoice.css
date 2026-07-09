@@ -288,6 +288,13 @@ body {
   margin-bottom: 4pt;
 }
 
+.sig-image {
+  max-height: 9mm;
+  max-width: 28mm;
+  display: block;
+  margin-bottom: 2mm;
+}
+
 /* ── Footer ───────────────────────────────────── */
 
 .footer {

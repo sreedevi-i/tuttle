@@ -12,6 +12,7 @@ from .model import (
     DEFAULT_E_INVOICE_PROFILE,
     DEFAULT_INCLUDE_DUE_DATE,
     DEFAULT_INCLUDE_LOGO,
+    DEFAULT_INCLUDE_SIGNATURE,
     DEFAULT_INVOICE_NUMBER_SCHEME,
     DEFAULT_INVOICE_TEMPLATE,
     DEFAULT_THEME_MODE,
@@ -42,6 +43,14 @@ class PreferencesIntent:
         else:
             include_due_date = raw_include_due_date == "true"
 
+        raw_include_signature = self._app_db.get_setting(
+            PreferencesStorageKeys.include_signature_key.value,
+        )
+        if raw_include_signature is None:
+            include_signature = DEFAULT_INCLUDE_SIGNATURE
+        else:
+            include_signature = raw_include_signature == "true"
+
         return IntentResult(
             was_intent_successful=True,
             data={
@@ -67,6 +76,7 @@ class PreferencesIntent:
                 or DEFAULT_E_INVOICE_PROFILE,
                 "include_logo": include_logo,
                 "include_due_date": include_due_date,
+                "include_signature": include_signature,
             },
         )
 
@@ -79,6 +89,7 @@ class PreferencesIntent:
         e_invoice_profile=None,
         include_logo=None,
         include_due_date=None,
+        include_signature=None,
     ) -> IntentResult:
         if theme_mode is not None:
             self._app_db.set_setting(
@@ -114,6 +125,11 @@ class PreferencesIntent:
             self._app_db.set_setting(
                 PreferencesStorageKeys.include_due_date_key.value,
                 "true" if include_due_date else "false",
+            )
+        if include_signature is not None:
+            self._app_db.set_setting(
+                PreferencesStorageKeys.include_signature_key.value,
+                "true" if include_signature else "false",
             )
         return IntentResult(was_intent_successful=True, data=None)
 
@@ -151,6 +167,16 @@ class PreferencesIntent:
         )
         if raw is None:
             include = DEFAULT_INCLUDE_DUE_DATE
+        else:
+            include = raw == "true"
+        return IntentResult(was_intent_successful=True, data=include)
+
+    def get_include_signature(self) -> IntentResult:
+        raw = self._app_db.get_setting(
+            PreferencesStorageKeys.include_signature_key.value,
+        )
+        if raw is None:
+            include = DEFAULT_INCLUDE_SIGNATURE
         else:
             include = raw == "true"
         return IntentResult(was_intent_successful=True, data=include)

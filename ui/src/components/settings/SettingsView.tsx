@@ -45,6 +45,7 @@ interface ProfileForm {
   phone_number: string;
   website: string;
   logo: string;
+  signature: string;
   accent_color: string;
   VAT_number: string;
   operating_country: string;
@@ -60,6 +61,7 @@ interface ProfileForm {
 
 const EMPTY_PROFILE: ProfileForm = {
   name: "", subtitle: "", email: "", phone_number: "", website: "", logo: "",
+  signature: "",
   accent_color: "#2563eb",
   VAT_number: "", operating_country: "Germany",
   street: "", number: "", postal_code: "", city: "", country: "Germany",
@@ -68,6 +70,7 @@ const EMPTY_PROFILE: ProfileForm = {
 
 // Reject logos larger than this before upload; the backend also downscales.
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024;
 
 interface InvoicingPrefs {
   invoice_template: string;
@@ -76,6 +79,7 @@ interface InvoicingPrefs {
   e_invoice_profile: string;
   include_logo: boolean;
   include_due_date: boolean;
+  include_signature: boolean;
 }
 
 const DEFAULT_INVOICING: InvoicingPrefs = {
@@ -85,6 +89,7 @@ const DEFAULT_INVOICING: InvoicingPrefs = {
   e_invoice_profile: "EN16931",
   include_logo: true,
   include_due_date: true,
+  include_signature: true,
 };
 
 const SCHEME_EXAMPLES: Record<string, string> = {
@@ -217,6 +222,7 @@ export function SettingsView() {
           phone_number: str(p, "phone_number"),
           website: str(p, "website"),
           logo: str(p, "logo"),
+          signature: str(p, "signature"),
           accent_color: str(p, "accent_color") || "#2563eb",
           VAT_number: str(p, "VAT_number"),
           operating_country: str(p, "operating_country") || "Germany",
@@ -245,6 +251,7 @@ export function SettingsView() {
         phone_number: profile.phone_number,
         website: profile.website,
         logo: profile.logo,
+        signature: profile.signature,
         accent_color: profile.accent_color,
         VAT_number: profile.VAT_number,
         operating_country: profile.operating_country,
@@ -285,12 +292,17 @@ export function SettingsView() {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setProfile((p) => ({ ...p, [key]: e.target.value }));
   }
 
-  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file
-    if (!file) return;
-    if (file.size > MAX_LOGO_BYTES) {
-      setProfileStatus({ type: "error", msg: "Logo is too large (max 2 MB)." });
+  const [logoDragOver, setLogoDragOver] = useState(false);
+  const [sigDragOver, setSigDragOver] = useState(false);
+
+  async function processImageFile(file: File, field: "logo" | "signature") {
+    const maxBytes = field === "logo" ? MAX_LOGO_BYTES : MAX_SIGNATURE_BYTES;
+    if (!file.type.startsWith("image/")) {
+      setProfileStatus({ type: "error", msg: "File must be an image." });
+      return;
+    }
+    if (file.size > maxBytes) {
+      setProfileStatus({ type: "error", msg: `${field === "logo" ? "Logo" : "Signature"} is too large (max 2 MB).` });
       return;
     }
     const dataUri = await new Promise<string>((resolve, reject) => {
@@ -299,8 +311,32 @@ export function SettingsView() {
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
     });
-    setProfile((p) => ({ ...p, logo: dataUri }));
+    setProfile((p) => ({ ...p, [field]: dataUri }));
     setProfileStatus(null);
+  }
+
+  function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) processImageFile(file, "logo");
+  }
+
+  function handleSignatureFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) processImageFile(file, "signature");
+  }
+
+  function handleLogoDrop(e: React.DragEvent) {
+    e.preventDefault(); setLogoDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processImageFile(file, "logo");
+  }
+
+  function handleSignatureDrop(e: React.DragEvent) {
+    e.preventDefault(); setSigDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processImageFile(file, "signature");
   }
 
   async function handleDeleteUser() {
@@ -341,6 +377,7 @@ export function SettingsView() {
       e_invoice_profile: invoicing.e_invoice_profile,
       include_logo: invoicing.include_logo,
       include_due_date: invoicing.include_due_date,
+      include_signature: invoicing.include_signature,
     });
     if (res.ok) {
       await loadInvoicingPrefs();
@@ -610,7 +647,12 @@ export function SettingsView() {
           <p className="text-sm text-muted">Your visual identity — used on invoices, timesheets, and other documents.</p>
 
           <div className="grid grid-cols-2 gap-6">
-            <fieldset className="border border-border-subtle rounded-lg px-4 pb-4 pt-2">
+            <fieldset
+              className={`border rounded-lg px-4 pb-4 pt-2 transition-colors ${logoDragOver ? "border-accent bg-accent/5" : "border-border-subtle"}`}
+              onDragOver={(e) => { e.preventDefault(); setLogoDragOver(true); }}
+              onDragLeave={() => setLogoDragOver(false)}
+              onDrop={handleLogoDrop}
+            >
               <legend className="text-xs font-medium text-secondary px-1">Logo</legend>
               <div className="flex items-center gap-4 mt-2">
                 <div className="flex items-center justify-center w-16 h-16 shrink-0 rounded-md border border-border-subtle bg-bg-card overflow-hidden">
@@ -638,7 +680,7 @@ export function SettingsView() {
                   )}
                 </div>
               </div>
-              <p className="text-xs text-muted mt-2">PNG or JPG, max 2 MB.</p>
+              <p className="text-xs text-muted mt-2">PNG or JPG, max 2 MB. Drag and drop or click to upload.</p>
             </fieldset>
 
             <fieldset className="border border-border-subtle rounded-lg px-4 pb-4 pt-2">
@@ -655,6 +697,42 @@ export function SettingsView() {
               <p className="text-xs text-muted mt-2">Used for headings, rules, and highlights.</p>
             </fieldset>
           </div>
+
+          <fieldset
+            className={`border rounded-lg px-4 pb-4 pt-2 transition-colors ${sigDragOver ? "border-accent bg-accent/5" : "border-border-subtle"}`}
+            onDragOver={(e) => { e.preventDefault(); setSigDragOver(true); }}
+            onDragLeave={() => setSigDragOver(false)}
+            onDrop={handleSignatureDrop}
+          >
+            <legend className="text-xs font-medium text-secondary px-1">Signature</legend>
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center justify-center w-32 h-16 shrink-0 rounded-md border border-border-subtle bg-white overflow-hidden">
+                {profile.signature ? (
+                  <img src={profile.signature} alt="Signature preview" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <ImageIcon size={18} className="text-muted" />
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-bg-card text-secondary hover:text-primary border border-border-subtle hover:bg-bg-hover transition-colors cursor-pointer w-fit">
+                  <ImageIcon size={13} />
+                  {profile.signature ? "Replace" : "Upload"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleSignatureFile} />
+                </label>
+                {profile.signature && (
+                  <button
+                    type="button"
+                    onClick={() => setProfile((p) => ({ ...p, signature: "" }))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-secondary hover:text-red-400 border border-border-subtle hover:bg-bg-hover transition-colors w-fit"
+                  >
+                    <X size={13} />
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted mt-2">Upload a photo or scan of your signature. The background is removed automatically. Drag and drop supported.</p>
+          </fieldset>
 
           <button
             onClick={handleSaveProfile}
@@ -710,6 +788,17 @@ export function SettingsView() {
             <span className="text-sm text-primary">Include payment due dates</span>
           </label>
           <p className="mt-1 text-xs text-muted mb-3">When enabled, a payment due date based on contract terms appears on generated invoices.</p>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={invoicing.include_signature}
+              onChange={(e) => setInvoicing((p) => ({ ...p, include_signature: e.target.checked }))}
+              className="rounded border-border-subtle text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-primary">Include signature on invoices</span>
+          </label>
+          <p className="mt-1 text-xs text-muted mb-3">When enabled, your uploaded signature appears above your name on generated invoices.</p>
 
           <div>
             <label className={labelCls}>Invoice language</label>

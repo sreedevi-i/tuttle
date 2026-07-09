@@ -375,6 +375,13 @@ class InvoicingIntent(Intent):
                     else True
                 )
 
+                sig_result = self._preferences_intent.get_include_signature()
+                resolved_include_signature = (
+                    sig_result.data
+                    if sig_result.was_intent_successful and sig_result.data is not None
+                    else True
+                )
+
                 try:
                     rendering.render_invoice(
                         user=user,
@@ -386,6 +393,7 @@ class InvoicingIntent(Intent):
                         e_invoice_profile=e_invoice_profile,
                         include_logo=resolved_include_logo,
                         include_due_date=resolved_include_due_date,
+                        include_signature=resolved_include_signature,
                         accent_color=user.accent_color or "",
                     )
                 except Exception as ex:
@@ -521,6 +529,13 @@ class InvoicingIntent(Intent):
                     else True
                 )
 
+                sig_result = self._preferences_intent.get_include_signature()
+                resolved_include_signature = (
+                    sig_result.data
+                    if sig_result.was_intent_successful and sig_result.data is not None
+                    else True
+                )
+
                 try:
                     rendering.render_invoice(
                         user=user,
@@ -531,6 +546,7 @@ class InvoicingIntent(Intent):
                         language=language,
                         include_logo=resolved_include_logo,
                         include_due_date=resolved_include_due_date,
+                        include_signature=resolved_include_signature,
                         accent_color=user.accent_color or "",
                     )
                     self._invoicing_data_source.save_invoice(reminder)

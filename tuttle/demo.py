@@ -618,6 +618,25 @@ def create_historical_invoices(
     return invoices
 
 
+def _load_demo_signature() -> Optional[str]:
+    """Load the demo signature image and process it into a data URI."""
+    import base64
+
+    from .app.users.intent import _normalize_signature
+
+    sig_path = Path(__file__).parent / "demo_assets" / "harry_tuttle_signature.png"
+    if not sig_path.exists():
+        logger.warning(f"Demo signature not found: {sig_path}")
+        return None
+    raw = sig_path.read_bytes()
+    data_uri = "data:image/png;base64," + base64.b64encode(raw).decode()
+    try:
+        return _normalize_signature(data_uri)
+    except Exception as ex:
+        logger.warning(f"Could not process demo signature: {ex}")
+        return None
+
+
 def create_demo_user() -> User:
     user = User(
         name="Harry Tuttle",
@@ -626,6 +645,7 @@ def create_demo_user() -> User:
         email="mail@tuttle.com",
         phone_number="+55555555555",
         VAT_number="27B-6",
+        signature=_load_demo_signature(),
         address=Address(
             street="Main Street",
             number="450",
@@ -778,6 +798,7 @@ def install_demo_data(
                     template_name=invoice_template,
                     only_final=True,
                     language=invoice_language,
+                    include_signature=True,
                 )
             except Exception as ex:
                 logger.warning(f"Could not render demo invoice {inv.number}: {ex}")

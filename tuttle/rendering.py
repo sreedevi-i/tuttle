@@ -154,6 +154,7 @@ def render_invoice(
     e_invoice_profile: Optional[str] = None,
     include_logo: bool = True,
     include_due_date: bool = True,
+    include_signature: bool = True,
     accent_color: Optional[str] = None,
 ):
     """Render an Invoice using an HTML template.
@@ -238,6 +239,7 @@ def render_invoice(
         notes=invoice.notes,
         include_logo=include_logo,
         include_due_date=include_due_date,
+        include_signature=include_signature,
         accent_color=accent_color or "",
     )
     if out_dir is None:

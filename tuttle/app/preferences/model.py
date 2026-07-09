@@ -38,6 +38,8 @@ DEFAULT_INCLUDE_LOGO = True
 
 DEFAULT_INCLUDE_DUE_DATE = True
 
+DEFAULT_INCLUDE_SIGNATURE = True
+
 DEFAULT_THEME_MODE = "system"
 
 
@@ -50,6 +52,7 @@ class Preferences:
     e_invoice_profile: str = DEFAULT_E_INVOICE_PROFILE
     include_logo: bool = DEFAULT_INCLUDE_LOGO
     include_due_date: bool = DEFAULT_INCLUDE_DUE_DATE
+    include_signature: bool = DEFAULT_INCLUDE_SIGNATURE
 
 
 class PreferencesStorageKeys(Enum):
@@ -62,6 +65,7 @@ class PreferencesStorageKeys(Enum):
     e_invoice_profile_key = "preferred_e_invoice_profile"
     include_logo_key = "preferred_include_logo"
     include_due_date_key = "preferred_include_due_date"
+    include_signature_key = "preferred_include_signature"
 
     def __str__(self) -> str:
         return str(self.value)
