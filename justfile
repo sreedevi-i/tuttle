@@ -159,13 +159,8 @@ precommit:
 demo-reset:
     {{python}} -c "from tuttle.app.demo.intent import DemoIntent; DemoIntent().reset(); print('Demo user reset')"
 
-# Wipe all production app data and start fresh
+# Wipe the dev data directory and start fresh
 reset:
-    rm -rf ~/.tuttle
-    @echo "✓ ~/.tuttle removed – next launch will recreate everything from scratch"
-
-# Wipe the dev data directory
-reset-dev:
     rm -rf "${TUTTLE_DATA_DIR:-$HOME/.tuttle-dev}"
     @echo "✓ Dev data removed – next 'just dev' will recreate everything from scratch"
 
