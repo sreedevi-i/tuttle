@@ -29,10 +29,10 @@ const SECTIONS: { label: string; items: SidebarItem[] }[] = [
   {
     label: "My Business",
     items: [
-      { id: "projects", label: "Projects", icon: FolderKanban },
-      { id: "contracts", label: "Contracts", icon: FileSignature },
-      { id: "clients", label: "Clients", icon: Building2 },
       { id: "contacts", label: "Contacts", icon: Users },
+      { id: "clients", label: "Clients", icon: Building2 },
+      { id: "contracts", label: "Contracts", icon: FileSignature },
+      { id: "projects", label: "Projects", icon: FolderKanban },
     ],
   },
   {
