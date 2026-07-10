@@ -266,6 +266,7 @@ class InvoicingIntent(Intent):
                         unit_price=it["unit_price"],
                         description=it.get("description", project.title),
                         VAT_rate=contract.VAT_rate,
+                        VAT_category=contract.VAT_category,
                     )
                     for it in manual_items
                 ]
@@ -288,6 +289,7 @@ class InvoicingIntent(Intent):
                     unit_price=contract.rate,
                     description=project.title,
                     VAT_rate=contract.VAT_rate,
+                    VAT_category=contract.VAT_category,
                 )
                 invoice = Invoice(
                     date=invoice_date,
@@ -323,6 +325,22 @@ class InvoicingIntent(Intent):
                     project=project,
                 )
                 timesheet.invoice = invoice
+
+            for item in invoice.items:
+                item.validate_vat()
+            categories = {item.VAT_category for item in invoice.items}
+            if len(categories) > 1:
+                # EN16931 BR-O-11/12: category O may not be mixed with any other
+                # category. Guarding all mixtures keeps the tax breakdown honest.
+                names = ", ".join(sorted(c.value for c in categories))
+                error_message = (
+                    f"Invoice mixes tax categories ({names}); every item must "
+                    "share one category."
+                )
+                logger.error(error_message)
+                return IntentResult(
+                    was_intent_successful=False, error_msg=error_message
+                )
 
             if notes:
                 invoice.notes = notes.strip() or None
@@ -478,6 +496,7 @@ class InvoicingIntent(Intent):
                     unit_price=item.unit_price,
                     description=item.description,
                     VAT_rate=item.VAT_rate,
+                    VAT_category=item.VAT_category,
                 )
                 for item in root.items
             ]
@@ -599,8 +618,7 @@ class InvoicingIntent(Intent):
                 )
 
             level_label = f"{'2nd ' if invoice.reminder_level == 2 else '3rd ' if invoice.reminder_level >= 3 else ''}reminder"
-            email_body = textwrap.dedent(
-                f"""\
+            email_body = textwrap.dedent(f"""\
 Dear {greeting},
 
 This is a {level_label} regarding the outstanding invoice {invoice.number} for {invoice.project.title}.
@@ -608,8 +626,7 @@ This is a {level_label} regarding the outstanding invoice {invoice.number} for {
 Please find attached the payment reminder.
 
 Best regards,
-{user.name}"""
-            )
+{user.name}""")
             mail.compose_email(
                 to=recipient,
                 subject=f"Payment Reminder: Invoice {invoice.number}",
@@ -661,15 +678,13 @@ Best regards,
                     error_msg="No contact email available for this client.",
                 )
 
-            email_body = textwrap.dedent(
-                f"""\
+            email_body = textwrap.dedent(f"""\
 Dear {greeting},
 
 Please find attached the invoice for {invoice.project.title}.
 
 Best regards,
-{user.name}"""
-            )
+{user.name}""")
             mail.compose_email(
                 to=recipient,
                 subject=f"Invoice {invoice.number}",
