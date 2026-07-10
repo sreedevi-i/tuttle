@@ -21,6 +21,9 @@ from ...db_schema import ensure_schema
 #: being stored as a base64 data URI in the per-user database.
 LOGO_MAX_DIMENSION = 600
 
+#: Signatures are stored at higher resolution for crisp 300 DPI print at ~5 cm.
+SIGNATURE_MAX_DIMENSION = 1200
+
 
 def _normalize_logo(data_uri: str) -> str:
     """Validate, downscale, and re-encode a logo image as a PNG data URI.
@@ -44,6 +47,78 @@ def _normalize_logo(data_uri: str) -> str:
         img.thumbnail((LOGO_MAX_DIMENSION, LOGO_MAX_DIMENSION), PIL.Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
+
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _normalize_signature(data_uri: str) -> str:
+    """Process a signature image: remove background, crop, and encode as PNG data URI.
+
+    Accepts a photo or scan of a hand-written signature on paper. Automatically
+    removes the paper background via soft alpha masking, darkens the ink, crops
+    to the bounding box of the signature strokes, and returns a high-resolution
+    transparent PNG suitable for embedding in documents.
+    """
+    import base64
+    import io
+
+    import numpy as np
+    import PIL.Image
+
+    encoded = data_uri.split(",", 1)[1] if data_uri.startswith("data:") else data_uri
+    raw = base64.b64decode(encoded)
+
+    with PIL.Image.open(io.BytesIO(raw)) as img:
+        img = img.convert("RGBA")
+        arr = np.array(img, dtype=np.float32)
+
+    # Background detection: sample 10px-deep strips from all four corners
+    h, w = arr.shape[:2]
+    margin = min(10, h // 4, w // 4)
+    corners = np.concatenate(
+        [
+            arr[:margin, :margin, :3].reshape(-1, 3),
+            arr[:margin, -margin:, :3].reshape(-1, 3),
+            arr[-margin:, :margin, :3].reshape(-1, 3),
+            arr[-margin:, -margin:, :3].reshape(-1, 3),
+        ]
+    )
+    bg_color = np.median(corners, axis=0)
+
+    # Per-pixel color distance from background
+    rgb = arr[:, :, :3]
+    dist = np.sqrt(np.sum((rgb - bg_color) ** 2, axis=2))
+
+    # Soft alpha: smooth falloff between thresholds
+    low_thresh = 25.0
+    high_thresh = 80.0
+    alpha = np.clip((dist - low_thresh) / (high_thresh - low_thresh), 0.0, 1.0)
+
+    # Darken ink toward black for consistent rendering regardless of lighting
+    ink_alpha_mask = alpha > 0.1
+    if ink_alpha_mask.any():
+        for c in range(3):
+            channel = arr[:, :, c]
+            channel[ink_alpha_mask] = channel[ink_alpha_mask] * 0.2
+            arr[:, :, c] = channel
+
+    arr[:, :, 3] = alpha * 255.0
+
+    # Crop to bounding box of non-transparent pixels
+    opaque_mask = alpha > 0.01
+    rows = np.any(opaque_mask, axis=1)
+    cols = np.any(opaque_mask, axis=0)
+    if rows.any() and cols.any():
+        rmin, rmax = np.where(rows)[0][[0, -1]]
+        cmin, cmax = np.where(cols)[0][[0, -1]]
+        arr = arr[rmin : rmax + 1, cmin : cmax + 1]
+
+    result = PIL.Image.fromarray(arr.astype(np.uint8), "RGBA")
+    result.thumbnail(
+        (SIGNATURE_MAX_DIMENSION, SIGNATURE_MAX_DIMENSION), PIL.Image.LANCZOS
+    )
+    buf = io.BytesIO()
+    result.save(buf, format="PNG")
 
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
@@ -265,6 +340,19 @@ class UsersIntent:
                     return IntentResult(
                         was_intent_successful=False,
                         error_msg=f"Could not process logo image: {ex}",
+                    )
+
+        if "signature" in profile_data:
+            raw_sig = profile_data["signature"]
+            if not raw_sig:
+                profile.signature = None
+            else:
+                try:
+                    profile.signature = _normalize_signature(raw_sig)
+                except Exception as ex:
+                    return IntentResult(
+                        was_intent_successful=False,
+                        error_msg=f"Could not process signature image: {ex}",
                     )
 
         if "accent_color" in profile_data:

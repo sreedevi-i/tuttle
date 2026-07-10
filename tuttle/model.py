@@ -205,6 +205,10 @@ class User(RpcMixin, SQLModel, table=True):
         default=None,
         description="Logo image as a data URI (data:image/...;base64,...), shown on documents.",
     )
+    signature: Optional[str] = Field(
+        default=None,
+        description="Hand-written signature as a data URI (data:image/png;base64,...), shown on documents.",
+    )
     accent_color: Optional[str] = Field(
         default=None,
         description="Hex accent color for branding (e.g. '#C8281E'). Used in invoice templates and other documents.",
