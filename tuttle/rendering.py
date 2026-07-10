@@ -42,6 +42,10 @@ INVOICE_LABELS = {
         "account_holder": "Account",
         "description": "Description",
         "closing": "Thank you for your business.",
+        "outside_scope_note": (
+            "Not subject to German VAT — the place of supply is the recipient's "
+            "country (§ 3a (2) UStG / Art. 44 VAT Directive)."
+        ),
         "reminder": "Payment Reminder",
         "reminder_n": "{n}. Payment Reminder",
         "reminder_fee": "Reminder Fee",
@@ -72,6 +76,10 @@ INVOICE_LABELS = {
         "account_holder": "Konto",
         "description": "Beschreibung",
         "closing": "Vielen Dank für Ihren Auftrag.",
+        "outside_scope_note": (
+            "Nicht steuerbare sonstige Leistung — Leistungsort im Ausland "
+            "gemäß § 3a Abs. 2 UStG / Art. 44 MwStSystRL."
+        ),
         "reminder": "Zahlungserinnerung",
         "reminder_n": "{n}. Mahnung",
         "reminder_fee": "Mahngebühr",
@@ -102,6 +110,10 @@ INVOICE_LABELS = {
         "account_holder": "Titular",
         "description": "Descripción",
         "closing": "Gracias por su confianza.",
+        "outside_scope_note": (
+            "No sujeto al IVA alemán — el lugar de prestación es el país del "
+            "destinatario (art. 44 de la Directiva del IVA)."
+        ),
         "reminder": "Recordatorio de pago",
         "reminder_n": "{n}.º recordatorio de pago",
         "reminder_fee": "Cargo por recordatorio",
