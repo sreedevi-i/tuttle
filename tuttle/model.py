@@ -205,6 +205,10 @@ class User(RpcMixin, SQLModel, table=True):
         default=None,
         description="Logo image as a data URI (data:image/...;base64,...), shown on documents.",
     )
+    signature: Optional[str] = Field(
+        default=None,
+        description="Hand-written signature as a data URI (data:image/png;base64,...), shown on documents.",
+    )
     accent_color: Optional[str] = Field(
         default=None,
         description="Hex accent color for branding (e.g. '#C8281E'). Used in invoice templates and other documents.",
@@ -246,8 +250,8 @@ class Contact(RpcMixin, SQLModel, table=True):
     __rpc_relationships__ = ("address",)
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    first_name: Optional[str] = Field(default=None, description="First / given name")
-    last_name: Optional[str] = Field(default=None, description="Last / family name")
+    first_name: str = Field(description="First / given name")
+    last_name: str = Field(description="Last / family name")
     company: Optional[str] = Field(
         default=None, description="Company or organisation name"
     )
@@ -267,9 +271,17 @@ class Contact(RpcMixin, SQLModel, table=True):
     )
 
     # VALIDATORS
+    @validator("first_name", "last_name")
+    def name_not_empty(cls, v):
+        if not v or not str(v).strip():
+            raise ValueError("Name is required")
+        return str(v).strip()
+
     @validator("email")
     def email_validator(cls, v):
         """Validate email address format."""
+        if v is None or v == "":
+            return v
         if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
             raise ValueError("Not a valid email address")
         return v
@@ -626,7 +638,9 @@ class Project(RpcMixin, SQLModel, table=True):
         sa_column_kwargs={"unique": True},
     )
     start_date: datetime.date = Field(description="Project start date")
-    end_date: datetime.date = Field(description="Project end date")
+    end_date: Optional[datetime.date] = Field(
+        default=None, description="Project end date (None = open-ended)"
+    )
     is_completed: bool = Field(
         default=False, description="marks if the project is completed"
     )

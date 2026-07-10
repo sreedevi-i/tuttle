@@ -10,6 +10,7 @@ import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ToolbarFilterGro
 import { StatusBadge } from "../shared/StatusBadge";
 import { useNavigation } from "../shared/NavigationContext";
 import { EmptyStateIntro } from "../shared/EmptyStateIntro";
+import { useFieldRequirements } from "../../hooks/useFieldRequirements";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -88,7 +89,7 @@ export function ContractsView() {
       VAT_rate: data.vatRate,
       signature_date: data.signatureDate,
       start_date: data.startDate,
-      end_date: data.endDate || "",
+      end_date: data.endDate || null,
       term_of_payment: data.termOfPayment || null,
       units_per_workday: data.unitsPerWorkday,
     };
@@ -462,6 +463,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       signatureDate: "", startDate: "", endDate: "", termOfPayment: 31, unitsPerWorkday: 8,
     };
   });
+  const { isRequired } = useFieldRequirements("contracts");
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const isNew = !contract;
@@ -492,6 +494,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
     } else {
       if (!form.rate || form.rate <= 0) { setValidationError("Rate is required"); return; }
     }
+    if (!form.startDate) { setValidationError("Start date is required"); return; }
     if (form.endDate && form.startDate && form.endDate < form.startDate) {
       setValidationError("End date must be on or after start date"); return;
     }
@@ -527,7 +530,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
       <Section title="Basic">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="block text-xs text-tertiary mb-1">Title <span className="text-accent">*</span></label>
+            <label className="block text-xs text-tertiary mb-1">Title{isRequired("title") && <span className="text-accent ml-0.5">*</span>}</label>
             <input type="text" value={form.title} onChange={(e) => update("title", e.target.value)} autoFocus className={inputCls} />
           </div>
           <div>
@@ -620,11 +623,11 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
             <input type="date" value={form.signatureDate} onChange={(e) => update("signatureDate", e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">Start Date <span className="text-accent">*</span></label>
+            <label className="block text-xs text-tertiary mb-1">Start Date{isRequired("start_date") && <span className="text-accent ml-0.5">*</span>}</label>
             <input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-tertiary mb-1">End Date</label>
+            <label className="block text-xs text-tertiary mb-1">End Date <span className="text-muted">(optional)</span></label>
             <input type="date" value={form.endDate} onChange={(e) => update("endDate", e.target.value)} className={inputCls} />
           </div>
         </div>

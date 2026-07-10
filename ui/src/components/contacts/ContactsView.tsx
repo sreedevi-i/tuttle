@@ -8,6 +8,7 @@ import { str, num, entity as subEntity, fullName, initials, displayName } from "
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { EditableClientContactRole } from "../shared/EditableClientContactRole";
 import { EmptyStateIntro } from "../shared/EmptyStateIntro";
+import { useFieldRequirements } from "../../hooks/useFieldRequirements";
 import type { Entity } from "../../api/types";
 
 type Mode = "view" | "edit" | "create" | "import";
@@ -22,6 +23,7 @@ export function ContactsView() {
   const [parsedContacts, setParsedContacts] = useState<ParsedContact[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const selectedIdRef = useRef<number | null>(null);
 
   useEffect(() => { selectedIdRef.current = selected?.id ?? null; }, [selected]);
@@ -63,27 +65,45 @@ export function ContactsView() {
   }
 
   async function handleSave(data: ContactFormData) {
+    setSaveError(null);
+    const hasAddress = data.street || data.number || data.city || data.postalCode || data.country;
     const contact: Record<string, unknown> = {
       first_name: data.firstName,
       last_name: data.lastName,
       email: data.email,
-      address: {
+    };
+    if (mode === "edit" && selected) {
+      contact.id = selected.id;
+      const addr = subEntity(selected, "address");
+      if (hasAddress) {
+        contact.address = {
+          street: data.street,
+          number: data.number,
+          city: data.city,
+          postal_code: data.postalCode,
+          country: data.country,
+          ...(addr ? { id: addr.id } : {}),
+        };
+      } else if (addr) {
+        // all address fields cleared — signal backend to remove address
+        contact.address = null;
+      }
+    } else if (hasAddress) {
+      contact.address = {
         street: data.street,
         number: data.number,
         city: data.city,
         postal_code: data.postalCode,
         country: data.country,
-      },
-    };
-    if (mode === "edit" && selected) {
-      contact.id = selected.id;
-      const addr = subEntity(selected, "address");
-      if (addr) contact.address = { ...contact.address as object, id: addr.id };
+      };
     }
     const res = await rpc("contacts.save", { contact });
     if (res.ok) {
+      setSaveError(null);
       setMode("view");
       await load();
+    } else {
+      setSaveError(res.error || "Failed to save contact.");
     }
   }
 
@@ -205,10 +225,10 @@ export function ContactsView() {
               onClose={() => setMode("view")}
             />
           ) : mode === "create" ? (
-            <ContactForm clients={clients} onSave={handleSave} onCancel={() => { setMode("view"); }} />
+            <ContactForm clients={clients} onSave={handleSave} onCancel={() => { setMode("view"); }} error={saveError} />
           ) : mode === "edit" && selected ? (
             <ContactForm contact={selected} clients={clients} onSave={handleSave}
-              onCancel={() => setMode("view")} />
+              onCancel={() => setMode("view")} error={saveError} />
           ) : selected ? (
             <ContactDetail contact={selected} clients={clients}
               onEdit={() => setMode("edit")}
@@ -449,10 +469,12 @@ function formDataFromEntity(contact?: Entity): ContactFormData {
   };
 }
 
-function ContactForm({ contact, clients, onSave, onCancel }: {
+function ContactForm({ contact, clients, onSave, onCancel, error }: {
   contact?: Entity; clients: Record<string, Entity>;
   onSave: (data: ContactFormData) => void; onCancel: () => void;
+  error?: string | null;
 }) {
+  const { isRequired } = useFieldRequirements("contacts");
   const [form, setForm] = useState<ContactFormData>(() => formDataFromEntity(contact));
   const [saving, setSaving] = useState(false);
   const isNew = !contact;
@@ -497,7 +519,7 @@ function ContactForm({ contact, clients, onSave, onCancel }: {
     setSaving(false);
   }
 
-  const hasName = form.firstName.trim() || form.lastName.trim();
+  const hasName = form.firstName.trim() && form.lastName.trim();
   const clientList = Object.values(clients);
   const linkedClientIds = new Set(assocs.map((a) => num(a, "client_id")));
 
@@ -517,10 +539,12 @@ function ContactForm({ contact, clients, onSave, onCancel }: {
         </div>
       </div>
 
+      <p className="text-xs text-muted"><span className="text-accent">*</span> Required</p>
+
       <Section title="Name">
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="First Name" value={form.firstName} onChange={(v) => update("firstName", v)} autoFocus />
-          <FormField label="Last Name" value={form.lastName} onChange={(v) => update("lastName", v)} />
+          <FormField label="First Name" value={form.firstName} onChange={(v) => update("firstName", v)} autoFocus required={isRequired("first_name")} />
+          <FormField label="Last Name" value={form.lastName} onChange={(v) => update("lastName", v)} required={isRequired("last_name")} />
         </div>
       </Section>
 
@@ -537,6 +561,8 @@ function ContactForm({ contact, clients, onSave, onCancel }: {
           <FormField label="Country" value={form.country} onChange={(v) => update("country", v)} />
         </div>
       </Section>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
 
       {/* Companies — live-managed via RPC (only for existing contacts) */}
       {contact && (
@@ -607,13 +633,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function FormField({ label, value, onChange, type = "text", autoFocus }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; autoFocus?: boolean;
+function FormField({ label, value, onChange, type = "text", autoFocus, required }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; autoFocus?: boolean; required?: boolean;
 }) {
   return (
     <div>
-      <label className="block text-xs text-tertiary mb-1">{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus}
+      <label className="block text-xs text-tertiary mb-1">{label}{required && <span className="text-accent ml-0.5">*</span>}</label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} autoFocus={autoFocus} required={required}
         className="w-full px-3 py-2 rounded-md text-sm bg-bg-card text-primary border border-border-subtle outline-none
           focus:border-accent transition-colors placeholder:text-muted" />
     </div>

@@ -133,7 +133,11 @@
 
   <div class="closing">
     <p>{% if is_reminder %}{{ l.reminder_closing }}{% else %}{{ l.closing }}{% endif %}</p>
+    {% if include_signature and user.signature %}
+    <img class="sig-image" src="{{ user.signature }}" alt="">
+    {% else %}
     <div class="sig-line"></div>
+    {% endif %}
     {{ user.name }}
   </div>
 

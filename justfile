@@ -160,13 +160,8 @@ precommit:
 demo-reset:
     {{python}} -c "from tuttle.app.demo.intent import DemoIntent; DemoIntent().reset(); print('Demo user reset')"
 
-# Wipe all production app data and start fresh
+# Wipe the dev data directory and start fresh
 reset:
-    rm -rf ~/.tuttle
-    @echo "✓ ~/.tuttle removed – next launch will recreate everything from scratch"
-
-# Wipe the dev data directory
-reset-dev:
     rm -rf "${TUTTLE_DATA_DIR:-$HOME/.tuttle-dev}"
     @echo "✓ Dev data removed – next 'just dev' will recreate everything from scratch"
 
@@ -214,6 +209,8 @@ release part *flags="":
         base=$({{python}} -m bumpversion show new_version --increment {{part}})
         bump_flags+=(--new-version "${base}${pre}1")
     fi
+    uv sync
+    git add uv.lock
     {{python}} -m bumpversion bump {{part}} ${bump_flags[@]+"${bump_flags[@]}"}
     if [[ "$dry_run" -eq 1 ]]; then exit 0; fi
     tag=$(git describe --tags --abbrev=0)

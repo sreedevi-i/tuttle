@@ -95,14 +95,7 @@ class ContactsIntent(CrudIntent):
             )
 
     def _validated_save(self, contact: Contact) -> IntentResult:
-        if not contact.first_name or not contact.last_name:
-            return IntentResult(
-                was_intent_successful=False,
-                error_msg="Saving contact failed. A name is required.",
-            )
         if contact.address and contact.address.is_empty:
-            return IntentResult(
-                was_intent_successful=False,
-                error_msg="Saving contact failed. Please specify the address.",
-            )
+            contact.address = None
+            contact.address_id = None
         return self.save(contact)

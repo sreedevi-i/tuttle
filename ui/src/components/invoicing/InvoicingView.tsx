@@ -371,9 +371,10 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
           <h2 className="text-base font-semibold">Create Invoice</h2>
         </div>
         <div className="px-5 py-4 space-y-4">
+          <p className="text-xs text-muted"><span className="text-accent">*</span> Required</p>
           {/* Project */}
           <label className="block">
-            <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Project</span>
+            <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Project<span className="text-accent ml-0.5">*</span></span>
             <select value={projectId ?? ""} onChange={(e) => handleProjectChange(Number(e.target.value))}
               className="mt-1 w-full px-3 py-1.5 rounded-md bg-bg-card border border-border-subtle text-sm text-primary">
               {projects.map((p) => (
@@ -440,13 +441,13 @@ function CreateInvoiceDialog({ onClose, onCreated }: { onClose: () => void; onCr
           {/* Dates */}
           <div className="space-y-2">
             <label className="block">
-              <span className="text-[10px] font-semibold text-muted uppercase">Invoice Date</span>
+              <span className="text-[10px] font-semibold text-muted uppercase">Invoice Date<span className="text-accent ml-0.5">*</span></span>
               <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)}
                 className="mt-1 w-full px-2 py-1.5 rounded-md bg-bg-card border border-border-subtle text-xs text-primary" />
             </label>
             {!isFixedPrice && (
               <div>
-                <span className="text-[10px] font-semibold text-muted uppercase">Billing Period</span>
+                <span className="text-[10px] font-semibold text-muted uppercase">Billing Period<span className="text-accent ml-0.5">*</span></span>
                 <div className="mt-1 flex items-center gap-2">
                   <button type="button" onClick={() => shiftMonth(-1)}
                     className="p-1 rounded hover:bg-bg-hover text-secondary transition-colors" title="Previous month">
@@ -1055,13 +1056,14 @@ function CreateReminderDialog({ invoiceId, invoiceNumber, onClose, onCreated }: 
           <p className="text-xs text-tertiary mt-0.5">for invoice {invoiceNumber}</p>
         </div>
         <div className="px-5 py-4 space-y-4">
+          <p className="text-xs text-muted"><span className="text-accent">*</span> Required</p>
           <label className="block">
-            <span className="text-[10px] font-semibold text-muted uppercase">Reminder Date</span>
+            <span className="text-[10px] font-semibold text-muted uppercase">Reminder Date<span className="text-accent ml-0.5">*</span></span>
             <input type="date" value={reminderDate} onChange={(e) => setReminderDate(e.target.value)}
               className="mt-1 w-full px-3 py-1.5 rounded-md bg-bg-card border border-border-subtle text-sm text-primary" />
           </label>
           <label className="block">
-            <span className="text-[10px] font-semibold text-muted uppercase">New Due Date</span>
+            <span className="text-[10px] font-semibold text-muted uppercase">New Due Date<span className="text-accent ml-0.5">*</span></span>
             <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)}
               className="mt-1 w-full px-3 py-1.5 rounded-md bg-bg-card border border-border-subtle text-sm text-primary" />
           </label>
