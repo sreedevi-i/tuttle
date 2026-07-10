@@ -130,3 +130,105 @@ class TestRenderInvoice:
         )
 
         assert "Due Date" not in html
+
+
+ALL_INVOICE_TEMPLATES = [
+    "invoice",
+    "invoice-classic",
+    "invoice-modern",
+    "invoice-bold",
+    "invoice-minimal",
+    "invoice-anvil",
+    "invoice-grayshades",
+]
+
+#: invoice-grayshades reports VAT only in the totals block, not per line item.
+VAT_COLUMN_TEMPLATES = [t for t in ALL_INVOICE_TEMPLATES if t != "invoice-grayshades"]
+
+
+def _outside_scope_invoice(fake):
+    from decimal import Decimal
+
+    from tuttle.model import TaxCategory
+
+    invoice = demo.create_fake_invoice(fake)
+    invoice.contract.VAT_rate = Decimal("0")
+    invoice.contract.VAT_category = TaxCategory.outside_scope
+    for item in invoice.items:
+        item.VAT_rate = Decimal("0")
+        item.VAT_category = TaxCategory.outside_scope
+    return invoice
+
+
+def _render(user, invoice, template_name, language="en") -> str:
+    return rendering.render_invoice(
+        user=user,
+        invoice=invoice,
+        out_dir=None,
+        document_format="html",
+        template_name=template_name,
+        language=language,
+    )
+
+
+class TestRenderOutsideScopeInvoice:
+    """An invoice outside the scope of VAT must not print a 0% VAT rate."""
+
+    @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
+    def test_shows_legal_note(self, fake, template_name):
+        html = _render(
+            demo.create_fake_user(fake), _outside_scope_invoice(fake), template_name
+        )
+        assert "Not subject to German VAT" in html
+
+    @pytest.mark.parametrize("template_name", VAT_COLUMN_TEMPLATES)
+    def test_vat_column_shows_a_dash(self, fake, template_name):
+        html = _render(
+            demo.create_fake_user(fake), _outside_scope_invoice(fake), template_name
+        )
+        assert "&mdash;" in html
+
+    @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
+    def test_omits_zero_percent_vat_rate(self, fake, template_name):
+        html = _render(
+            demo.create_fake_user(fake), _outside_scope_invoice(fake), template_name
+        )
+        assert "0.0 %" not in html
+        assert "0 %" not in html
+        assert "(0%)" not in html
+
+    @pytest.mark.parametrize("template_name", VAT_COLUMN_TEMPLATES)
+    def test_standard_invoice_keeps_its_vat_rate(self, fake, template_name):
+        """Regression guard: the ordinary invoice must be untouched."""
+        invoice = demo.create_fake_invoice(fake)
+        html = _render(demo.create_fake_user(fake), invoice, template_name)
+        assert "Not subject to German VAT" not in html
+        assert "&mdash;" not in html
+
+    @pytest.mark.parametrize(
+        "language,needle",
+        [
+            ("en", "§ 3a (2) UStG"),
+            ("de", "Nicht steuerbare sonstige Leistung"),
+            ("es", "No sujeto al IVA alemán"),
+        ],
+    )
+    def test_note_is_localized(self, fake, language, needle):
+        html = _render(
+            demo.create_fake_user(fake),
+            _outside_scope_invoice(fake),
+            "invoice-modern",
+            language=language,
+        )
+        assert needle in html
+
+    def test_renders_a_pdf(self, fake, tmp_path):
+        rendering.render_invoice(
+            user=demo.create_fake_user(fake),
+            invoice=_outside_scope_invoice(fake),
+            out_dir=tmp_path,
+            document_format="pdf",
+            template_name="invoice-modern",
+            only_final=True,
+        )
+        assert list(tmp_path.rglob("*.pdf"))
