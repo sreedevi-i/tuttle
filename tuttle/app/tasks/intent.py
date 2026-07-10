@@ -14,15 +14,16 @@ class TasksIntent(SQLModelDataSourceMixin, Intent):
         SQLModelDataSourceMixin.__init__(self)
 
     def get_all(self) -> IntentResult:
-        """Refresh tasks from business state, then return pending ones."""
+        """Refresh tasks from business state, then return all non-dismissed."""
         try:
             with self.create_session() as session:
                 generate_tasks(session)
-            # Re-query after commit
             with self.create_session() as session:
                 from sqlmodel import select
 
-                tasks = session.exec(select(Task).where(Task.status == "pending")).all()
+                tasks = session.exec(
+                    select(Task).where(Task.status.in_(["pending", "done"]))  # type: ignore[union-attr]
+                ).all()
                 return IntentResult(was_intent_successful=True, data=tasks)
         except Exception as e:
             return IntentResult(
@@ -73,5 +74,27 @@ class TasksIntent(SQLModelDataSourceMixin, Intent):
                 was_intent_successful=False,
                 error_msg="Failed to dismiss task.",
                 log_message=f"TasksIntent.dismiss({id}): {e}",
+                exception=e,
+            )
+
+    def reopen(self, id: int) -> IntentResult:
+        """Reopen a completed or dismissed task."""
+        try:
+            with self.create_session() as session:
+                task = session.get(Task, id)
+                if not task:
+                    return IntentResult(
+                        was_intent_successful=False,
+                        error_msg="Task not found.",
+                    )
+                task.status = "pending"
+                session.add(task)
+                session.commit()
+                return IntentResult(was_intent_successful=True, data=task)
+        except Exception as e:
+            return IntentResult(
+                was_intent_successful=False,
+                error_msg="Failed to reopen task.",
+                log_message=f"TasksIntent.reopen({id}): {e}",
                 exception=e,
             )

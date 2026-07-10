@@ -12,9 +12,9 @@ const SECTIONS: { label: string; items: SidebarItem[] }[] = [
   {
     label: "Insights",
     items: [
-      { id: "tasks", label: "Tasks", icon: CheckSquare },
       { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
       { id: "timeline", label: "Timeline", icon: CalendarDays },
+      { id: "tasks", label: "Tasks", icon: CheckSquare },
       { id: "tax", label: "Tax & Reserves", icon: PieChart },
       { id: "salary", label: "Salary", icon: Banknote },
     ],
