@@ -67,6 +67,24 @@ def tmp_db(tmp_path: Path) -> Iterator[tuple[Path, str]]:
     yield db, f"sqlite:///{db}"
 
 
+def test_single_head_no_branch_conflicts() -> None:
+    """Migration chain must have exactly one head — no unresolved branches.
+
+    Multiple heads mean two migrations share the same down_revision,
+    which breaks `alembic upgrade head` (it doesn't know which path to
+    take).  Fix by rebasing one migration onto the other.
+    """
+    from alembic.script import ScriptDirectory
+
+    cfg = _alembic_config_for("sqlite:///")
+    script = ScriptDirectory.from_config(cfg)
+    heads = script.get_heads()
+    assert len(heads) == 1, (
+        f"Migration chain has {len(heads)} heads: {heads}. "
+        f"Expected exactly 1. Rebase one migration to depend on the other."
+    )
+
+
 def test_upgrade_from_empty_creates_full_schema(tmp_db: tuple[Path, str]) -> None:
     """Per-user-DB schema matches SQLModel.metadata after upgrade to head.
 

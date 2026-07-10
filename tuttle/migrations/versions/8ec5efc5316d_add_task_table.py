@@ -47,7 +47,7 @@ import sqlmodel.sql.sqltypes  # noqa: F401 — ensures runtime resolution of Aut
 
 
 revision: str = "8ec5efc5316d"
-down_revision: Union[str, Sequence[str], None] = "f8a4403a2ecd"
+down_revision: Union[str, Sequence[str], None] = "16093a6ceba4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
