@@ -16,7 +16,6 @@ const SECTIONS: { label: string; items: SidebarItem[] }[] = [
       { id: "timeline", label: "Timeline", icon: CalendarDays },
       { id: "tasks", label: "Tasks", icon: CheckSquare },
       { id: "tax", label: "Tax & Reserves", icon: PieChart },
-      { id: "expenses", label: "Expenses", icon: ReceiptText },
       { id: "salary", label: "Salary", icon: Banknote },
     ],
   },
@@ -35,6 +34,7 @@ const SECTIONS: { label: string; items: SidebarItem[] }[] = [
       { id: "clients", label: "Clients", icon: Building2 },
       { id: "contracts", label: "Contracts", icon: FileSignature },
       { id: "projects", label: "Projects", icon: FolderKanban },
+      { id: "expenses", label: "Expenses", icon: ReceiptText },
     ],
   },
   {
