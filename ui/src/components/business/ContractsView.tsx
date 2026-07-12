@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   FileText, Plus, Trash2, Save, X, DollarSign, Calendar,
   FileUp, Sparkles, Check, CheckCheck, Loader2, CheckCircle2,
-  FolderKanban, Receipt, ArrowRight,
+  FolderKanban, ReceiptText, ArrowRight,
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, bool, entity as subEntity, list as entityList, displayName, formatDate } from "../../api/entity";
@@ -353,7 +353,7 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
         <div className="flex items-center gap-3">
           <RelatedCard icon={<FolderKanban size={16} />} count={projects.length} label="Projects"
             onClick={projects.length > 0 ? () => navigate("projects", { contractId: contract.id }) : undefined} />
-          <RelatedCard icon={<Receipt size={16} />} count={invoices.length} label="Invoices"
+          <RelatedCard icon={<ReceiptText size={16} />} count={invoices.length} label="Invoices"
             onClick={invoices.length > 0 ? () => navigate("invoicing", { contractId: contract.id }) : undefined} />
         </div>
       </DetailSection>
