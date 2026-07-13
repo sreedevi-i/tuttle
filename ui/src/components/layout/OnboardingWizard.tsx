@@ -28,6 +28,7 @@ export interface WizardProfileData {
   city: string;
   country: string;
   vat_number: string;
+  tax_number: string;
   operating_country: string;
   bank_name: string;
   bank_IBAN: string;
@@ -66,7 +67,7 @@ type Props = {
 const EMPTY_PROFILE: WizardProfileData = {
   name: "", subtitle: "", email: "", phone: "", website: "",
   street: "", street_num: "", postal_code: "", city: "", country: "Germany",
-  vat_number: "", operating_country: "Germany",
+  vat_number: "", tax_number: "", operating_country: "Germany",
   bank_name: "", bank_IBAN: "", bank_BIC: "",
 };
 
@@ -155,7 +156,9 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
         profile.street.trim() &&
         profile.city.trim() &&
         profile.country.trim() &&
-        profile.vat_number.trim() &&
+        // A VAT number (USt-IdNr.) or a tax number (Steuernummer) is enough:
+        // freelancers awaiting their USt-IdNr start out with only the latter.
+        (profile.vat_number.trim() || profile.tax_number.trim()) &&
         profile.operating_country.trim()
       );
     }
@@ -314,22 +317,33 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
           </div>
         </fieldset>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>VAT number <span className="text-accent">*</span></label>
-            <input className={inputCls} value={profile.vat_number} onChange={pset("vat_number")} placeholder="DE123456789" />
+        <div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>VAT number</label>
+              <input className={inputCls} value={profile.vat_number} onChange={pset("vat_number")} placeholder="DE123456789" />
+            </div>
+            <div>
+              <label className={labelCls}>Tax number</label>
+              <input className={inputCls} value={profile.tax_number} onChange={pset("tax_number")} placeholder="21/815/08150" />
+            </div>
           </div>
-          <div>
-            <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
-            <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
-              {supportedCountries.length > 0 ? (
-                supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
-              ) : (
-                <option value={profile.operating_country}>{profile.operating_country}</option>
-              )}
-            </select>
-            <p className="mt-1 text-xs text-muted">Determines tax rules and default currency.</p>
-          </div>
+          <p className="mt-1 text-xs text-muted">
+            Enter your VAT number (USt-IdNr.) or, until you receive one, your tax number
+            (Steuernummer) <span className="text-accent">*</span>. At least one appears on your invoices.
+          </p>
+        </div>
+
+        <div>
+          <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
+          <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
+            {supportedCountries.length > 0 ? (
+              supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
+            ) : (
+              <option value={profile.operating_country}>{profile.operating_country}</option>
+            )}
+          </select>
+          <p className="mt-1 text-xs text-muted">Determines tax rules and default currency.</p>
         </div>
 
         <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">
