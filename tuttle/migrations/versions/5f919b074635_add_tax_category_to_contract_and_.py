@@ -52,8 +52,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-# Pinned snapshot of the EU VAT area at this revision. Deliberately duplicated
-# from tuttle.model rather than imported: migrations must not drift with models.
+# Pinned snapshot of the EU VAT area at this revision.
 # fmt: off
 _EU_VAT_COUNTRIES = frozenset(
     {
@@ -66,18 +65,19 @@ _EU_VAT_COUNTRIES = frozenset(
 
 
 def _resolve_iso(name: str) -> Union[str, None]:
-    """Best-effort country name → ISO 3166-1 alpha-2, or None if unresolvable."""
+    """Country name → ISO 3166-1 alpha-2, or None if unresolvable.
+
+    ``lookup`` already matches the alpha-2, alpha-3, name, official name and
+    common name. No fuzzy fallback: a guess here silently reclassifies the tax
+    category of an issued invoice, and an unresolvable country has a defined
+    behaviour already (see ``_zero_rate_category``).
+    """
     if not name or not name.strip():
         return None
     import pycountry
 
     try:
         return pycountry.countries.lookup(name.strip()).alpha_2
-    except LookupError:
-        pass
-    try:
-        results = pycountry.countries.search_fuzzy(name.strip())
-        return results[0].alpha_2 if results else None
     except LookupError:
         return None
 
