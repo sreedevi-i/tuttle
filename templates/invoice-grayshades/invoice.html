@@ -136,7 +136,7 @@
       {% if user.website %}<span>{{ user.website }}</span>{% endif %}
     </div>
     <div class="footer-right">
-      {% if user.VAT_number %}<span>USt.ID: {{ user.VAT_number }}</span>{% endif %}
+      {% if seller_tax_id %}<span>{{ seller_tax_id_label }}: {{ seller_tax_id }}</span>{% endif %}
     </div>
   </div>
 

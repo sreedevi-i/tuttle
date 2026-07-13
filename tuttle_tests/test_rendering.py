@@ -232,3 +232,71 @@ class TestRenderOutsideScopeInvoice:
             only_final=True,
         )
         assert list(tmp_path.rglob("*.pdf"))
+
+
+class TestSellerTaxIdentifierInFooter:
+    """EN16931 BR-O-02 bars the VAT number from an outside-scope e-invoice.
+
+    The printed document must not contradict the embedded XML, so it shows the
+    tax number (Steuernummer) instead — and nothing when none is set.
+    """
+
+    @staticmethod
+    def _user(fake, tax_number):
+        user = demo.create_fake_user(fake)
+        user.VAT_number = "DE123456789"
+        user.tax_number = tax_number
+        return user
+
+    @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
+    def test_standard_invoice_shows_vat_number(self, fake, template_name):
+        html = _render(
+            self._user(fake, "21/815/08150"),
+            demo.create_fake_invoice(fake),
+            template_name,
+        )
+        assert "DE123456789" in html
+        assert "21/815/08150" not in html
+
+    @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
+    def test_outside_scope_shows_tax_number_not_vat_number(self, fake, template_name):
+        html = _render(
+            self._user(fake, "21/815/08150"),
+            _outside_scope_invoice(fake),
+            template_name,
+        )
+        assert "21/815/08150" in html
+        assert "DE123456789" not in html
+
+    @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
+    def test_outside_scope_without_tax_number_shows_neither(self, fake, template_name):
+        html = _render(
+            self._user(fake, None), _outside_scope_invoice(fake), template_name
+        )
+        assert "DE123456789" not in html
+
+    @pytest.mark.parametrize(
+        "language,label",
+        [("en", "VAT No."), ("de", "USt-IdNr."), ("es", "N.º IVA")],
+    )
+    def test_vat_number_label_is_localized(self, fake, language, label):
+        html = _render(
+            self._user(fake, None),
+            demo.create_fake_invoice(fake),
+            "invoice-modern",
+            language=language,
+        )
+        assert f"{label}: DE123456789" in html
+
+    @pytest.mark.parametrize(
+        "language,label",
+        [("en", "Tax No."), ("de", "St.-Nr."), ("es", "N.º fiscal")],
+    )
+    def test_tax_number_label_is_localized(self, fake, language, label):
+        html = _render(
+            self._user(fake, "21/815/08150"),
+            _outside_scope_invoice(fake),
+            "invoice-modern",
+            language=language,
+        )
+        assert f"{label}: 21/815/08150" in html

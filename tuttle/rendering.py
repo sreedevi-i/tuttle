@@ -35,6 +35,8 @@ INVOICE_LABELS = {
         "unit": "Unit",
         "unit_price": "Unit Price",
         "vat": "VAT",
+        "vat_number": "VAT No.",
+        "tax_number": "Tax No.",
         "subtotal": "Subtotal",
         "total_due": "Total Due",
         "payment": "Payment",
@@ -69,6 +71,8 @@ INVOICE_LABELS = {
         "unit": "Einheit",
         "unit_price": "Einzelpreis",
         "vat": "USt.",
+        "vat_number": "USt-IdNr.",
+        "tax_number": "St.-Nr.",
         "subtotal": "Zwischensumme",
         "total_due": "Gesamtbetrag",
         "payment": "Zahlung",
@@ -103,6 +107,8 @@ INVOICE_LABELS = {
         "unit": "Unidad",
         "unit_price": "Precio unit.",
         "vat": "IVA",
+        "vat_number": "N.º IVA",
+        "tax_number": "N.º fiscal",
         "subtotal": "Subtotal",
         "total_due": "Total a pagar",
         "payment": "Pago",
@@ -241,11 +247,23 @@ def render_invoice(
         tpl = labels.get("reminder_n", "{n}. Payment Reminder")
         reminder_title = tpl.format(n=n)
 
+    # EN16931 BR-O-02 keeps the VAT number off an outside-scope e-invoice, so the
+    # printed document must not contradict the embedded XML: show the tax number
+    # (Steuernummer) instead, and nothing at all when the user has not set one.
+    if invoice.is_outside_scope:
+        seller_tax_id_label = labels.get("tax_number", "Tax No.")
+        seller_tax_id = user.tax_number or ""
+    else:
+        seller_tax_id_label = labels.get("vat_number", "VAT No.")
+        seller_tax_id = user.VAT_number or ""
+
     invoice_template = template_env.get_template("invoice.html")
     html = invoice_template.render(
         user=user,
         invoice=invoice,
         l=labels,
+        seller_tax_id=seller_tax_id,
+        seller_tax_id_label=seller_tax_id_label,
         is_reminder=is_reminder,
         reminder_title=reminder_title,
         notes=invoice.notes,

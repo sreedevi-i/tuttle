@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { rpc } from "../../api/rpc";
 import { str, num, bool, entity as subEntity, list as entityList, displayName, formatDate } from "../../api/entity";
+import { TAX_CATEGORY_LABELS, taxCategory, taxTreatment, type TaxCategory } from "../../api/tax";
 import { Toolbar, ToolbarButtonPrimary, ToolbarButtonSecondary, ToolbarFilterGroup, ListDetailLayout, LIST_ROW_PADDING } from "../shared/ToolbarButtons";
 import { StatusBadge } from "../shared/StatusBadge";
 import { useNavigation } from "../shared/NavigationContext";
@@ -325,13 +326,10 @@ function ContractDetail({ contract, onEdit, onDelete, onToggle, deleteError }: {
           {!isFixed && <TermItem label="Billing" value={str(contract, "billing_cycle") || "—"} />}
           <TermItem
             label="VAT"
-            value={(() => {
-              const cat = (str(contract, "VAT_category") || "S") as TaxCategory;
-              if (cat !== "S") return TAX_CATEGORY_LABELS[cat] ?? cat;
-              const v = num(contract, "VAT_rate");
-              const frac = v > 1 ? v / 100 : v;
-              return `${(frac * 100).toFixed(0)}%`;
-            })()}
+            value={taxTreatment(
+              taxCategory(str(contract, "VAT_category")),
+              num(contract, "VAT_rate"),
+            )}
           />
           <TermItem label="Payment" value={str(contract, "term_of_payment") ? `${str(contract, "term_of_payment")} days` : "—"} />
           {!isFixed && <TermItem label="Workday" value={`${str(contract, "units_per_workday") || "8"} ${unit}s`} />}
@@ -425,15 +423,6 @@ interface ContractFormData {
 
 type PricingMode = "time_based" | "fixed_price";
 
-// UNTDID 5305 codes, mirroring tuttle.model.TaxCategory.
-type TaxCategory = "S" | "Z" | "O";
-
-const TAX_CATEGORY_LABELS: Record<TaxCategory, string> = {
-  S: "Standard rated",
-  Z: "Zero rated",
-  O: "Outside scope of tax",
-};
-
 function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, error }: {
   contract?: Entity;
   clients: Record<string, Entity>;
@@ -464,7 +453,7 @@ function ContractForm({ contract, clients, defaultCurrency, onSave, onCancel, er
         if (!v) return 0;
         return v > 1 ? v / 100 : v;
       })(),
-      vatCategory: (str(contract, "VAT_category") || "S") as TaxCategory,
+      vatCategory: taxCategory(str(contract, "VAT_category")),
       signatureDate: str(contract, "signature_date"),
       startDate: str(contract, "start_date"),
       endDate: str(contract, "end_date"),

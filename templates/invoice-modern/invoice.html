@@ -161,7 +161,7 @@
     <span>{{ user.name }}</span>
     {% if user.bank_account %}<span>IBAN: {{ user.bank_account.IBAN }}</span>
     {% if user.bank_account.BIC %}<span>BIC: {{ user.bank_account.BIC }}</span>{% endif %}{% endif %}
-    {% if user.VAT_number %}<span>{{ l.vat }}: {{ user.VAT_number }}</span>{% endif %}
+    {% if seller_tax_id %}<span>{{ seller_tax_id_label }}: {{ seller_tax_id }}</span>{% endif %}
   </div>
 
 </div>
