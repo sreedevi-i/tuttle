@@ -61,32 +61,19 @@ Contributors using AI assistance are expected to:
 
 # Pull Request Guidelines
 
-## Before you submit
+## PR Template
 
-1.  The pull request should include tests where appropriate.
-2.  If the pull request adds functionality, update the docs / docstrings.
-3.  The pull request should work for Python 3.12 and 3.13.
-4.  Run the full test suite and confirm it passes:
+When you open a pull request, your PR body will be pre-filled from the [PR template](/.github/PULL_REQUEST_TEMPLATE.md). It contains a **Summary** section and a **Checklist** of items to complete before requesting review. Please work through each checklist item — it covers testing, pre-commit hooks, documentation, schema migrations, and screenshots where applicable.
 
-    ```shell
-    just test
-    ```
+Outside contributors are required to keep the checklist in their PR body. Org members may omit it.
 
-5.  Make sure pre-commit hooks are installed and pass:
-
-    ```shell
-    just precommit
-    ```
-
-## PR Template and CI Checks
-
-When you open a pull request, your PR body will be pre-filled with a template containing a **Checklist** section. Outside contributors are required to keep this checklist and tick off the items that apply. Org members may omit it.
+## CI Checks
 
 Your PR must pass the following automated checks before it can be merged:
 
 | Check | What it verifies |
 |---|---|
-| `build (3.12)` / `build (3.13)` | The test suite passes on Python 3.12 and 3.13 |
+| `build (3.x)` | The test suite passes on each supported Python version |
 | `check-template` | PR body includes the Checklist section (outside contributors only) |
 | `conflict-check` | The branch has no merge conflicts with `main` |
 
@@ -112,10 +99,10 @@ Ready to contribute? Here's how to set up Tuttle for local development.
 
 ## Prerequisites
 
--   Python 3.12 or newer
+-   Python (see `pyproject.toml` for the minimum version)
 -   [uv](https://docs.astral.sh/uv/)
 -   [just](https://github.com/casey/just) (task runner)
--   Node.js 22 or newer
+-   Node.js (see `ui/package.json` for the minimum version)
 
 ## Development Setup
 
