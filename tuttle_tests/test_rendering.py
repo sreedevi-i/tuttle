@@ -181,21 +181,16 @@ class TestRenderOutsideScopeInvoice:
         )
         assert "Not subject to German VAT" in html
 
-    @pytest.mark.parametrize("template_name", VAT_COLUMN_TEMPLATES)
-    def test_vat_column_shows_a_dash(self, fake, template_name):
-        html = _render(
-            demo.create_fake_user(fake), _outside_scope_invoice(fake), template_name
-        )
-        assert "&mdash;" in html
-
     @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
-    def test_omits_zero_percent_vat_rate(self, fake, template_name):
+    def test_vat_rate_is_replaced_by_a_dash(self, fake, template_name):
         html = _render(
             demo.create_fake_user(fake), _outside_scope_invoice(fake), template_name
         )
         assert "0.0 %" not in html
         assert "0 %" not in html
         assert "(0%)" not in html
+        if template_name in VAT_COLUMN_TEMPLATES:
+            assert "&mdash;" in html
 
     @pytest.mark.parametrize("template_name", VAT_COLUMN_TEMPLATES)
     def test_standard_invoice_keeps_its_vat_rate(self, fake, template_name):
