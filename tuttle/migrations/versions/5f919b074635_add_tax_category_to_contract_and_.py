@@ -1,7 +1,7 @@
 """add tax category to contract and invoice item, tax number to user
 
 Revision ID: 5f919b074635
-Revises: 16093a6ceba4
+Revises: 8ec5efc5316d
 Create Date: 2026-07-10 12:05:31.686760
 
 ======================================================================
@@ -47,7 +47,7 @@ import sqlmodel
 import sqlmodel.sql.sqltypes  # noqa: F401 — ensures runtime resolution of AutoString
 
 revision: str = "5f919b074635"
-down_revision: Union[str, Sequence[str], None] = "16093a6ceba4"
+down_revision: Union[str, Sequence[str], None] = "8ec5efc5316d"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
