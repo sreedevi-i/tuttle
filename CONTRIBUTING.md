@@ -59,128 +59,24 @@ Contributors using AI assistance are expected to:
 -   Test changes locally before opening a pull request
 -   Disclose significant AI assistance in the pull request description
 
-# Get Started!
-
-Ready to contribute? Here's how to set up Tuttle for
-local development.
-
-## Prerequisites
-
--   Python 3.12 or newer
--   [uv](https://docs.astral.sh/uv/) (recommended) or pip
--   Node.js 22 or newer
-
-## Development Setup
-
-1.  Fork the repo on GitHub.
-
-2.  Clone your fork locally:
-
-    ```shell
-    git clone git@github.com:your_name_here/tuttle.git
-    cd tuttle/
-    ```
-
-3.  Install the Python core dependencies with [uv](https://docs.astral.sh/uv/):
-
-    ```shell
-    uv sync
-    ```
-
-4.  Install the Electron UI dependencies:
-
-    ```shell
-    cd ui
-    npm install
-    cd ..
-    ```
-
-5.  Create a branch for local development:
-
-    ```shell
-    git checkout -b name-of-your-bugfix-or-feature
-    ```
-
-    Now you can make your changes locally.
-
-
-    **Install the pre-commit hooks before making your first commit to ensure that you match the code style**:
-
-    ```shell
-    pre-commit install
-    ```
-
-6.  If you haven't done so already, install and/or activate
-    [pyright](https://github.com/microsoft/pyright).
-    The "basic" level should suffice and help you to avoid type errors.
-    If you are getting a type error, ask yourself:
-    Can this occur at runtime?
-
-    No -> add `#type: ignore` to the end of the line
-
-    Yes -> ensure that it doesn't, e.g. by using an `assert` statement
-
-    Oftentimes, type errors indicate bad design,
-    so keep refactoring in mind as a third option.
-
-7.  When you're done making changes, check that your changes pass
-    the tests:
-
-    ```shell
-    uv run pytest
-    ```
-
-
-8.  Commit your changes and push your branch to GitHub:
-
-    ```shell
-    git add .
-    git commit -m "Your detailed description of your changes."
-    git push origin name-of-your-bugfix-or-feature
-    ```
-
-9.  Submit a pull request through the GitHub website.
-
-## Running the App
-
-Start the Electron app in development mode. The Python RPC core is
-spawned automatically:
-
-```shell
-cd ui
-npm run dev
-```
-
-### Dev vs production data
-
-`just dev` stores data in `~/.tuttle-dev/` (via the `TUTTLE_DATA_DIR`
-env var) so that development never touches your production database in
-`~/.tuttle/`. To test with your real data, copy it once:
-
-```shell
-just sync-data   # one-way copy ~/.tuttle → ~/.tuttle-dev
-```
-
-The dev app will auto-migrate the copies to the current schema on next
-launch. Use `just reset-dev` to wipe the dev data directory.
-
-## Building for Production
-
-```shell
-just build
-```
-
-This builds the Python core with PyInstaller and packages the Electron
-app with electron-builder.
-
 # Pull Request Guidelines
 
-Before you submit a pull request, check that it meets these guidelines:
+## Before you submit
 
-1.  The pull request should include tests.
-2.  If the pull request adds functionality, the docs should be updated.
-    Put your new functionality into a function with a docstring.
+1.  The pull request should include tests where appropriate.
+2.  If the pull request adds functionality, update the docs / docstrings.
 3.  The pull request should work for Python 3.12 and 3.13.
+4.  Run the full test suite and confirm it passes:
+
+    ```shell
+    just test
+    ```
+
+5.  Make sure pre-commit hooks are installed and pass:
+
+    ```shell
+    just precommit
+    ```
 
 ## PR Template and CI Checks
 
@@ -210,30 +106,112 @@ When changes are requested on your PR, please respond (by pushing updates or com
 
 PRs without author follow-up within this window will be labeled `stale`.
 
+# Get Started!
+
+Ready to contribute? Here's how to set up Tuttle for local development.
+
+## Prerequisites
+
+-   Python 3.12 or newer
+-   [uv](https://docs.astral.sh/uv/)
+-   [just](https://github.com/casey/just) (task runner)
+-   Node.js 22 or newer
+
+## Development Setup
+
+1.  Fork the repo on GitHub.
+
+2.  Clone your fork locally:
+
+    ```shell
+    git clone git@github.com:your_name_here/tuttle.git
+    cd tuttle/
+    ```
+
+3.  Install all dependencies (Python + Node):
+
+    ```shell
+    just deps-all
+    ```
+
+4.  Install the pre-commit hooks:
+
+    ```shell
+    just precommit
+    ```
+
+5.  Create a branch for local development:
+
+    ```shell
+    git checkout -b name-of-your-bugfix-or-feature
+    ```
+
+6.  When you're done making changes, run the full test suite (Python tests + TypeScript type-check):
+
+    ```shell
+    just test
+    ```
+
+7.  Commit your changes and push your branch to GitHub:
+
+    ```shell
+    git add .
+    git commit -m "Your detailed description of your changes."
+    git push origin name-of-your-bugfix-or-feature
+    ```
+
+8.  Submit a pull request through the GitHub website.
+
+## Key `just` Commands
+
+Run `just --list` to see all available tasks. Here are the most important ones:
+
+| Command | Description |
+|---|---|
+| `just dev` | Start the Electron app in dev mode (hot reload) |
+| `just test` | Run the full test suite (Python + TypeScript type-check) |
+| `just deps-all` | Install/sync all dependencies (Python + Node) |
+| `just precommit` | Install the pre-commit hooks |
+| `just build` | Full production build (PyInstaller + Electron) |
+| `just migrate "<msg>"` | Generate an Alembic migration from model changes |
+| `just sync-data` | Copy production data into the dev directory for testing |
+| `just reset` | Wipe the dev data directory and start fresh |
+
+## Running the App
+
+Start the Electron app in development mode. The Python RPC core is
+spawned automatically:
+
+```shell
+just dev
+```
+
+### Dev vs production data
+
+`just dev` stores data in `~/.tuttle-dev/` (via the `TUTTLE_DATA_DIR`
+env var) so that development never touches your production database in
+`~/.tuttle/`. To test with your real data, copy it once:
+
+```shell
+just sync-data   # one-way copy ~/.tuttle → ~/.tuttle-dev
+```
+
+The dev app will auto-migrate the copies to the current schema on next
+launch. Use `just reset` to wipe the dev data directory.
+
 # Tips
 
 To run a subset of tests:
 
 ```shell
-uv run pytest tuttle_tests/test_model.py
+just test tuttle_tests/test_model.py
 ```
 
 To run a specific test:
 
 ```shell
-uv run pytest tuttle_tests/test_model.py::TestContract::test_valid_instantiation
+just test tuttle_tests/test_model.py::TestContract::test_valid_instantiation
 ```
-
-# Deploying
-
-Make sure all your changes are committed. Then run:
-
-```shell
-bump2version patch  # possible: major / minor / patch
-git push
-git push --tags
-```
-
 
 # Architecture
 
