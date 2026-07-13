@@ -11,14 +11,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const author = context.payload.pull_request.user.login;
-            const { data: membership } = await github.rest.orgs.getMembershipForUser({
-              org: context.repo.owner,
-              username: author,
-            }).catch(() => ({ data: null }));
-
-            if (membership && ['member', 'admin'].includes(membership.role)) {
-              core.info(`Skipping checklist check for org member: ${author}`);
+            const association = context.payload.pull_request.author_association;
+            const trusted = ['MEMBER', 'OWNER', 'COLLABORATOR'];
+            if (trusted.includes(association)) {
+              core.info(`Skipping checklist check for ${association}: ${context.payload.pull_request.user.login}`);
               return;
             }
 
