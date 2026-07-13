@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Sidebar, type RegisteredUser } from "./Sidebar";
 import { OnboardingWizard, type OnboardingData } from "./OnboardingWizard";
+import { TasksView } from "../tasks/TasksView";
 import { DashboardView } from "../dashboard/DashboardView";
 import { ProjectsView } from "../business/ProjectsView";
 import { ClientsView } from "../business/ClientsView";
@@ -11,6 +12,7 @@ import { SettingsView } from "../settings/SettingsView";
 import { TimelineView } from "../timeline/TimelineView";
 import { TaxReservesView } from "../tax/TaxReservesView";
 import { SalaryView } from "../salary/SalaryView";
+import { ExpensesView } from "../salary/ExpensesView";
 import { TimeTrackingView } from "../timetracking/TimeTrackingView";
 import { DocumentImportView } from "../import/DocumentImportView";
 import { PlaceholderView } from "../shared/PlaceholderView";
@@ -230,10 +232,12 @@ export function Shell() {
 
 function DetailView({ id }: { id: string }) {
   switch (id) {
+    case "tasks": return <TasksView />;
     case "dashboard": return <DashboardView />;
     case "timeline": return <TimelineView />;
     case "tax": return <TaxReservesView />;
     case "salary": return <SalaryView />;
+    case "expenses": return <ExpensesView />;
     case "clients": return <ClientsView />;
     case "contracts": return <ContractsView />;
     case "projects": return <ProjectsView />;
