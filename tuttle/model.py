@@ -430,21 +430,6 @@ class TaxCategory(enum.Enum):
     zero_rated = "Z"
     outside_scope = "O"
 
-    def __str__(self):
-        return str(self.value)
-
-
-#: ISO 3166-1 alpha-2 codes of the EU VAT area member states.
-# fmt: off
-EU_VAT_COUNTRIES = frozenset(
-    {
-        "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
-        "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
-        "NL", "PL", "PT", "RO", "SE", "SI", "SK",
-    }
-)
-# fmt: on
-
 
 def normalize_vat_rate(value) -> Decimal:
     """Coerce a VAT rate into the canonical [0, 1] fraction form.
