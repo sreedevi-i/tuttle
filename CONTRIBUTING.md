@@ -50,19 +50,14 @@ If you are proposing a feature:
 
 ## AI-Assisted Contributions
 
-AI tools are welcome for drafting code and documentation, but contributors remain fully responsible for all submitted changes.
+AI tools are welcome for drafting code and documentation, but contributors remain fully responsible for all submitted changes. Pull requests consisting primarily of unreviewed or untested AI-generated content may be rejected.
 
-### Contributors are expected to:
-- Understand all code and documentation they submit
-- Verify that AI-generated suggestions are correct
-- Test changes before opening a pull request
-- Be able to explain the reasoning behind their changes during review
+Contributors using AI assistance are expected to:
 
-## Guidelines for AI-generated content
-
-- Pull requests consisting primarily of unreviewed or untested AI-generated content may be rejected
-- Contributors are responsible for all submitted content, regardless of AI assistance
-- If AI assistance was significant, it should be disclosed in the pull request description
+-   Understand and be able to explain all submitted code during review
+-   Verify that AI-generated suggestions are correct
+-   Test changes locally before opening a pull request
+-   Disclose significant AI assistance in the pull request description
 
 # Get Started!
 
