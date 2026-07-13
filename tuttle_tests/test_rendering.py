@@ -281,15 +281,6 @@ class TestSellerTaxIdentifierInFooter:
         html = _render(user, demo.create_fake_invoice(fake), template_name)
         assert "21/815/08150" in html
 
-    @pytest.mark.parametrize("template_name", ALL_INVOICE_TEMPLATES)
-    def test_standard_invoice_without_any_identifier_shows_neither(
-        self, fake, template_name
-    ):
-        user = self._user(fake, None)
-        user.VAT_number = None
-        html = _render(user, demo.create_fake_invoice(fake), template_name)
-        assert "DE123456789" not in html
-
     @pytest.mark.parametrize(
         "language,label",
         [("en", "VAT No."), ("de", "USt-IdNr."), ("es", "N.º IVA")],

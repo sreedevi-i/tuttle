@@ -156,8 +156,7 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
         profile.street.trim() &&
         profile.city.trim() &&
         profile.country.trim() &&
-        // A VAT number (USt-IdNr.) or a tax number (Steuernummer) is enough:
-        // freelancers awaiting their USt-IdNr start out with only the latter.
+        // Freelancers awaiting the USt-IdNr have only a Steuernummer.
         (profile.vat_number.trim() || profile.tax_number.trim()) &&
         profile.operating_country.trim()
       );
@@ -317,33 +316,30 @@ export function OnboardingWizard({ open, onClose, onSubmit, onDemo, loading, ove
           </div>
         </fieldset>
 
-        <div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>VAT number</label>
-              <input className={inputCls} value={profile.vat_number} onChange={pset("vat_number")} placeholder="DE123456789" />
-            </div>
-            <div>
-              <label className={labelCls}>Tax number</label>
-              <input className={inputCls} value={profile.tax_number} onChange={pset("tax_number")} placeholder="21/815/08150" />
-            </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>VAT number</label>
+            <input className={inputCls} value={profile.vat_number} onChange={pset("vat_number")} placeholder="DE123456789" />
           </div>
-          <p className="mt-1 text-xs text-muted">
+          <div>
+            <label className={labelCls}>Tax number</label>
+            <input className={inputCls} value={profile.tax_number} onChange={pset("tax_number")} placeholder="21/815/08150" />
+          </div>
+          <p className="col-span-2 text-xs text-muted">
             Enter your VAT number (USt-IdNr.) or, until you receive one, your tax number
             (Steuernummer) <span className="text-accent">*</span>. At least one appears on your invoices.
           </p>
-        </div>
-
-        <div>
-          <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
-          <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
-            {supportedCountries.length > 0 ? (
-              supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
-            ) : (
-              <option value={profile.operating_country}>{profile.operating_country}</option>
-            )}
-          </select>
-          <p className="mt-1 text-xs text-muted">Determines tax rules and default currency.</p>
+          <div>
+            <label className={labelCls}>Operating country <span className="text-accent">*</span></label>
+            <select className={inputCls} value={profile.operating_country} onChange={pset("operating_country")}>
+              {supportedCountries.length > 0 ? (
+                supportedCountries.map((c) => <option key={c} value={c}>{c}</option>)
+              ) : (
+                <option value={profile.operating_country}>{profile.operating_country}</option>
+              )}
+            </select>
+            <p className="mt-1 text-xs text-muted">Determines tax rules and default currency.</p>
+          </div>
         </div>
 
         <fieldset className="border border-border-subtle rounded-lg px-4 pb-3 pt-2">

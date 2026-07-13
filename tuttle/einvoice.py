@@ -162,10 +162,8 @@ def build_zugferd_document(
             TaxRegistration(id=("VA", user.VAT_number))
         )
     elif user.tax_number:
-        # A freelancer still awaiting the USt-IdNr owes a §14 UStG identifier just
-        # the same. EN16931 only bars the VAT identifier ("VA") from outside-scope
-        # invoices (BR-O-02); the tax number under scheme "FC" (Steuernummer) is
-        # valid on any invoice, so fall back to it when no VAT number is set.
+        # No USt-IdNr yet: §14 UStG still needs an identifier, and FC (Steuernummer)
+        # is legal on any invoice — unlike VA (BR-O-02).
         doc.trade.agreement.seller.tax_registrations.add(
             TaxRegistration(id=("FC", user.tax_number))
         )

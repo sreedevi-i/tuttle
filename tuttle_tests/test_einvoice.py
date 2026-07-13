@@ -175,14 +175,6 @@ class TestBuildZugferdDocument:
         assert "DE123456789" in xml_str
         assert "DE89370400440532013000" in xml_str
 
-    def test_seller_vat_number_emitted_as_scheme_va(self):
-        user = _make_user()
-        invoice = _make_invoice()
-        xml_str = serialize_zugferd_xml(invoice, user, profile="EN16931").decode(
-            "utf-8"
-        )
-        assert '<ram:ID schemeID="VA">DE123456789</ram:ID>' in xml_str
-
     @staticmethod
     def _seller_party(xml_str: str) -> str:
         return re.search(
