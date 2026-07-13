@@ -3,8 +3,6 @@ name: PR Conflict Check
 on:
   push:
     branches: [main]
-  pull_request_target:
-    types: [opened, synchronize]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -21,19 +19,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            let prList;
-            if (context.eventName === 'pull_request_target') {
-              // Only check the triggering PR
-              prList = [context.payload.pull_request];
-            } else {
-              // Push to main / schedule / manual — check all open PRs
-              const { data } = await github.rest.pulls.list({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-              });
-              prList = data;
-            }
+            const { data: prList } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
 
             for (const pr of prList) {
               const { data: detail } = await github.rest.pulls.get({
