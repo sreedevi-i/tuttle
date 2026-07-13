@@ -3,7 +3,7 @@ name: PR Conflict Check
 on:
   push:
     branches: [main]
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize]
   schedule:
     - cron: "0 6 * * *"
@@ -22,7 +22,7 @@ jobs:
         with:
           script: |
             let prList;
-            if (context.eventName === 'pull_request') {
+            if (context.eventName === 'pull_request_target') {
               // Only check the triggering PR
               prList = [context.payload.pull_request];
             } else {
