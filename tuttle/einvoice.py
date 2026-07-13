@@ -197,12 +197,13 @@ def build_zugferd_document(
         doc.trade.settlement.payment_means.add(pm)
 
     # -- Line items & tax (not in MINIMUM) -------------------------------------
-    # Keyed by (category, rate) rather than rate alone: a zero-rated line and an
-    # outside-scope line both sit at 0% but must not collapse into one breakdown.
-    tax_aggregates: dict[tuple[str, Decimal], Decimal] = {}
     total_tax = Decimal("0")
 
     if not is_minimum:
+        # Keyed by (category, rate) rather than rate alone: a zero-rated line and
+        # an outside-scope line both sit at 0% but must not collapse into one
+        # breakdown.
+        tax_aggregates: dict[tuple[str, Decimal], Decimal] = {}
         for idx, item in enumerate(invoice.items, start=1):
             li = LineItem()
             li.document.line_id = str(idx)
@@ -245,12 +246,15 @@ def build_zugferd_document(
                 trade_tax.rate_applicable_percent = rate_pct
             doc.trade.settlement.trade_tax.add(trade_tax)
     else:
+        # MINIMUM carries no breakdown, only the total, so the category does not
+        # matter here and the basis can be aggregated by rate alone.
+        rate_bases: dict[Decimal, Decimal] = {}
         for item in invoice.items:
-            category = normalize_tax_category(item.VAT_category).value
-            key = (category, _rate_to_percent(item.VAT_rate))
-            line_total = Decimal(str(item.subtotal))
-            tax_aggregates[key] = tax_aggregates.get(key, Decimal("0")) + line_total
-        for (_category, rate_pct), basis in tax_aggregates.items():
+            pct = _rate_to_percent(item.VAT_rate)
+            rate_bases[pct] = rate_bases.get(pct, Decimal("0")) + Decimal(
+                str(item.subtotal)
+            )
+        for rate_pct, basis in rate_bases.items():
             total_tax += (basis * rate_pct / Decimal("100")).quantize(Decimal("0.01"))
 
     # -- Monetary summation ---------------------------------------------------
