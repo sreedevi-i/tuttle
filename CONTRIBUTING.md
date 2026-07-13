@@ -187,6 +187,34 @@ Before you submit a pull request, check that it meets these guidelines:
     Put your new functionality into a function with a docstring.
 3.  The pull request should work for Python 3.12 and 3.13.
 
+## PR Template and CI Checks
+
+When you open a pull request, your PR body will be pre-filled with a template containing a **Checklist** section. Outside contributors are required to keep this checklist and tick off the items that apply. Org members may omit it.
+
+Your PR must pass the following automated checks before it can be merged:
+
+| Check | What it verifies |
+|---|---|
+| `build (3.12)` / `build (3.13)` | The test suite passes on Python 3.12 and 3.13 |
+| `check-template` | PR body includes the Checklist section (outside contributors only) |
+| `conflict-check` | The branch has no merge conflicts with `main` |
+
+In addition, the following rules are enforced on the `main` branch:
+
+-   **At least one approving review** is required (the maintainer can bypass this for their own PRs).
+-   **Stale reviews are dismissed** when new commits are pushed — reviewers must re-approve after changes.
+-   **All review conversations must be resolved** before merging.
+-   **The branch must be up-to-date with `main`**. If your branch falls behind, rebase or merge `main` into it.
+
+### Responding to review feedback
+
+When changes are requested on your PR, please respond (by pushing updates or commenting) within:
+
+-   **3 days** for issues labeled `priority: high`
+-   **7 days** for all other issues
+
+PRs without author follow-up within this window will be labeled `stale`.
+
 # Tips
 
 To run a subset of tests:
