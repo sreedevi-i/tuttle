@@ -16,6 +16,7 @@ from ..core.intent_result import IntentResult
 from ..core.rpc_utils import reset_all
 from ...db_schema import ensure_schema
 
+
 #: Logos are downscaled so the longest edge is at most this many pixels before
 #: being stored as a base64 data URI in the per-user database.
 LOGO_MAX_DIMENSION = 600

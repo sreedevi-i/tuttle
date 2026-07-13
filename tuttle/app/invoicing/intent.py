@@ -618,7 +618,8 @@ class InvoicingIntent(Intent):
                 )
 
             level_label = f"{'2nd ' if invoice.reminder_level == 2 else '3rd ' if invoice.reminder_level >= 3 else ''}reminder"
-            email_body = textwrap.dedent(f"""\
+            email_body = textwrap.dedent(
+                f"""\
 Dear {greeting},
 
 This is a {level_label} regarding the outstanding invoice {invoice.number} for {invoice.project.title}.
@@ -626,7 +627,8 @@ This is a {level_label} regarding the outstanding invoice {invoice.number} for {
 Please find attached the payment reminder.
 
 Best regards,
-{user.name}""")
+{user.name}"""
+            )
             mail.compose_email(
                 to=recipient,
                 subject=f"Payment Reminder: Invoice {invoice.number}",
@@ -678,13 +680,15 @@ Best regards,
                     error_msg="No contact email available for this client.",
                 )
 
-            email_body = textwrap.dedent(f"""\
+            email_body = textwrap.dedent(
+                f"""\
 Dear {greeting},
 
 Please find attached the invoice for {invoice.project.title}.
 
 Best regards,
-{user.name}""")
+{user.name}"""
+            )
             mail.compose_email(
                 to=recipient,
                 subject=f"Invoice {invoice.number}",
