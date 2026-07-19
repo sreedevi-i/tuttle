@@ -311,18 +311,22 @@ class Contact(RpcMixin, SQLModel, table=True):
             return ""
 
         if address_only:
-            return textwrap.dedent(f"""
+            return textwrap.dedent(
+                f"""
                 {self.address.street} {self.address.number}
                 {self.address.postal_code} {self.address.city}
-                {self.address.country}""")
+                {self.address.country}"""
+            )
 
-        return textwrap.dedent(f"""
+        return textwrap.dedent(
+            f"""
         {self.name}
         {self.company}
         {self.address.street} {self.address.number}
         {self.address.postal_code} {self.address.city}
         {self.address.country}
-        """)
+        """
+        )
 
 
 class ClientContact(SQLModel, table=True):
@@ -1016,6 +1020,10 @@ class Invoice(RpcMixin, SQLModel, table=True):
     # -- Status flags ------------------------------------------------------
 
     sent: Optional[bool] = Field(default=False)
+    sent_date: Optional[datetime.date] = Field(
+        default=None,
+        description="The date the invoice was sent to the client.",
+    )
     paid: Optional[bool] = Field(default=False)
     cancelled: Optional[bool] = Field(
         default=False,
