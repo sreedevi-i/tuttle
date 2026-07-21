@@ -34,6 +34,8 @@ class KPISummary(NamedTuple):
     income_tax_reserve: Decimal
     spendable_income: Decimal
     tax_currency: str = "EUR"
+    country_supported: bool = True
+    country: str = ""
 
     def to_rpc_dict(self) -> dict:
         d = self._asdict()
@@ -61,7 +63,7 @@ def compute_kpis(
     invoices: List[Invoice],
     contracts: List[Contract],
     projects: List[Project],
-    country: str = "Germany",
+    country: str = "",
     time_data: Optional[DataFrame] = None,
 ) -> KPISummary:
     """Compute business KPIs from invoices, contracts, and calendar data.
@@ -138,12 +140,14 @@ def compute_kpis(
         if available_hours > 0:
             utilization_rate = float(total_hours / available_hours)
 
+    country_supported = True
     try:
         spending = compute_spendable_income(invoices, country, currency=currency)
         vat_reserve = spending.vat_reserve
         income_tax_reserve = spending.income_tax_reserve
         spendable_income = spending.spendable
     except NotImplementedError:
+        country_supported = False
         vat_reserve = Decimal(0)
         income_tax_reserve = Decimal(0)
         spendable_income = Decimal(0)
@@ -163,13 +167,15 @@ def compute_kpis(
         income_tax_reserve=income_tax_reserve,
         spendable_income=spendable_income,
         tax_currency=currency,
+        country_supported=country_supported,
+        country=country,
     )
 
 
 def monthly_revenue_breakdown(
     invoices: List[Invoice],
     n_months: int = 12,
-    country: str = "Germany",
+    country: str = "",
 ) -> list:
     """Revenue breakdown by month for the last n_months, in the primary currency.
 
@@ -212,7 +218,7 @@ def monthly_revenue_breakdown(
 
 def monthly_spendable_breakdown(
     invoices: List[Invoice],
-    country: str = "Germany",
+    country: str = "",
     n_months: int = 12,
     deductions: Decimal = Decimal(0),
 ) -> list:
